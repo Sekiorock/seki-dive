@@ -1,7 +1,7 @@
 // home/src/config.js
 // ホームワールドの数値の設定。数値はここに集め、プログラムの中に直接書かない。
 
-export const VERSION = 'home v0.3.0';
+export const VERSION = 'home v0.4.0';
 
 // QRコードで配る公開URL。
 // 空のままなら、いま開いているページのURL（例 https://ユーザー名.github.io/seki-dive/）を自動で使う。
@@ -11,19 +11,19 @@ export const PUBLIC_URL = '';
 // 3Dを軽く保つ決まり（仕様書 12章）
 export const RENDER = {
   maxPixelRatio: 2,     // 画素の倍率は最大2
+  idleFps: 30,          // 何も触っていないときの描き直しの回数（1秒あたり。電池のため少なめ）
+  exposure: 1.0,        // 明るさ
   fov: 50,              // カメラの視野（縦方向、度）
 };
 
 // 広場の大きさ（単位：m。人の大きさの世界）
 export const PLAZA = {
-  radius: 13,           // 白い石畳の円の半径
-  ringCount: 4,         // 石畳の同心円の数
-  spokeCount: 24,       // 石畳の放射状の目地の数
-  groundSize: 160,      // 広場の外の淡い灰の地面の一辺
-  centerRadius: 2.2,    // 中央の台座（v0.4 で政府庁舎を建てる場所）
-  centerHeight: 0.35,
-  fogNearOffset: 4,     // 霧が始まる距離（カメラから広場の中心までの距離に足す）
-  fogFarOffset: 40,     // 霧で真っ白になる距離（同上）
+  radius: 13,           // つやのある円い広場の半径
+  ringCount: 4,         // ネオンの同心円の数
+  groundSize: 160,      // 広場の外の地面の大きさ
+  fogColor: '#0A1030',  // 奥が溶けていく夜の霧の色
+  fogNearOffset: 6,     // 霧が始まる距離（カメラから広場の中心までの距離に足す）
+  fogFarOffset: 46,     // 霧で見えなくなる距離（同上）
 };
 
 // カメラ（指でなぞって広場を見回す）
@@ -45,12 +45,12 @@ export const CAMERA = {
 export const GATE = {
   distanceFromCenter: 11.5,
   pillarHeight: 4.2,
-  pillarSize: 0.42,
+  pillarRadius: 0.26,   // 丸い柱の太さ
   width: 3.6,           // 柱と柱の間
-  beamOverhang: 0.9,    // 笠木（いちばん上の横木）のはみ出し
-  bandHeight: 0.5,      // 柱に巻く差し色の帯の高さ
-  labelHeight: 6.2,     // 門の名札の高さ
-};
+  beamOverhang: 0.8,    // 笠木（いちばん上の横木）のはみ出し
+  kasagiLift: 0.32,     // 笠木の両端の反り上がり
+  labelHeight: 6.3,     // 門の名札の高さ
+}
 
 export const GATES = [
   { id: 'hydration', angleDeg: 0 },    // 北  ① ハイドレーション・ビート
@@ -63,10 +63,20 @@ export const UI = {
   toastMs: 3600,        // 短いお知らせを出しておく時間（ミリ秒）
 };
 
-// 中央の台座に立つ広報官ツカサ（切り絵のような板）。v0.4 で政府庁舎の前に移す
+// 中央の政府庁舎（丸い塔）と、宙に浮かぶ国庫の掲示板
+export const GOV = {
+  baseRadius: 2.4,
+  towerRadius: 1.25,
+  towerHeight: 2.6,
+  boardHeight: 6.4,     // 掲示板の高さ
+};
+
+// 政府庁舎の前に立つ広報官ツカサ（切り絵のような板）
 export const STANDEE = {
   id: 'tsukasa',
-  height: 3.0,          // 板の高さ（m）。門の柱は 4.2 m（見やすさのため人より少し大きめ）
+  height: 2.8,          // 板の高さ（m）。門の柱は 4.2 m（見やすさのため人より少し大きめ）
+  angleDeg: 135,        // 政府庁舎から見た向き（南東＝最初のカメラの側）
+  distance: 3.1,        // 政府庁舎の中心からの距離
   plazaLines: 3,        // 広場でタップしたときのセリフの数（char.tsukasa.line.plaza1〜3）
 };
 

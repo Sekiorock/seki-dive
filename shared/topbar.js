@@ -6,7 +6,8 @@
 import { createLangToggle, onLangChange, t } from './i18n.js';
 import { getUser, onUserChange, getCostume } from './auth.js';
 import { faceUrl } from './characters.js';
-import { getBalance, onWalletChange, formatHiyama } from './economy.js';
+import { getBalance, onWalletChange, onMoneyEvent, formatHiyama } from './economy.js';
+import { fx } from './theme.js';
 
 /**
  * @param {object} opt
@@ -48,15 +49,25 @@ export function createTopbar({ mount, showQR = false, onQR, onBalance }) {
   bal.type = 'button';
   bal.className = 'topbar__balance';
   bal.innerHTML = '<span class="topbar__coin" aria-hidden="true"></span><span class="topbar__amount"></span>';
+  const amountEl = bal.querySelector('.topbar__amount');
+  let counting = false;
   const refreshBalance = () => {
     const b = getBalance();
-    bal.querySelector('.topbar__amount').textContent = formatHiyama(b);
+    if (!counting) amountEl.textContent = formatHiyama(b);
     bal.classList.toggle('is-arrears', b < 0);
     bal.setAttribute('aria-label', t('topbar.balanceLabel', { amount: formatHiyama(b) }));
   };
   refreshBalance();
   onWalletChange(refreshBalance);
   onLangChange(refreshBalance);
+  // 交付金・賞金を受け取ったときは、残高の数字が金に光りながら増える（出来事の発光）
+  onMoneyEvent((e) => {
+    if (e.type !== 'grant' && e.type !== 'prize') return;
+    const from = e.balance - e.amount;
+    counting = true;
+    fx.countUp(amountEl, from, e.balance);
+    setTimeout(() => { counting = false; refreshBalance(); }, 1300);
+  });
   bal.addEventListener('click', () => onBalance && onBalance());
   right.append(bal);
 

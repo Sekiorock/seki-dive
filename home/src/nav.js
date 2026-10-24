@@ -13,7 +13,7 @@ export function createNav({ onGate, onFacility }) {
     btn.textContent = t('nav.open');
     const gate = (g) => `
       <li><button type="button" class="nav__item" data-gate="${g.id}">
-        <i class="nav__mark" style="background:${ACCENTS[g.id].a1.hex}"></i>
+        <i class="nav__mark" style="background:${ACCENTS[g.id].a1.neon};color:${ACCENTS[g.id].a1.neon}"></i>
         <span>${t(`world.${g.id}`)}</span><small>${t(`scale.${g.id}`)}</small>
       </button></li>`;
     const fac = (f) => `
@@ -25,7 +25,7 @@ export function createNav({ onGate, onFacility }) {
         <h2 class="nav__head">${t('nav.gates')}</h2>
         <ul class="nav__list">${GATES.map(gate).join('')}</ul>
         <h2 class="nav__head">${t('nav.facilities')}</h2>
-        <ul class="nav__list">${FACILITIES.map(fac).join('')}</ul>
+        <ul class="nav__list">${[{ id: 'gov' }, ...FACILITIES].map(fac).join('')}</ul>
         <button type="button" class="btn nav__close">${t('shop.close')}</button>
       </div>`;
   };

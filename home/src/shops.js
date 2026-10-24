@@ -1,12 +1,16 @@
 // home/src/shops.js
-// 広場の施設の画面：銀行（通帳）、呉服屋（キャラクターの解放・衣装の色違い）、道具屋（サービス）。
+// 広場の施設の画面：銀行（通帳）、呉服屋（キャラクターの解放・衣装の色違い）、道具屋（サービス）、
+// 政府庁舎の掲示板（国庫の残高・税率・お知らせ）。
 // お金の出入りはすべて shared/economy.js を通す（消費税の上乗せ、通帳への記録）。
 
 import { t, onLangChange } from '../../shared/i18n.js';
 import {
   getBalance, getLedger, isInArrears, canAfford, pay, consumptionTax, priceWithTax,
-  formatHiyama, onWalletChange, SETTINGS,
+  formatHiyama, onWalletChange, onTreasuryChange, getTreasury, SETTINGS,
 } from '../../shared/economy.js';
+import { backend } from '../../shared/auth.js';
+import { getNotices, getPersonalNotices, onNoticesChange, noticeText } from '../../shared/notices.js';
+import { fx } from '../../shared/theme.js';
 import {
   ownsCharacter, addCharacter, ownsCostume, addCostume, getCostume, setCostume,
   itemCount, addItem, onUserChange,
@@ -32,7 +36,7 @@ function resolveVars(vars = {}) {
   return out;
 }
 
-function keeperOf(id) { return FACILITIES.find((f) => f.id === id).keeper; }
+function keeperOf(id) { return id === 'gov' ? 'tsukasa' : FACILITIES.find((f) => f.id === id).keeper; }
 
 function build() {
   root = document.createElement('div');
@@ -52,6 +56,8 @@ function build() {
   const rerender = () => { if (current) render(); };
   onLangChange(() => { rerender(); if (!confirmEl.hidden) confirmEl.hidden = true; });
   onWalletChange(rerender);
+  onTreasuryChange(() => { if (current === 'gov') render(); });
+  onNoticesChange(() => { if (current === 'gov') render(); });
   onUserChange(rerender);
   document.addEventListener('keydown', (e) => {
     if (e.key !== 'Escape') return;
@@ -63,7 +69,7 @@ function build() {
 // ── 共通の枠：番人の顔とセリフ、閉じるボタン ──
 function frame(id, bodyHtml) {
   const keeper = keeperOf(id);
-  const lineKeyName = id === 'bank' ? 'bank.line.welcome' : `${id}.line.${keeperLine}`;
+  const lineKeyName = id === 'bank' || id === 'gov' ? `${id}.line.welcome` : `${id}.line.${keeperLine}`;
   return `
     <div class="shop__head">
       <img class="shop__keeper" src="${faceUrl(keeper)}" alt="" width="256" height="256">
@@ -113,6 +119,39 @@ function bankHtml() {
     <p class="shop__disclaimer">${esc(t('hiyama.disclaimer'))}</p>
     <h3 class="shop__sub">${esc(t('bank.passbook'))}</h3>
     ${rows ? `<ol class="ledger">${rows}</ol>` : `<p class="shop__empty">${esc(t('bank.empty'))}</p>`}`;
+}
+
+// ── 政府庁舎の掲示板：国庫の残高、税率、お知らせ ──
+function govHtml() {
+  const tr = getTreasury();
+  const pct = (x) => `${Math.round(x * 1000) / 10}%`;
+  const rates = [
+    ['gov.incomeTax', pct(SETTINGS.incomeTaxRate)],
+    ['gov.consumptionTax', pct(SETTINGS.consumptionTaxRate)],
+    ['gov.betTax', pct(SETTINGS.betTaxRate)],
+    ['gov.dailyCap', money(SETTINGS.dailyRewardCap)],
+  ].map(([k, v]) => `<li><span>${esc(t(k))}</span><b>${esc(v)}</b></li>`).join('');
+  const fmtDate = (ms) => { const d = new Date(ms); return `${d.getMonth() + 1}/${d.getDate()}`; };
+  const notices = [...getPersonalNotices().map((n) => ({ ...n, mine: true })), ...getNotices()]
+    .sort((a, b) => (b.at || 0) - (a.at || 0))
+    .map((n) => `
+      <li class="notice ${n.major ? 'is-major' : ''} ${n.mine ? 'is-mine' : ''}">
+        <span class="notice__when">${n.at ? fmtDate(n.at) : ''}${n.mine ? ` ・ ${esc(t('gov.forYou'))}` : ''}</span>
+        <p class="notice__text">${esc(noticeText(n))}</p>
+      </li>`).join('');
+  const net = backend.mode === 'online' ? t('gov.online') : t(backend.reason === 'noconfig' ? 'gov.localNoConfig' : 'gov.localOffline');
+  return `
+    <div class="bank__balance-box treasury-box">
+      <span class="bank__label">${esc(t('gov.treasury'))}</span>
+      <span class="bank__balance">${tr === null ? '—' : formatHiyama(tr)}</span>
+      <span class="bank__unit">${esc(t('money', { amount: '' }).trim())}</span>
+    </div>
+    <p class="shop__note">${esc(t('gov.treasuryNote'))}</p>
+    <h3 class="shop__sub">${esc(t('gov.rates'))}</h3>
+    <ul class="rates">${rates}</ul>
+    <h3 class="shop__sub">${esc(t('gov.notices'))}</h3>
+    ${notices ? `<ol class="notices">${notices}</ol>` : `<p class="shop__empty">${esc(t('gov.noNotices'))}</p>`}
+    <p class="net-status ${backend.mode === 'online' ? 'is-online' : ''}"><i></i>${esc(net)}</p>`;
 }
 
 // ── 買うボタン（値段、税込、買えない理由） ──
@@ -199,7 +238,7 @@ function douguHtml() {
 }
 
 function render() {
-  const body = current === 'bank' ? bankHtml() : current === 'gofuku' ? gofukuHtml() : douguHtml();
+  const body = { bank: bankHtml, gofuku: gofukuHtml, dougu: douguHtml, gov: govHtml }[current]();
   const scroll = root.querySelector('.shop__body')?.scrollTop || 0;
   root.innerHTML = frame(current, body);
   root.setAttribute('aria-labelledby', 'shop-title');
@@ -233,6 +272,10 @@ function afterBuy(itemName) {
   render();
 }
 
+function failed(r) {
+  onToast(t(r.reason === 'error' ? 'shop.error' : r.reason === 'arrears' ? 'shop.arrears' : 'shop.short'));
+}
+
 function onClick(e) {
   const b = e.target.closest('[data-act]');
   if (!b || b.disabled) return;
@@ -246,9 +289,9 @@ function onClick(e) {
     const itemName = t('ledger.item.unlock', { name: t(nameKey(id)) });
     confirmBuy({
       itemName, price: UNLOCK_PRICE[id],
-      onYes: () => {
-        const r = pay({ type: 'purchase', itemKey: 'ledger.item.unlock', itemVars: { name: `i18n:${nameKey(id)}` }, price: UNLOCK_PRICE[id] });
-        if (r.ok) { addCharacter(id); afterBuy(itemName); }
+      onYes: async () => {
+        const r = await pay({ type: 'purchase', itemKey: 'ledger.item.unlock', itemVars: { name: `i18n:${nameKey(id)}` }, price: UNLOCK_PRICE[id] });
+        if (r.ok) { addCharacter(id); afterBuy(itemName); fx.newItem(); } else failed(r);
       },
     });
   } else if (act === 'costume') {
@@ -257,9 +300,9 @@ function onClick(e) {
     const itemName = t('ledger.item.costume', { name: t(nameKey(id)), color: t(`color.${col}`) });
     confirmBuy({
       itemName, price,
-      onYes: () => {
-        const r = pay({ type: 'purchase', itemKey: 'ledger.item.costume', itemVars: { name: `i18n:${nameKey(id)}`, color: `i18n:color.${col}` }, price });
-        if (r.ok) { addCostume(id, col); setCostume(id, col); afterBuy(itemName); }
+      onYes: async () => {
+        const r = await pay({ type: 'purchase', itemKey: 'ledger.item.costume', itemVars: { name: `i18n:${nameKey(id)}`, color: `i18n:color.${col}` }, price });
+        if (r.ok) { addCostume(id, col); setCostume(id, col); afterBuy(itemName); fx.newItem(); } else failed(r);
       },
     });
   } else if (act === 'service') {
@@ -267,9 +310,9 @@ function onClick(e) {
     const itemName = t(`service.${s.id}.name`);
     confirmBuy({
       itemName, price: s.price,
-      onYes: () => {
-        const r = pay({ type: 'service', itemKey: 'ledger.item.service', itemVars: { item: `i18n:service.${s.id}.name` }, price: s.price });
-        if (r.ok) { addItem(s.id); afterBuy(itemName); }
+      onYes: async () => {
+        const r = await pay({ type: 'service', itemKey: 'ledger.item.service', itemVars: { item: `i18n:service.${s.id}.name` }, price: s.price });
+        if (r.ok) { addItem(s.id); afterBuy(itemName); } else failed(r);
       },
     });
   }

@@ -1,42 +1,79 @@
 // home/src/plaza.js
-// 白い3D広場と4つの門を作る。Three.js（cdnjs）を読み込んだあとに使う（グローバルの THREE）。
-// 見た目：つや消しの白に細い墨の輪郭線。奥は白い霧に溶ける。影は使わない。
+// 3Dの広場（v0.4 からサイバー和風）。Three.js（cdnjs、グローバルの THREE）を読み込んだあとに使う。
+// 見た目：夜の広場に、丸くツルツルした漆塗りの鳥居と建物。伝統色のネオンが光る。影は使わない。
+// 軽く保つため、1つの門・建物の部品は、色ごとに1つの形にまとめて描く（画面の物体は60個まで）。
 
-import { PLAZA, GATE, GATES, STANDEE, FACILITY, FACILITIES } from './config.js';
+import { PLAZA, GATE, GATES, STANDEE, FACILITY, FACILITIES, GOV } from './config.js';
 import { standUrl } from '../../shared/characters.js';
-import { BASE, ACCENTS, hexToInt } from '../../shared/theme.js';
+import { ACCENTS, hexToInt } from '../../shared/theme.js';
 import { t } from '../../shared/i18n.js';
+import { formatHiyama } from '../../shared/economy.js';
 
-const SUMI = hexToInt(BASE.sumi);
-const NEZUMI = hexToInt(BASE.nezumi);
-
-const lineMat = () => new THREE.LineBasicMaterial({ color: SUMI });
-const whiteMat = () => new THREE.MeshLambertMaterial({ color: 0xffffff });
-
-/** 面に墨の輪郭線を付けた立体を作る。 */
-function outlined(geometry, material = whiteMat()) {
-  const group = new THREE.Group();
-  const mesh = new THREE.Mesh(geometry, material);
-  const edges = new THREE.LineSegments(new THREE.EdgesGeometry(geometry, 20), lineMat());
-  group.add(mesh, edges);
-  group.userData.mesh = mesh;
-  return group;
+// ───────────── 材質 ─────────────
+/** 漆塗りのようなつやのある材質 */
+function lacquer(hex, rough = 0.22) {
+  return new THREE.MeshPhysicalMaterial({
+    color: hexToInt(hex), roughness: rough, metalness: 0.08, clearcoat: 1, clearcoatRoughness: 0.08,
+  });
+}
+/** 自分で光るネオン */
+function neon(hex, opacity = 1) {
+  return new THREE.MeshBasicMaterial({ color: hexToInt(hex), transparent: opacity < 1, opacity, toneMapped: false });
 }
 
-/** 文字を描いたキャンバスを作る（日本語・英語の切り替えで描き直す）。 */
-function makeCanvas(w, h) {
+// ───────────── 形をまとめる（描く回数を減らす） ─────────────
+/** parts: [{ geo, pos:[x,y,z], rot:[x,y,z], scale:[x,y,z] }] を1つの形にまとめる */
+function merge(parts) {
+  const pos = [], nor = [];
+  const m = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler();
+  for (const p of parts) {
+    let g = p.geo.index ? p.geo.toNonIndexed() : p.geo.clone();
+    e.set(...(p.rot || [0, 0, 0]));
+    q.setFromEuler(e);
+    m.compose(new THREE.Vector3(...(p.pos || [0, 0, 0])), q, new THREE.Vector3(...(p.scale || [1, 1, 1])));
+    g.applyMatrix4(m);   // 法線（面の向き）も一緒に回るので、丸い面はなめらかなまま
+    pos.push(...g.attributes.position.array);
+    nor.push(...g.attributes.normal.array);
+  }
+  const out = new THREE.BufferGeometry();
+  out.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  out.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3));
+  return out;
+}
+
+// ───────────── 光の粒（ネオンのにじみ） ─────────────
+let glowTex = null;
+function glowTexture() {
+  if (glowTex) return glowTex;
   const c = document.createElement('canvas');
-  c.width = w; c.height = h;
-  return c;
+  c.width = c.height = 64;
+  const g = c.getContext('2d');
+  const grd = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+  grd.addColorStop(0, 'rgba(255,255,255,1)');
+  grd.addColorStop(0.25, 'rgba(255,255,255,0.55)');
+  grd.addColorStop(1, 'rgba(255,255,255,0)');
+  g.fillStyle = grd;
+  g.fillRect(0, 0, 64, 64);
+  glowTex = new THREE.CanvasTexture(c);
+  return glowTex;
+}
+/** 同じ色の光の粒をまとめて1つの物体にする */
+function glowPoints(points, hex, size) {
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(points.flat(), 3));
+  return new THREE.Points(geo, new THREE.PointsMaterial({
+    map: glowTexture(), color: hexToInt(hex), size, sizeAttenuation: true,
+    transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false,
+  }));
 }
 
+// ───────────── 文字の板（名札・額・掲示板） ─────────────
+function makeCanvas(w, h) { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; }
 function fontFamily() {
   return document.documentElement.lang === 'en'
-    ? "'Noto Sans', 'Noto Sans JP', 'Noto Sans CJK JP', sans-serif"
-    : "'Noto Sans JP', 'Noto Sans CJK JP', sans-serif";
+    ? "'Nunito', 'M PLUS Rounded 1c', 'Noto Sans JP', 'Noto Sans CJK JP', sans-serif"
+    : "'M PLUS Rounded 1c', 'Noto Sans JP', 'Noto Sans CJK JP', sans-serif";
 }
-
-/** 文字が枠に収まるように大きさを縮める。 */
 function fitText(ctx, text, maxWidth, size, weight) {
   let s = size;
   do {
@@ -46,272 +83,242 @@ function fitText(ctx, text, maxWidth, size, weight) {
   } while (s > 12);
   return s;
 }
-
-/** 門や施設の上に浮かぶ名札。常にカメラの方を向く。accentId は差し色を取るワールド、textKey は文字の鍵。 */
-function drawNameLabel(canvas, accentId, textKey) {
-  const ctx = canvas.getContext('2d');
-  const { width: W, height: H } = canvas;
-  const acc = ACCENTS[accentId];
-  ctx.clearRect(0, 0, W, H);
-  // 白地に墨の細い枠
-  ctx.fillStyle = BASE.white;
-  ctx.fillRect(4, 4, W - 8, H - 8);
-  ctx.strokeStyle = BASE.sumi;
-  ctx.lineWidth = 4;
-  ctx.strokeRect(4, 4, W - 8, H - 8);
-  // 左端に差し色の細い帯（差し色1・2）
-  ctx.fillStyle = acc.a1.hex;
-  ctx.fillRect(4, 4, 18, H - 8);
-  ctx.fillStyle = acc.a2.hex;
-  ctx.fillRect(22, 4, 6, H - 8);
-  // ワールド名
-  const name = t(textKey);
-  ctx.fillStyle = BASE.sumi;
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  fitText(ctx, name, W - 80, 64, 700);
-  ctx.fillText(name, W / 2 + 12, H / 2 + 2);
+function roundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
 }
-
-/** 門の額（潜る大きさ）。表と裏の両方に貼る。 */
-function drawScalePlaque(canvas, id) {
+/** 丸いガラスの名札。neonHex の色でふちが光る */
+function drawPill(canvas, text, neonHex, dotHex) {
   const ctx = canvas.getContext('2d');
   const { width: W, height: H } = canvas;
-  ctx.fillStyle = BASE.white;
-  ctx.fillRect(0, 0, W, H);
-  ctx.strokeStyle = BASE.sumi;
-  ctx.lineWidth = 6;
-  ctx.strokeRect(3, 3, W - 6, H - 6);
-  const scale = t(`scale.${id}`);
-  ctx.fillStyle = BASE.sumi;
+  ctx.clearRect(0, 0, W, H);
+  const pad = 14;
+  ctx.save();
+  ctx.shadowColor = neonHex;
+  ctx.shadowBlur = 18;
+  roundRect(ctx, pad, pad, W - pad * 2, H - pad * 2, (H - pad * 2) / 2);
+  const grd = ctx.createLinearGradient(0, pad, 0, H - pad);
+  grd.addColorStop(0, 'rgba(40,58,120,0.95)');
+  grd.addColorStop(0.5, 'rgba(14,22,56,0.95)');
+  grd.addColorStop(1, 'rgba(10,16,42,0.95)');
+  ctx.fillStyle = grd;
+  ctx.fill();
+  ctx.lineWidth = 5;
+  ctx.strokeStyle = neonHex;
+  ctx.stroke();
+  ctx.restore();
+  // つや（上半分の白いハイライト）
+  ctx.save();
+  roundRect(ctx, pad + 10, pad + 6, W - pad * 2 - 20, (H - pad * 2) / 2 - 8, (H - pad * 2) / 4);
+  ctx.fillStyle = 'rgba(255,255,255,0.10)';
+  ctx.fill();
+  ctx.restore();
+  // 左の光る丸
+  if (dotHex) {
+    ctx.save();
+    ctx.shadowColor = dotHex; ctx.shadowBlur = 16;
+    ctx.fillStyle = dotHex;
+    ctx.beginPath(); ctx.arc(pad + 34, H / 2, 12, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+  }
+  ctx.fillStyle = '#FFFFFF';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  const size = fitText(ctx, scale, W - 40, 84, 700);
-  const words = scale.split(' ');
-  // 長い言葉（例 Semipermeable membrane）は2行に分ける
-  if (size < 60 && words.length > 1) {
-    const mid = Math.ceil(words.length / 2);
-    const l1 = words.slice(0, mid).join(' '), l2 = words.slice(mid).join(' ');
-    const s2 = Math.min(fitText(ctx, l1, W - 40, 64, 700), fitText(ctx, l2, W - 40, 64, 700));
-    ctx.font = `700 ${s2}px ${fontFamily()}`;
-    ctx.fillText(l1, W / 2, H / 2 - s2 * 0.55);
-    ctx.fillText(l2, W / 2, H / 2 + s2 * 0.6);
-  } else {
-    ctx.fillText(scale, W / 2, H / 2 + 3);
-  }
+  ctx.shadowColor = neonHex;
+  ctx.shadowBlur = 10;
+  fitText(ctx, text, W - 130, 60, 800);
+  ctx.fillText(text, W / 2 + (dotHex ? 16 : 0), H / 2 + 3);
 }
 
 function makeTexture(canvas) {
   const tex = new THREE.CanvasTexture(canvas);
   tex.anisotropy = 4;
-  if ('encoding' in tex) tex.encoding = THREE.sRGBEncoding;
   return tex;
 }
+function makeSprite(canvas, w, h) {
+  const tex = makeTexture(canvas);
+  const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, depthTest: false, transparent: true, fog: false, toneMapped: false }));
+  s.scale.set(w, h, 1);
+  s.renderOrder = 10;
+  return { sprite: s, tex };
+}
 
-/** 和風の門を1つ作る（2本の柱、笠木、貫、額）。 */
+// ───────────── 門（丸い柱と、反った笠木の鳥居） ─────────────
+function drawPlaque(canvas, id) {
+  const ctx = canvas.getContext('2d');
+  const { width: W, height: H } = canvas;
+  const acc = ACCENTS[id];
+  ctx.clearRect(0, 0, W, H);
+  roundRect(ctx, 6, 6, W - 12, H - 12, 40);
+  ctx.fillStyle = '#0B1230';
+  ctx.fill();
+  ctx.lineWidth = 6;
+  ctx.strokeStyle = acc.a2.neon;
+  ctx.shadowColor = acc.a2.neon; ctx.shadowBlur = 16;
+  ctx.stroke();
+  const scale = t(`scale.${id}`);
+  ctx.fillStyle = '#FFFFFF';
+  ctx.shadowColor = acc.a2.neon; ctx.shadowBlur = 14;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  const size = fitText(ctx, scale, W - 50, 84, 800);
+  const words = scale.split(' ');
+  if (size < 60 && words.length > 1) {   // 長い言葉（Semipermeable membrane）は2行に
+    const mid = Math.ceil(words.length / 2);
+    const l1 = words.slice(0, mid).join(' '), l2 = words.slice(mid).join(' ');
+    const s2 = Math.min(fitText(ctx, l1, W - 50, 64, 800), fitText(ctx, l2, W - 50, 64, 800));
+    ctx.font = `800 ${s2}px ${fontFamily()}`;
+    ctx.fillText(l1, W / 2, H / 2 - s2 * 0.55);
+    ctx.fillText(l2, W / 2, H / 2 + s2 * 0.6);
+  } else {
+    ctx.fillText(scale, W / 2, H / 2 + 4);
+  }
+}
+
 function buildGate(def) {
   const g = new THREE.Group();
   g.name = `gate-${def.id}`;
-  g.userData.gateId = def.id;
-
   const acc = ACCENTS[def.id];
-  const H = GATE.pillarHeight;
-  const P = GATE.pillarSize;
-  const half = GATE.width / 2 + P / 2;
+  const H = GATE.pillarHeight, R = GATE.pillarRadius;
+  const half = GATE.width / 2 + R;
+  const topLen = GATE.width + R * 2 + GATE.beamOverhang * 2;
 
-  // 柱（2本）と、柱に巻く差し色の帯
+  // 漆塗りの本体（柱・貫・笠木）：差し色1
+  const body = [];
+  const seg = 28;
   for (const sx of [-1, 1]) {
-    const pillar = outlined(new THREE.BoxGeometry(P, H, P));
-    pillar.position.set(sx * half, H / 2, 0);
-    g.add(pillar);
-
-    const band1 = outlined(new THREE.BoxGeometry(P * 1.06, GATE.bandHeight, P * 1.06),
-      new THREE.MeshLambertMaterial({ color: hexToInt(acc.a1.hex) }));
-    band1.position.set(sx * half, H * 0.42, 0);
-    g.add(band1);
-
-    const band2 = new THREE.Mesh(new THREE.BoxGeometry(P * 1.07, GATE.bandHeight * 0.22, P * 1.07),
-      new THREE.MeshLambertMaterial({ color: hexToInt(acc.a2.hex) }));
-    band2.position.set(sx * half, H * 0.42 - GATE.bandHeight * 0.7, 0);
-    g.add(band2);
-
-    // 柱の根元の礎石
-    const base = outlined(new THREE.BoxGeometry(P * 1.6, 0.25, P * 1.6));
-    base.position.set(sx * half, 0.125, 0);
-    g.add(base);
+    body.push({ geo: new THREE.CylinderGeometry(R * 0.92, R, H, seg), pos: [sx * half, H / 2, 0] });
   }
+  // 貫（ぬき）：丸い横木、両端は丸く
+  const nukiY = H * 0.68, nukiR = 0.15, nukiLen = GATE.width + R * 2 + 0.5;
+  body.push({ geo: new THREE.CylinderGeometry(nukiR, nukiR, nukiLen, 20), pos: [0, nukiY, 0], rot: [0, 0, Math.PI / 2] });
+  for (const sx of [-1, 1]) body.push({ geo: new THREE.SphereGeometry(nukiR, 16, 12), pos: [sx * nukiLen / 2, nukiY, 0] });
+  // 笠木（かさぎ）：両端が上に反った丸い木
+  const lift = GATE.kasagiLift;
+  const curve = new THREE.CatmullRomCurve3([
+    new THREE.Vector3(-topLen / 2, H + 0.32 + lift, 0),
+    new THREE.Vector3(-topLen / 4, H + 0.36, 0),
+    new THREE.Vector3(0, H + 0.34, 0),
+    new THREE.Vector3(topLen / 4, H + 0.36, 0),
+    new THREE.Vector3(topLen / 2, H + 0.32 + lift, 0),
+  ]);
+  body.push({ geo: new THREE.TubeGeometry(curve, 40, 0.24, 18, false) });
+  for (const sx of [-1, 1]) body.push({ geo: new THREE.SphereGeometry(0.24, 18, 14), pos: [sx * topLen / 2, H + 0.32 + lift, 0] });
+  // 島木（しまぎ）：笠木の下の丸い横木
+  body.push({ geo: new THREE.CylinderGeometry(0.14, 0.14, topLen - 0.6, 20), pos: [0, H - 0.02, 0], rot: [0, 0, Math.PI / 2] });
+  g.add(new THREE.Mesh(merge(body), lacquer(acc.a1.hex)));
 
-  // 笠木（いちばん上の横木）と、貫（その下の横木）
-  const topLen = GATE.width + P * 2 + GATE.beamOverhang * 2;
-  const kasagi = outlined(new THREE.BoxGeometry(topLen, 0.34, 0.62));
-  kasagi.position.set(0, H + 0.17, 0);
-  g.add(kasagi);
-  const shimaki = outlined(new THREE.BoxGeometry(topLen - 0.3, 0.2, 0.5));
-  shimaki.position.set(0, H - 0.1, 0);
-  g.add(shimaki);
-  const nuki = outlined(new THREE.BoxGeometry(GATE.width + P * 2 + 0.4, 0.22, 0.3));
-  nuki.position.set(0, H * 0.66, 0);
-  g.add(nuki);
+  // 根元の丸い台：濃い漆
+  const bases = [-1, 1].map((sx) => ({ geo: new THREE.CylinderGeometry(R * 1.55, R * 1.8, 0.32, seg), pos: [sx * half, 0.16, 0] }));
+  bases.push(...[-1, 1].map((sx) => ({ geo: new THREE.SphereGeometry(R * 1.55, seg, 10, 0, Math.PI * 2, 0, Math.PI / 2), pos: [sx * half, 0.32, 0], scale: [1, 0.35, 1] })));
+  g.add(new THREE.Mesh(merge(bases), lacquer('#141A38', 0.3)));
 
-  // 額（潜る大きさ）を笠木と貫の間に。表と裏の両方
-  const plaqueCanvas = makeCanvas(512, 176);
-  drawScalePlaque(plaqueCanvas, def.id);
+  // 柱に巻くネオンの輪：差し色2
+  const rings = [];
+  for (const sx of [-1, 1]) {
+    for (const y of [H * 0.32, H * 0.42]) rings.push({ geo: new THREE.TorusGeometry(R * 1.08, 0.045, 10, 40), pos: [sx * half, y, 0], rot: [Math.PI / 2, 0, 0] });
+  }
+  g.add(new THREE.Mesh(merge(rings), neon(acc.a2.neon)));
+
+  // 光の粒（輪と笠木の両端のにじみ）
+  const pts = [];
+  for (const sx of [-1, 1]) { pts.push([sx * half, H * 0.37, R * 1.1]); pts.push([sx * half, H * 0.37, -R * 1.1]); }
+  g.add(glowPoints(pts, acc.a2.neon, 1.0));
+  g.add(glowPoints([[-topLen / 2, H + 0.32 + lift, 0], [topLen / 2, H + 0.32 + lift, 0]], acc.a1.neon, 1.3));
+
+  // 額（潜る大きさ）：表と裏
+  const plaqueCanvas = makeCanvas(512, 200);
+  drawPlaque(plaqueCanvas, def.id);
   const plaqueTex = makeTexture(plaqueCanvas);
-  const plaqueW = GATE.width - 0.2, plaqueH = 1.2;
-  const plaqueY = (H * 0.66 + H - 0.1) / 2;
+  const plaqueY = (nukiY + H) / 2;
   for (const side of [1, -1]) {
-    const m = new THREE.Mesh(new THREE.PlaneGeometry(plaqueW, plaqueH),
-      new THREE.MeshBasicMaterial({ map: plaqueTex }));
-    m.position.set(0, plaqueY, side * 0.17);
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(2.5, 0.98),
+      new THREE.MeshBasicMaterial({ map: plaqueTex, transparent: true, toneMapped: false }));
+    m.position.set(0, plaqueY, side * 0.12);
     if (side < 0) m.rotation.y = Math.PI;
     g.add(m);
   }
-  const plaqueFrame = new THREE.LineSegments(
-    new THREE.EdgesGeometry(new THREE.BoxGeometry(plaqueW, plaqueH, 0.3)), lineMat());
-  plaqueFrame.position.set(0, plaqueY, 0);
-  g.add(plaqueFrame);
 
-  // 門の上に浮かぶ名札
-  const labelCanvas = makeCanvas(640, 128);
-  drawNameLabel(labelCanvas, def.id, `world.${def.id}`);
-  const labelTex = makeTexture(labelCanvas);
-  const label = new THREE.Sprite(new THREE.SpriteMaterial({ map: labelTex, depthTest: false, transparent: true, fog: false }));
-  label.scale.set(5.0, 1.0, 1);
-  label.position.set(0, GATE.labelHeight, 0);
-  label.renderOrder = 10;
-  g.add(label);
+  // 名札
+  const labelCanvas = makeCanvas(680, 150);
+  const draw = () => drawPill(labelCanvas, t(`world.${def.id}`), acc.a1.neon, acc.a2.neon);
+  draw();
+  const label = makeSprite(labelCanvas, 5.2, 1.15);
+  label.sprite.position.set(0, GATE.labelHeight, 0);
+  g.add(label.sprite);
 
-  // タップの当たり判定（見えない箱。門全体を覆う）
-  const hit = new THREE.Mesh(
-    new THREE.BoxGeometry(topLen, GATE.labelHeight + 0.6, 1.6),
-    new THREE.MeshBasicMaterial({ visible: false }));
-  hit.position.set(0, (GATE.labelHeight + 0.6) / 2, 0);
+  // タップの当たり判定（見えない箱）
+  const hit = new THREE.Mesh(new THREE.BoxGeometry(topLen, GATE.labelHeight + 0.6, 1.6), new THREE.MeshBasicMaterial({ visible: false }));
+  hit.position.y = (GATE.labelHeight + 0.6) / 2;
   hit.userData.gateId = def.id;
   g.add(hit);
 
-  // 広場の縁に置き、門の正面を中心に向ける
   const a = THREE.MathUtils.degToRad(def.angleDeg);
-  const R = GATE.distanceFromCenter;
-  g.position.set(Math.sin(a) * R, 0, -Math.cos(a) * R);
+  g.position.set(Math.sin(a) * GATE.distanceFromCenter, 0, -Math.cos(a) * GATE.distanceFromCenter);
   g.lookAt(0, 0, 0);
 
-  const redraw = () => {
-    drawNameLabel(labelCanvas, def.id, `world.${def.id}`); labelTex.needsUpdate = true;
-    drawScalePlaque(plaqueCanvas, def.id); plaqueTex.needsUpdate = true;
+  return {
+    group: g, hit,
+    redraw: () => { draw(); label.tex.needsUpdate = true; drawPlaque(plaqueCanvas, def.id); plaqueTex.needsUpdate = true; },
   };
-  return { group: g, hit, redraw };
 }
 
-/** 白い石畳の円い広場。 */
-function buildGround() {
-  const g = new THREE.Group();
-
-  // 広場の外：淡い灰の地面
-  const outer = new THREE.Mesh(
-    new THREE.PlaneGeometry(PLAZA.groundSize, PLAZA.groundSize),
-    new THREE.MeshBasicMaterial({ color: hexToInt(BASE.fog) }));
-  outer.rotation.x = -Math.PI / 2;
-  outer.position.y = -0.02;
-  g.add(outer);
-
-  // 白い円の広場
-  const disc = new THREE.Mesh(
-    new THREE.CircleGeometry(PLAZA.radius, 96),
-    new THREE.MeshBasicMaterial({ color: 0xffffff }));
-  disc.rotation.x = -Math.PI / 2;
-  g.add(disc);
-
-  // 石畳の目地（同心円と放射状の線）
-  const pts = [];
-  const seg = 96;
-  for (let r = 1; r <= PLAZA.ringCount; r++) {
-    const rr = PLAZA.centerRadius + (PLAZA.radius - PLAZA.centerRadius) * (r / PLAZA.ringCount);
-    for (let i = 0; i < seg; i++) {
-      const a0 = (i / seg) * Math.PI * 2, a1 = ((i + 1) / seg) * Math.PI * 2;
-      pts.push(Math.cos(a0) * rr, 0.01, Math.sin(a0) * rr, Math.cos(a1) * rr, 0.01, Math.sin(a1) * rr);
-    }
-  }
-  for (let i = 0; i < PLAZA.spokeCount; i++) {
-    const a = (i / PLAZA.spokeCount) * Math.PI * 2 + Math.PI / PLAZA.spokeCount;
-    const r0 = PLAZA.centerRadius + 0.6;
-    pts.push(Math.cos(a) * r0, 0.01, Math.sin(a) * r0, Math.cos(a) * PLAZA.radius, 0.01, Math.sin(a) * PLAZA.radius);
-  }
-  const joints = new THREE.BufferGeometry();
-  joints.setAttribute('position', new THREE.Float32BufferAttribute(pts, 3));
-  g.add(new THREE.LineSegments(joints, new THREE.LineBasicMaterial({ color: NEZUMI, transparent: true, opacity: 0.45 })));
-
-  // 広場の縁（墨の線）
-  const rim = new THREE.LineLoop(
-    new THREE.BufferGeometry().setFromPoints(
-      Array.from({ length: 128 }, (_, i) => {
-        const a = (i / 128) * Math.PI * 2;
-        return new THREE.Vector3(Math.cos(a) * PLAZA.radius, 0.015, Math.sin(a) * PLAZA.radius);
-      })),
-    lineMat());
-  g.add(rim);
-
-  // 中央の台座（v0.4 で政府庁舎を建てる場所）
-  const center = outlined(new THREE.CylinderGeometry(PLAZA.centerRadius, PLAZA.centerRadius + 0.15, PLAZA.centerHeight, 48));
-  center.position.y = PLAZA.centerHeight / 2;
-  g.add(center);
-
-  return g;
+// ───────────── 施設（丸い屋根の建物） ─────────────
+/** 角を丸めた箱（押し出しの面取り） */
+function roundedBox(w, h, d, r) {
+  const s = new THREE.Shape();
+  const x = -w / 2 + r, y = r, ww = w - r * 2, hh = h - r * 2;
+  s.moveTo(x, y);
+  s.lineTo(x + ww, y);
+  s.lineTo(x + ww, y + hh);
+  s.lineTo(x, y + hh);
+  s.lineTo(x, y);
+  const geo = new THREE.ExtrudeGeometry(s, { depth: d - r * 2, bevelEnabled: true, bevelThickness: r, bevelSize: r, bevelSegments: 5, curveSegments: 8 });
+  geo.translate(0, -r + r, -(d - r * 2) / 2);
+  return geo;
 }
 
-/** 広場の施設（銀行・呉服屋・道具屋）。白い壁と切妻屋根、入口に藍ののれん。 */
 function buildFacility(def) {
   const g = new THREE.Group();
   g.name = `facility-${def.id}`;
   const F = FACILITY;
   const home = ACCENTS.home;
 
-  // 壁
-  const walls = outlined(new THREE.BoxGeometry(F.width, F.wallHeight, F.depth));
-  walls.position.y = F.wallHeight / 2;
-  g.add(walls);
+  // 白い真珠のような壁（角は丸い）
+  g.add(new THREE.Mesh(roundedBox(F.width, F.wallHeight, F.depth, 0.32), lacquer('#E9EEFF', 0.18)));
+  // 丸い屋根（ドーム）：藍の漆
+  const roof = new THREE.Mesh(new THREE.SphereGeometry(1, 36, 18, 0, Math.PI * 2, 0, Math.PI / 2), lacquer(home.a1.hex));
+  roof.scale.set(F.width / 2 + 0.35, F.roofHeight, F.depth / 2 + 0.35);
+  roof.position.y = F.wallHeight + 0.02;
+  g.add(roof);
 
-  // 切妻屋根（三角形を奥行きの方向に押し出す）
-  const half = F.width / 2 + 0.35;
-  const shape = new THREE.Shape();
-  shape.moveTo(-half, 0); shape.lineTo(half, 0); shape.lineTo(0, F.roofHeight); shape.lineTo(-half, 0);
-  const roofDepth = F.depth + 0.5;
-  const roofGeo = new THREE.ExtrudeGeometry(shape, { depth: roofDepth, bevelEnabled: false });
-  roofGeo.translate(0, F.wallHeight, -roofDepth / 2);
-  g.add(outlined(roofGeo));
-
-  // 入口（中心を向く面）と、藍ののれん（3枚）
-  const front = F.depth / 2 + 0.01;
-  const door = new THREE.LineSegments(
-    new THREE.EdgesGeometry(new THREE.PlaneGeometry(1.4, 1.7)), lineMat());
-  door.position.set(0, 0.85, front);
-  g.add(door);
-  const norenMat = new THREE.MeshBasicMaterial({ color: hexToInt(home.a1.hex), side: THREE.DoubleSide });
+  // ネオン：屋根の縁の輪（山吹）と、入口ののれん（藍のネオン、丸い3枚）
+  const front = F.depth / 2 + 0.33;
+  const neonParts = [{ geo: new THREE.TorusGeometry(1, 0.05, 10, 60), pos: [0, F.wallHeight + 0.04, 0], rot: [Math.PI / 2, 0, 0], scale: [F.width / 2 + 0.38, F.depth / 2 + 0.38, 1] }];
+  g.add(new THREE.Mesh(merge(neonParts), neon(home.a2.neon)));
+  const noren = [];
   for (let i = -1; i <= 1; i++) {
-    const n = new THREE.Mesh(new THREE.PlaneGeometry(0.44, 0.62), norenMat);
-    n.position.set(i * 0.47, 1.4, front + 0.02);
-    g.add(n);
+    noren.push({ geo: new THREE.CircleGeometry(0.24, 24), pos: [i * 0.5, 1.15, front], scale: [1, 1.5, 1] });
   }
-  // のれんの上の山吹の細い横木（通貨にかかわる施設のしるし）
-  const bar = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.06, 0.06),
-    new THREE.MeshBasicMaterial({ color: hexToInt(home.a2.hex) }));
-  bar.position.set(0, 1.74, front + 0.04);
-  g.add(bar);
+  noren.push({ geo: new THREE.CylinderGeometry(0.035, 0.035, 1.6, 10), pos: [0, 1.58, front], rot: [0, 0, Math.PI / 2] });
+  g.add(new THREE.Mesh(merge(noren), neon(home.a1.neon)));
+  g.add(glowPoints([[0, 1.15, front + 0.05], [-F.width / 2, F.wallHeight + 0.05, 0], [F.width / 2, F.wallHeight + 0.05, 0]], home.a1.neon, 1.2));
 
   // 名札
-  const labelCanvas = makeCanvas(640, 128);
-  const textKey = `facility.${def.id}`;
-  drawNameLabel(labelCanvas, 'home', textKey);
-  const labelTex = makeTexture(labelCanvas);
-  const label = new THREE.Sprite(new THREE.SpriteMaterial({ map: labelTex, depthTest: false, transparent: true, fog: false }));
-  label.scale.set(3.6, 0.72, 1);
-  label.position.set(0, F.labelHeight, 0);
-  label.renderOrder = 10;
-  g.add(label);
+  const labelCanvas = makeCanvas(560, 140);
+  const draw = () => drawPill(labelCanvas, t(`facility.${def.id}`), home.a1.neon, home.a2.neon);
+  draw();
+  const label = makeSprite(labelCanvas, 3.7, 0.92);
+  label.sprite.position.set(0, F.labelHeight, 0);
+  g.add(label.sprite);
 
-  // タップの当たり判定
   const hitH = F.labelHeight + 0.5;
-  const hit = new THREE.Mesh(new THREE.BoxGeometry(F.width + 0.6, hitH, F.depth + 0.6),
-    new THREE.MeshBasicMaterial({ visible: false }));
+  const hit = new THREE.Mesh(new THREE.BoxGeometry(F.width + 0.8, hitH, F.depth + 0.8), new THREE.MeshBasicMaterial({ visible: false }));
   hit.position.y = hitH / 2;
   hit.userData.facilityId = def.id;
   g.add(hit);
@@ -319,47 +326,168 @@ function buildFacility(def) {
   const a = THREE.MathUtils.degToRad(def.angleDeg);
   g.position.set(Math.sin(a) * F.distanceFromCenter, 0, -Math.cos(a) * F.distanceFromCenter);
   g.lookAt(0, 0, 0);
-
-  const redraw = () => { drawNameLabel(labelCanvas, 'home', textKey); labelTex.needsUpdate = true; };
-  return { group: g, hit, redraw };
+  return { group: g, hit, redraw: () => { draw(); label.tex.needsUpdate = true; } };
 }
 
-/** 立ち絵を切り絵のような板にして立たせる（いつもカメラの方を向く）。 */
+// ───────────── 政府庁舎（中央の丸い塔）と、国庫の掲示板 ─────────────
+function drawTreasury(canvas, amount) {
+  const ctx = canvas.getContext('2d');
+  const { width: W, height: H } = canvas;
+  const home = ACCENTS.home;
+  ctx.clearRect(0, 0, W, H);
+  ctx.save();
+  ctx.shadowColor = home.a2.neon; ctx.shadowBlur = 22;
+  roundRect(ctx, 16, 16, W - 32, H - 32, 46);
+  const grd = ctx.createLinearGradient(0, 16, 0, H - 16);
+  grd.addColorStop(0, 'rgba(46,38,10,0.95)');
+  grd.addColorStop(1, 'rgba(14,12,6,0.95)');
+  ctx.fillStyle = grd;
+  ctx.fill();
+  ctx.lineWidth = 5;
+  ctx.strokeStyle = home.a2.neon;
+  ctx.stroke();
+  ctx.restore();
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillStyle = '#FFE7A6';
+  ctx.font = `800 38px ${fontFamily()}`;
+  ctx.fillText(t('gov.treasury'), W / 2, 66);
+  ctx.shadowColor = home.a2.neon; ctx.shadowBlur = 18;
+  ctx.fillStyle = '#FFFFFF';
+  const num = amount === null ? '—' : formatHiyama(amount);
+  const size = fitText(ctx, num, W - 160, 86, 800);
+  ctx.font = `800 ${size}px 'Nunito', ${fontFamily()}`;
+  ctx.fillText(num, W / 2, 150);
+  ctx.shadowBlur = 0;
+  ctx.fillStyle = '#FFC83A';
+  ctx.font = `700 28px ${fontFamily()}`;
+  ctx.fillText(t('money', { amount: '' }).trim(), W / 2, 212);
+}
+
+function buildGov() {
+  const g = new THREE.Group();
+  g.name = 'gov';
+  const home = ACCENTS.home;
+  // 段になった丸い台
+  g.add(new THREE.Mesh(merge([
+    { geo: new THREE.CylinderGeometry(GOV.baseRadius, GOV.baseRadius + 0.2, 0.36, 48), pos: [0, 0.18, 0] },
+    { geo: new THREE.CylinderGeometry(GOV.baseRadius - 0.45, GOV.baseRadius - 0.3, 0.3, 48), pos: [0, 0.5, 0] },
+  ]), lacquer('#141A38', 0.28)));
+  // 白い塔と、藍の丸屋根
+  g.add(new THREE.Mesh(new THREE.CylinderGeometry(GOV.towerRadius, GOV.towerRadius * 1.08, GOV.towerHeight, 48), lacquer('#E9EEFF', 0.16)));
+  g.children[1].position.y = 0.65 + GOV.towerHeight / 2;
+  const dome = new THREE.Mesh(new THREE.SphereGeometry(GOV.towerRadius * 1.12, 48, 24, 0, Math.PI * 2, 0, Math.PI / 2), lacquer(home.a1.hex));
+  dome.position.y = 0.65 + GOV.towerHeight;
+  dome.scale.y = 0.85;
+  g.add(dome);
+  // ネオンの輪（藍と山吹）と、てっぺんの光る玉
+  const topY = 0.65 + GOV.towerHeight;
+  g.add(new THREE.Mesh(merge([
+    { geo: new THREE.TorusGeometry(GOV.towerRadius * 1.13, 0.06, 12, 64), pos: [0, topY + 0.02, 0], rot: [Math.PI / 2, 0, 0] },
+    { geo: new THREE.SphereGeometry(0.2, 20, 14), pos: [0, topY + GOV.towerRadius * 0.95 + 0.25, 0] },
+  ]), neon(home.a2.neon)));
+  g.add(new THREE.Mesh(merge([
+    { geo: new THREE.TorusGeometry(GOV.towerRadius * 1.02, 0.05, 12, 64), pos: [0, 0.65 + GOV.towerHeight * 0.35, 0], rot: [Math.PI / 2, 0, 0] },
+    { geo: new THREE.TorusGeometry(GOV.baseRadius + 0.05, 0.05, 12, 80), pos: [0, 0.36, 0], rot: [Math.PI / 2, 0, 0] },
+  ]), neon(home.a1.neon)));
+  g.add(glowPoints([[0, topY + GOV.towerRadius * 0.95 + 0.25, 0]], home.a2.neon, 3.2));
+
+  // 宙に浮かぶ国庫の掲示板
+  const boardCanvas = makeCanvas(600, 250);
+  let amount = null;
+  drawTreasury(boardCanvas, amount);
+  const board = makeSprite(boardCanvas, 5.2, 2.17);
+  board.sprite.position.y = GOV.boardHeight;
+  g.add(board.sprite);
+
+  const hitH = GOV.boardHeight + 1;
+  const hit = new THREE.Mesh(new THREE.CylinderGeometry(GOV.baseRadius, GOV.baseRadius, hitH, 16), new THREE.MeshBasicMaterial({ visible: false }));
+  hit.position.y = hitH / 2;
+  hit.userData.facilityId = 'gov';
+  g.add(hit);
+
+  return {
+    group: g, hit, board: board.sprite,
+    setTreasury: (n) => { amount = n; drawTreasury(boardCanvas, amount); board.tex.needsUpdate = true; },
+    redraw: () => { drawTreasury(boardCanvas, amount); board.tex.needsUpdate = true; },
+  };
+}
+
+// ───────────── 地面：夜のつやのある円い広場と、ネオンの同心円 ─────────────
+function buildGround() {
+  const g = new THREE.Group();
+  const home = ACCENTS.home;
+  const outer = new THREE.Mesh(new THREE.CircleGeometry(PLAZA.groundSize / 2, 64), new THREE.MeshLambertMaterial({ color: 0x070C22 }));
+  outer.rotation.x = -Math.PI / 2;
+  outer.position.y = -0.03;
+  g.add(outer);
+
+  const disc = new THREE.Mesh(new THREE.CircleGeometry(PLAZA.radius, 96), new THREE.MeshPhysicalMaterial({
+    color: 0x0b1230, roughness: 0.55, metalness: 0.2, clearcoat: 0.35, clearcoatRoughness: 0.4,
+  }));
+  disc.rotation.x = -Math.PI / 2;
+  g.add(disc);
+
+  // 同心円（青海波を思わせる丸い光の輪）
+  const rings = [];
+  for (let r = 1; r <= PLAZA.ringCount; r++) {
+    const rr = GOV.baseRadius + 0.5 + (PLAZA.radius - GOV.baseRadius - 0.5) * (r / PLAZA.ringCount);
+    rings.push({ geo: new THREE.RingGeometry(rr - 0.025, rr + 0.025, 128), rot: [-Math.PI / 2, 0, 0], pos: [0, 0.01, 0] });
+  }
+  g.add(new THREE.Mesh(merge(rings), neon(home.a1.neon, 0.35)));
+  // 広場の縁：太めのネオンの輪
+  const rim = new THREE.Mesh(new THREE.TorusGeometry(PLAZA.radius, 0.07, 10, 160), neon(home.a1.neon));
+  rim.rotation.x = Math.PI / 2;
+  rim.position.y = 0.04;
+  g.add(rim);
+  return g;
+}
+
+// ───────────── 立ち絵の板（ツカサ） ─────────────
 function buildStandee(id, height, onLoad) {
   const w = height * (1024 / 1536);
-  const mat = new THREE.MeshBasicMaterial({ transparent: true, alphaTest: 0.4, side: THREE.DoubleSide });
+  const mat = new THREE.MeshBasicMaterial({ transparent: true, alphaTest: 0.4, side: THREE.DoubleSide, toneMapped: false });
   const tex = new THREE.TextureLoader().load(standUrl(id, 'normal'), () => onLoad && onLoad());
-  if ('encoding' in tex) tex.encoding = THREE.sRGBEncoding;
   mat.map = tex;
   const geo = new THREE.PlaneGeometry(w, height);
-  geo.translate(0, height / 2, 0);   // 足もとを原点に
+  geo.translate(0, height / 2, 0);
   const mesh = new THREE.Mesh(geo, mat);
   mesh.userData.talkId = id;
-  return mesh;
+  // 足もとの光の輪
+  const ring = new THREE.Mesh(new THREE.RingGeometry(0.55, 0.62, 48), neon(ACCENTS.home.a2.neon, 0.9));
+  ring.rotation.x = -Math.PI / 2;
+  ring.position.y = 0.02;
+  const group = new THREE.Group();
+  group.add(mesh, ring);
+  return { group, mesh };
 }
 
 /** 広場全体を作って返す。 */
 export function buildPlaza(scene, { onTextureLoad } = {}) {
   scene.add(buildGround());
 
-  const standee = buildStandee(STANDEE.id, STANDEE.height, onTextureLoad);
-  standee.position.set(0, PLAZA.centerHeight, 0);
-  scene.add(standee);
+  const gov = buildGov();
+  scene.add(gov.group);
 
-  const gates = GATES.map((def) => {
-    const gate = buildGate(def);
-    scene.add(gate.group);
-    return gate;
-  });
-  const facilities = FACILITIES.map((def) => {
-    const f = buildFacility(def);
-    scene.add(f.group);
-    return f;
-  });
+  const standee = buildStandee(STANDEE.id, STANDEE.height, onTextureLoad);
+  const sa = THREE.MathUtils.degToRad(STANDEE.angleDeg);
+  standee.group.position.set(Math.sin(sa) * STANDEE.distance, 0.02, -Math.cos(sa) * STANDEE.distance);
+  scene.add(standee.group);
+
+  const gates = GATES.map((def) => { const x = buildGate(def); scene.add(x.group); return x; });
+  const facilities = FACILITIES.map((def) => { const x = buildFacility(def); scene.add(x.group); return x; });
+
   return {
-    hitTargets: [standee, ...gates.map((g) => g.hit), ...facilities.map((f) => f.hit)],
-    redrawLabels: () => [...gates, ...facilities].forEach((g) => g.redraw()),
+    hitTargets: [standee.mesh, ...gates.map((x) => x.hit), ...facilities.map((x) => x.hit), gov.hit],
+    redrawLabels: () => [...gates, ...facilities, gov].forEach((x) => x.redraw()),
+    setTreasury: gov.setTreasury,
     /** 立ち絵の板をカメラの方へ向ける（縦の軸のまわりだけ回す） */
-    faceCamera: (camera) => { standee.rotation.y = Math.atan2(camera.position.x, camera.position.z); },
+    faceCamera: (camera) => {
+      const p = standee.group.position;
+      standee.mesh.rotation.y = Math.atan2(camera.position.x - p.x, camera.position.z - p.z);
+    },
+    /** ゆっくりした動き（掲示板がふわふわ浮く） */
+    animate: (time) => { gov.board.position.y = GOV.boardHeight + Math.sin(time * 0.0015) * 0.12; },
   };
 }
+

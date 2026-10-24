@@ -1,21 +1,23 @@
 // home/src/main.js
-// ホームワールド「セキオロック中央広場」 v0.2
+// ホームワールド「セキオロック中央広場」 v0.4
 // v0.1：白い3D広場を見回す、4つの門、上の帯、日本語・英語の切り替え、QRコード表示
 // v0.2：門をタップするとアバター選択の画面へ（ワールドの中身はまだ準備中）、
 //       中央に立つ広報官ツカサのセリフ、初めて起動したときの流れ
 // v0.3：ヒヤマ（端末の中だけ）、開国交付金、銀行・呉服屋・道具屋、施設と門の一覧
+// v0.4：サイバー和風のデザイン、ヒヤマを Firebase へ、国庫、政府庁舎の掲示板、お知らせ、出来事の発光
 
 import { VERSION, RENDER, PLAZA, CAMERA, UI, STANDEE } from './config.js';
-import { initI18n, t, onLangChange, applyToDom } from '../../shared/i18n.js';
-import { applyTheme, BASE, hexToInt } from '../../shared/theme.js';
+import { initI18n, t, onLangChange, applyToDom, getLang, setLang } from '../../shared/i18n.js';
+import { applyTheme, ACCENTS, hexToInt } from '../../shared/theme.js';
 import { createTopbar } from '../../shared/topbar.js';
 import { buildPlaza } from './plaza.js';
 import { createQrOverlay } from './qr-overlay.js';
 import { runOnboarding } from './onboarding.js';
-import { getUser } from '../../shared/auth.js';
+import { getUser, initBackend, backend, setUserLang } from '../../shared/auth.js';
 import { openAvatarSelect } from '../../shared/avatar.js';
 import { nameKey, lineKey } from '../../shared/characters.js';
-import { grantFounding, foundingGranted, SETTINGS, formatHiyama } from '../../shared/economy.js';
+import { initEconomy, grantFounding, foundingGranted, onTreasuryChange, SETTINGS, formatHiyama } from '../../shared/economy.js';
+import { initNotices } from '../../shared/notices.js';
 import { openShop, setShopToast } from './shops.js';
 import { createNav } from './nav.js';
 
@@ -50,6 +52,19 @@ async function start() {
     return;
   }
 
+  // Firebase につなぐ（設定がない・つながらないときは、この端末だけで動く）
+  const loading = document.getElementById('loading');
+  loading.textContent = t('net.connecting');
+  loading.hidden = false;
+  await initBackend();
+  await initEconomy();
+  loading.hidden = true;
+  // 言語は本人の設定として保存し、ほかの端末やワールドでも引き継ぐ
+  const savedLang = getUser().lang;
+  if (savedLang && savedLang !== getLang()) setLang(savedLang);
+  else if (!savedLang && getUser().onboarded) setUserLang(getLang());
+  onLangChange((lang) => setUserLang(lang));
+
   const qr = createQrOverlay();
   createTopbar({ mount: document.getElementById('topbar'), showQR: true, onQR: qr.open, onBalance: () => openShop('bank') });
   setShopToast(toast);
@@ -70,14 +85,20 @@ async function start() {
   // 初めて起動したときだけ、言語 → ニックネーム → ツカサの説明 の流れを出す
   if (!getUser().onboarded) await runOnboarding();
 
-  // v0.2 までに初回の流れを終えた人には、開国交付金をここで支給する
+  // 初回の流れを終えているのに開国交付金をまだ受け取っていない人（v0.3 までの人、Firebase に移った人）
   if (!foundingGranted()) {
-    grantFounding();
-    toast(t('talk', {
-      name: t(nameKey('tsukasa')),
-      line: t(lineKey('tsukasa', 'lateGrant'), { amount: formatHiyama(SETTINGS.foundingGrant) }),
-    }));
+    const got = await grantFounding();
+    if (got) {
+      toast(t('talk', {
+        name: t(nameKey('tsukasa')),
+        line: t(lineKey('tsukasa', 'lateGrant'), { amount: formatHiyama(SETTINGS.foundingGrant) }),
+      }));
+    }
   }
+  if (backend.mode === 'local' && backend.reason === 'offline') setTimeout(() => toast(t('net.offlineToast')), 400);
+
+  // 政府からのお知らせを見張る（まだ見ていない重大発表は、画面を暗くして中央に出す）
+  initNotices(toast);
   document.body.classList.add('is-home');
 }
 
@@ -85,7 +106,7 @@ function startScene() {
   const canvas = document.getElementById('scene');
   let renderer;
   try {
-    renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+    renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
   } catch (e) {
     console.error(e);
     showFatal(t('error.webgl'));
@@ -93,17 +114,24 @@ function startScene() {
   }
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, RENDER.maxPixelRatio));
   renderer.shadowMap.enabled = false;   // 影は使わない
-  if ('outputEncoding' in renderer) renderer.outputEncoding = THREE.sRGBEncoding;
+  renderer.setClearColor(0x000000, 0);   // 空は透明にして、ページの夜空のグラデーションを見せる
+  // 色は書いたとおりの値で出す（sRGB の変換をしない。暗い藍が明るく持ち上がらないように）
 
   const scene = new THREE.Scene();
-  scene.background = new THREE.Color(hexToInt(BASE.white));
-  scene.fog = new THREE.Fog(hexToInt(BASE.white), 1, 2);   // 距離は placeCamera で決める
+  scene.fog = new THREE.Fog(hexToInt(PLAZA.fogColor), 1, 2);   // 距離は placeCamera で決める
 
-  // つや消しの白に見せる、やわらかい光（影はなし）
-  scene.add(new THREE.HemisphereLight(0xffffff, 0xe6e6e6, 0.85));
-  const sun = new THREE.DirectionalLight(0xffffff, 0.35);
-  sun.position.set(6, 12, 8);
-  scene.add(sun);
+  // 夜の光：空の青と地面の暗さ、月の光、藍と山吹の色の光（つやのある面に光が映る）
+  const home = ACCENTS.home;
+  scene.add(new THREE.HemisphereLight(0x8aa4ff, 0x0a0f25, 0.62 * RENDER.exposure));
+  const moon = new THREE.DirectionalLight(0xdfe8ff, 0.7 * RENDER.exposure);
+  moon.position.set(-6, 16, -10);   // 奥から当てて、手前の床に白い照り返しが出ないように
+  scene.add(moon);
+  const lightA = new THREE.PointLight(hexToInt(home.a1.neon), 1.6, 34, 1.4);
+  lightA.position.set(0, 7, 0);
+  scene.add(lightA);
+  const lightB = new THREE.PointLight(hexToInt(home.a2.neon), 0.9, 30, 1.6);
+  lightB.position.set(-9, 4, 9);
+  scene.add(lightB);
 
   let needsRender = true;
   const requestRender = () => { needsRender = true; };
@@ -229,15 +257,22 @@ function startScene() {
     requestRender();
   });
 
-  // 必要なときだけ描き直す（電池を長持ちさせるため）
-  function loop() {
-    if (needsRender) {
+  // 国庫の残高を、政府庁舎の上に浮かぶ掲示板に出す
+  onTreasuryChange((n) => { plaza.setTreasury(n); requestRender(); });
+
+  // 描き直し：触っているときは毎回、何もしていないときは少なめに（電池のため）
+  let last = 0;
+  const idleGap = 1000 / RENDER.idleFps;
+  function loop(now) {
+    if (needsRender || now - last >= idleGap) {
+      plaza.animate(now);
       renderer.render(scene, camera);
       needsRender = false;
+      last = now;
     }
     requestAnimationFrame(loop);
   }
-  loop();
+  requestAnimationFrame(loop);
   document.body.classList.add('is-ready');
 }
 
