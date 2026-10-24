@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#FFFFFF">
+  <title>セキオダイブ</title>
+
+  <!-- 文字：日本語は Noto Sans JP、英語と数字は Noto Sans -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700&family=Noto+Sans:wght@400;700&display=swap">
+
+  <link rel="stylesheet" href="shared/base.css">
+  <link rel="stylesheet" href="home/style.css">
+</head>
+<body data-title-key="home.name">
+  <header id="topbar"></header>
+
+  <canvas id="scene" aria-hidden="true"></canvas>
+
+  <div class="place-title">
+    <span class="place-title__sub" data-i18n="home.subtitle"></span>
+    <span class="place-title__main" data-i18n="home.name"></span>
+  </div>
+
+  <p class="hint" data-i18n="home.hint"></p>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <!-- QRコードの全画面表示（QRボタンで開く） -->
+  <div id="qr-overlay" class="qr" role="dialog" aria-modal="true" aria-labelledby="qr-title" hidden>
+    <h2 id="qr-title" class="qr__title" data-i18n="qr.title"></h2>
+    <p class="qr__note" data-i18n="qr.note"></p>
+    <div class="qr__code"></div>
+    <p class="qr__url"></p>
+    <button type="button" class="btn qr__close" data-i18n="qr.close"></button>
+  </div>
+
+  <div id="version" class="version"></div>
+
+  <!-- 3Dの描画（Three.js r128）とQRコードの作成。どちらも cdnjs から -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
+  <script type="module" src="home/src/main.js"></script>
+</body>
+</html>

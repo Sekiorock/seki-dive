@@ -1,0 +1,96 @@
+/* home/style.css  ホームワールドだけのデザイン */
+
+html, body { overflow: hidden; overscroll-behavior: none; }
+
+#scene {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  touch-action: none;   /* 指でなぞったときにページが動かないように */
+  outline: none;
+}
+
+/* 広場の名前（上の帯の下） */
+.place-title {
+  position: fixed;
+  top: calc(var(--topbar-h) + env(safe-area-inset-top) + 14px);
+  left: 0;
+  right: 0;
+  text-align: center;
+  pointer-events: none;
+  z-index: 10;
+}
+.place-title__sub {
+  display: block;
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  color: var(--nezumi);
+}
+.place-title__main {
+  display: inline-block;
+  margin-top: 2px;
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  padding: 0 4px 4px;
+  border-bottom: 2px solid var(--accent-1);   /* 差し色1：藍 */
+  background: rgba(255, 255, 255, 0.85);
+}
+html[lang="en"] .place-title__main { letter-spacing: 0.02em; }
+
+/* 操作のヒント（版番号の上） */
+.hint {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: calc(28px + env(safe-area-inset-bottom));
+  text-align: center;
+  font-size: 12px;
+  color: var(--nezumi);
+  pointer-events: none;
+  z-index: 10;
+}
+
+/* ── QRコードの全画面表示 ── */
+.qr {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  background: var(--white);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: calc(20px + env(safe-area-inset-top)) 20px calc(36px + env(safe-area-inset-bottom));
+  text-align: center;
+}
+.qr[hidden] { display: none; }
+.qr__title { margin: 0; font-size: 20px; font-weight: 700; line-height: 1.4; }
+.qr__note { margin: 0; font-size: 13px; color: var(--nezumi); }
+.qr__code {
+  width: min(86vw, 58vh, 520px);
+  aspect-ratio: 1 / 1;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--sumi);
+  background: var(--white);
+}
+.qr__code svg { width: 100%; height: 100%; display: block; }
+.qr__error { margin: 0; padding: 16px; font-size: 14px; line-height: 1.6; }
+.qr__url {
+  margin: 0;
+  max-width: min(86vw, 520px);
+  font-family: var(--font-en);
+  font-size: 14px;
+  word-break: break-all;
+  user-select: all;
+  -webkit-user-select: all;
+  border-bottom: 2px solid var(--accent-1);
+  padding-bottom: 2px;
+}
+.qr__close { min-width: 160px; }
+
+body.is-qr-open .version { z-index: 70; }

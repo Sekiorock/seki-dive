@@ -1,0 +1,35 @@
+{
+  "app.title": "SEKIO DIVE",
+  "home.name": "Sekiorock Central Plaza",
+  "home.subtitle": "Science Government of Sekiorock",
+
+  "topbar.guest": "Guest",
+  "topbar.langLabel": "Switch language",
+  "topbar.qrLabel": "Show QR code to join",
+
+  "qr.button": "QR",
+  "qr.title": "Scan this QR code to join",
+  "qr.note": "Scan it with your camera to open SEKIO DIVE",
+  "qr.close": "Close",
+  "qr.error": "Could not make the QR code. Please check your connection.",
+
+  "world.hydration": "Hydration Beat",
+  "world.crystal": "Crystal Lab",
+  "world.freeze": "Freeze Guard",
+  "world.colloid": "Colloid Mist",
+
+  "scale.hydration": "10⁻¹⁰ m",
+  "scale.crystal": "Beaker",
+  "scale.freeze": "Semipermeable membrane",
+  "scale.colloid": "10⁻⁸ m",
+
+  "gate.locked": "The {name} gate is not open yet (coming soon)",
+  "home.hint": "Drag to look around · Tap a gate",
+
+  "error.three": "Could not load the 3D library. Please check your connection and reload the page.",
+  "error.webgl": "3D display is not available on this device.",
+
+  "admin.title": "Science Government of Sekiorock — Admin",
+  "admin.soon": "The admin screen will be built in home v0.5.",
+  "admin.back": "Back to the plaza"
+}

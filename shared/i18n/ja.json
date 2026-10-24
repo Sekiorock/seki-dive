@@ -1,0 +1,35 @@
+{
+  "app.title": "セキオダイブ",
+  "home.name": "セキオロック中央広場",
+  "home.subtitle": "科学政府セキオロック",
+
+  "topbar.guest": "ゲスト",
+  "topbar.langLabel": "言語の切り替え",
+  "topbar.qrLabel": "参加用のQRコードを表示",
+
+  "qr.button": "QR",
+  "qr.title": "このQRコードを読み取って参加",
+  "qr.note": "カメラで読み取ると、セキオダイブが開きます",
+  "qr.close": "閉じる",
+  "qr.error": "QRコードを作れませんでした。通信の状態を確かめてください。",
+
+  "world.hydration": "ハイドレーション・ビート",
+  "world.crystal": "クリスタル・ラボ",
+  "world.freeze": "フリーズ・ガード",
+  "world.colloid": "コロイド・ミスト",
+
+  "scale.hydration": "10⁻¹⁰ m",
+  "scale.crystal": "ビーカー",
+  "scale.freeze": "半透膜",
+  "scale.colloid": "10⁻⁸ m",
+
+  "gate.locked": "{name}の門は、まだ開いていません（準備中）",
+  "home.hint": "指でなぞって見回す ・ 門をタップ",
+
+  "error.three": "3Dの部品を読み込めませんでした。通信の状態を確かめて、ページを読み込み直してください。",
+  "error.webgl": "この端末では3D表示が使えません。",
+
+  "admin.title": "科学政府セキオロック 管理画面",
+  "admin.soon": "管理画面は home v0.5 で作ります。",
+  "admin.back": "広場へ戻る"
+}
