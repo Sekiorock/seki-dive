@@ -1,7 +1,7 @@
 // home/src/config.js
 // ホームワールドの数値の設定。数値はここに集め、プログラムの中に直接書かない。
 
-export const VERSION = 'home v0.1.0';
+export const VERSION = 'home v0.2.0';
 
 // QRコードで配る公開URL。
 // 空のままなら、いま開いているページのURL（例 https://ユーザー名.github.io/seki-dive/）を自動で使う。
@@ -60,5 +60,17 @@ export const GATES = [
 ];
 
 export const UI = {
-  toastMs: 2400,        // 短いお知らせを出しておく時間
+  toastMs: 3600,        // 短いお知らせを出しておく時間（ミリ秒）
+};
+
+// 中央の台座に立つ広報官ツカサ（切り絵のような板）。v0.4 で政府庁舎の前に移す
+export const STANDEE = {
+  id: 'tsukasa',
+  height: 3.0,          // 板の高さ（m）。門の柱は 4.2 m（見やすさのため人より少し大きめ）
+  plazaLines: 3,        // 広場でタップしたときのセリフの数（char.tsukasa.line.plaza1〜3）
+};
+
+// 初めて起動したときの流れ
+export const ONBOARDING = {
+  talkLines: 4,         // ツカサの説明のセリフの数（char.tsukasa.line.onboard1〜4）
 };

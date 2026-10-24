@@ -44,6 +44,10 @@ body { font-variant-numeric: tabular-nums; }
 }
 .btn:active, .btn[aria-pressed="true"] { background: var(--sumi); color: var(--white); }
 .btn:focus-visible, .lang-toggle__btn:focus-visible { outline: 2px solid var(--accent-1); outline-offset: 2px; }
+.btn:disabled { color: var(--nezumi); border-color: var(--nezumi); background: var(--white); cursor: default; }
+/* 大事なボタン（墨地に白文字）。押すと白地に反転 */
+.btn--primary { background: var(--sumi); color: var(--white); }
+.btn--primary:active { background: var(--white); color: var(--sumi); }
 .btn--small { font-size: 13px; padding: 4px 10px; min-height: 32px; }
 
 /* ── 上の帯 ── */
@@ -65,10 +69,8 @@ body { font-variant-numeric: tabular-nums; }
   width: 30px; height: 30px; flex: none;
   border: 1px solid var(--sumi);
   border-radius: 50%;
-  background:
-    radial-gradient(circle at 50% 38%, transparent 5.5px, var(--sumi) 5.5px, var(--sumi) 6.5px, transparent 6.5px),
-    radial-gradient(ellipse at 50% 110%, transparent 10px, var(--sumi) 10px, var(--sumi) 11px, transparent 11px),
-    var(--white);
+  background: var(--white);
+  object-fit: cover;
 }
 .topbar__name { font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .topbar__right { display: flex; align-items: center; gap: 8px; flex: none; }
@@ -153,3 +155,99 @@ body { font-variant-numeric: tabular-nums; }
 @media (prefers-reduced-motion: reduce) {
   .toast { transition: none; }
 }
+
+/* ── アバター選択の画面（shared/avatar.js） ── */
+.avatar-screen {
+  position: fixed;
+  top: calc(var(--topbar-h) + env(safe-area-inset-top));
+  left: 0; right: 0; bottom: 0;
+  z-index: 25;
+  background: var(--white);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 16px calc(30px + env(safe-area-inset-bottom));
+  overflow-y: auto;
+}
+.avatar-screen[hidden] { display: none; }
+.avatar-screen__head { text-align: center; }
+.avatar-screen__title { margin: 0; font-size: 18px; font-weight: 700; }
+.avatar-screen__dest { margin: 2px 0 0; font-size: 13px; color: var(--nezumi); }
+.avatar-screen__stage {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 240px;
+  border-bottom: 1px solid var(--sumi);
+  overflow: hidden;
+}
+/* 立ち絵は左に大きく。右の余白に名前とセリフを重ねる */
+.avatar-screen__stand {
+  position: absolute;
+  left: -6%;
+  bottom: 0;
+  height: 100%;
+  max-height: 460px;
+  width: auto;
+  aspect-ratio: 2 / 3;
+  object-fit: contain;
+  object-position: bottom;
+}
+.avatar-screen__stand.is-locked { filter: grayscale(1); opacity: 0.35; }
+.avatar-screen__info {
+  position: absolute;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 52%;
+  background: rgba(255, 255, 255, 0.9);
+  padding: 6px 0 6px 8px;
+}
+.avatar-screen__info p { margin: 0; }
+.avatar-screen__prev { font-size: 11px; color: var(--nezumi); min-height: 1.2em; }
+.avatar-screen__name { font-size: 20px; font-weight: 700; line-height: 1.3; }
+.avatar-screen__motif { font-size: 13px; margin-top: 4px !important; }
+.avatar-screen__role { font-size: 12px; color: var(--nezumi); margin-top: 2px !important; }
+.avatar-screen__line {
+  font-size: 14px;
+  line-height: 1.6;
+  margin-top: 12px !important;
+  padding-top: 10px;
+  border-top: 1px solid var(--nezumi);
+}
+.avatar-screen__list {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+.avatar-chip {
+  position: relative;
+  appearance: none;
+  padding: 0;
+  aspect-ratio: 1 / 1;
+  border: 1px solid var(--nezumi);
+  border-radius: 2px;
+  background: var(--white);
+  cursor: pointer;
+  overflow: hidden;
+  touch-action: manipulation;
+}
+.avatar-chip img { width: 100%; height: 100%; display: block; }
+.avatar-chip[aria-checked="true"] { border: 2px solid var(--sumi); }
+.avatar-chip[aria-checked="true"]::after {
+  content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 5px;
+  background: var(--chip-accent, var(--sumi));
+}
+.avatar-chip.is-locked img { filter: grayscale(1); opacity: 0.3; }
+.avatar-chip__lock {
+  position: absolute; left: 0; right: 0; bottom: 6px;
+  font-family: var(--font-en);
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--sumi);
+  text-align: center;
+}
+.avatar-chip:focus-visible { outline: 2px solid var(--accent-1); outline-offset: 2px; }
+.avatar-screen__note { margin: 0; font-size: 12px; color: var(--nezumi); text-align: center; }
+.avatar-screen__note.is-price { color: #B07F00; font-weight: 700; }   /* ヒヤマの値段は山吹系（白地で読める濃さ） */
+.avatar-screen__actions { display: grid; grid-template-columns: 1fr 2fr; gap: 10px; }
+.btn--primary:disabled { background: var(--white); color: var(--nezumi); border-color: var(--nezumi); }

@@ -94,3 +94,90 @@ html[lang="en"] .place-title__main { letter-spacing: 0.02em; }
 .qr__close { min-width: 160px; }
 
 body.is-qr-open .version { z-index: 70; }
+
+/* ── 初めて起動したときの流れ ── */
+.onboard {
+  position: fixed;
+  top: calc(var(--topbar-h) + env(safe-area-inset-top));
+  left: 0; right: 0; bottom: 0;
+  z-index: 25;
+  background: var(--white);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px 20px calc(36px + env(safe-area-inset-bottom));
+}
+.onboard[hidden] { display: none; }
+.onboard__panel {
+  width: 100%;
+  max-width: 360px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  text-align: center;
+}
+.onboard__title { margin: 0; font-size: 20px; font-weight: 700; line-height: 1.4; }
+.onboard__title--sub { font-family: var(--font-en); font-size: 16px; font-weight: 400; color: var(--nezumi); margin-top: -8px; }
+.onboard__langs { display: grid; gap: 12px; margin-top: 12px; }
+.onboard__lang { font-size: 18px; min-height: 56px; }
+.onboard__lang[lang="en"] { font-family: var(--font-en); }
+.onboard__warn {
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--sumi);
+  border-left: 5px solid var(--accent-1);
+  font-size: 14px;
+  line-height: 1.6;
+  text-align: left;
+}
+.onboard__field { display: flex; flex-direction: column; gap: 4px; text-align: left; }
+.onboard__input {
+  font: inherit;
+  font-size: 18px;            /* 16px 以上にして、iPhone で画面が拡大されないように */
+  padding: 10px 12px;
+  border: 1px solid var(--sumi);
+  border-radius: 2px;
+  background: var(--white);
+  color: var(--sumi);
+}
+.onboard__input:focus { outline: 2px solid var(--accent-1); outline-offset: 1px; }
+.onboard__rule { font-size: 12px; color: var(--nezumi); }
+.onboard__error { margin: 0; min-height: 1.4em; font-size: 13px; color: var(--sumi); font-weight: 700; }
+
+.onboard__talk {
+  position: relative;
+  width: 100%;
+  max-width: 420px;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+}
+.onboard__stand {
+  flex: 1 1 auto;
+  min-height: 0;
+  width: 100%;
+  object-fit: contain;
+  object-position: bottom;
+}
+.onboard__bubble {
+  border: 1px solid var(--sumi);
+  background: var(--white);
+  padding: 12px 14px 10px;
+  cursor: pointer;
+}
+.onboard__speaker {
+  margin: 0 0 6px;
+  font-size: 13px;
+  font-weight: 700;
+  display: inline-block;
+  border-bottom: 2px solid var(--accent-2);   /* 差し色2：山吹（ツカサの飾り紐の色） */
+}
+.onboard__line { margin: 0; font-size: 15px; line-height: 1.7; min-height: 5.1em; }
+.onboard__bubble-foot { display: flex; align-items: center; justify-content: space-between; margin-top: 8px; }
+.onboard__step { font-family: var(--font-en); font-size: 12px; color: var(--nezumi); }
+
+body.is-onboarding .place-title,
+body.is-onboarding .hint,
+body.is-avatar-open .place-title,
+body.is-avatar-open .hint { visibility: hidden; }

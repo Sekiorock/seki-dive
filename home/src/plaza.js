@@ -2,7 +2,8 @@
 // 白い3D広場と4つの門を作る。Three.js（cdnjs）を読み込んだあとに使う（グローバルの THREE）。
 // 見た目：つや消しの白に細い墨の輪郭線。奥は白い霧に溶ける。影は使わない。
 
-import { PLAZA, GATE, GATES } from './config.js';
+import { PLAZA, GATE, GATES, STANDEE } from './config.js';
+import { standUrl } from '../../shared/characters.js';
 import { BASE, ACCENTS, hexToInt } from '../../shared/theme.js';
 import { t } from '../../shared/i18n.js';
 
@@ -257,16 +258,37 @@ function buildGround() {
   return g;
 }
 
+/** 立ち絵を切り絵のような板にして立たせる（いつもカメラの方を向く）。 */
+function buildStandee(id, height, onLoad) {
+  const w = height * (1024 / 1536);
+  const mat = new THREE.MeshBasicMaterial({ transparent: true, alphaTest: 0.4, side: THREE.DoubleSide });
+  const tex = new THREE.TextureLoader().load(standUrl(id, 'normal'), () => onLoad && onLoad());
+  if ('encoding' in tex) tex.encoding = THREE.sRGBEncoding;
+  mat.map = tex;
+  const geo = new THREE.PlaneGeometry(w, height);
+  geo.translate(0, height / 2, 0);   // 足もとを原点に
+  const mesh = new THREE.Mesh(geo, mat);
+  mesh.userData.talkId = id;
+  return mesh;
+}
+
 /** 広場全体を作って返す。 */
-export function buildPlaza(scene) {
+export function buildPlaza(scene, { onTextureLoad } = {}) {
   scene.add(buildGround());
+
+  const standee = buildStandee(STANDEE.id, STANDEE.height, onTextureLoad);
+  standee.position.set(0, PLAZA.centerHeight, 0);
+  scene.add(standee);
+
   const gates = GATES.map((def) => {
     const gate = buildGate(def);
     scene.add(gate.group);
     return gate;
   });
   return {
-    hitTargets: gates.map((g) => g.hit),
+    hitTargets: [standee, ...gates.map((g) => g.hit)],
     redrawLabels: () => gates.forEach((g) => g.redraw()),
+    /** 立ち絵の板をカメラの方へ向ける（縦の軸のまわりだけ回す） */
+    faceCamera: (camera) => { standee.rotation.y = Math.atan2(camera.position.x, camera.position.z); },
   };
 }

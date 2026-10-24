@@ -54,6 +54,12 @@ export function t(key, vars) {
   return s;
 }
 
+/** 言語を指定して文字を取り出す（言語を選ぶ画面で、両方の言語を並べて出すときに使う）。 */
+export function tIn(lang, key) {
+  const s = (dict[lang] || {})[key];
+  return s === undefined ? t(key) : s;
+}
+
 export function getLang() { return current; }
 
 export function setLang(lang) {
