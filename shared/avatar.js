@@ -1,14 +1,15 @@
 // shared/avatar.js
 // アバター選択の画面（仕様書 4章）。ワールドに入るたびに出す。
 // 前回と同じアバターなら「このまま入る」を押すだけ。
-// まだ持っていないキャラクターは選べない（解放は home v0.3 の呉服屋から）。
+// まだ持っていないキャラクターは選べない（解放はホームの呉服屋で）。
+// 衣装の色違いを持っていれば、ここで着替えられる。
 
 import { t, onLangChange } from './i18n.js';
 import {
   selectableCharacters, standUrl, faceUrl, nameKey, motifKey, roleKey, lineKey,
-  UNLOCK_PRICE, DEFAULT_AVATAR,
+  UNLOCK_PRICE, DEFAULT_AVATAR, COSTUMES, COLOR_HEX,
 } from './characters.js';
-import { getAvatar, setAvatar, ownsCharacter } from './auth.js';
+import { getAvatar, setAvatar, ownsCharacter, ownsCostume, getCostume, setCostume } from './auth.js';
 
 let root = null;
 let state = null;   // { world, picked, previous, expression, line, resolve }
@@ -38,6 +39,7 @@ function build() {
         <p class="avatar-screen__line"></p>
       </div>
     </div>
+    <div class="avatar-screen__costumes" role="radiogroup"></div>
     <div class="avatar-screen__list" role="radiogroup"></div>
     <p class="avatar-screen__note"></p>
     <div class="avatar-screen__actions">
@@ -54,6 +56,12 @@ function build() {
     b.addEventListener('click', () => pick(c.id));
     list.append(b);
   }
+  root.querySelector('.avatar-screen__costumes').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-col]');
+    if (!b) return;
+    setCostume(state.picked, b.dataset.col);
+    render();
+  });
   root.querySelector('.avatar-screen__back').addEventListener('click', () => close(null));
   root.querySelector('.avatar-screen__enter').addEventListener('click', () => {
     if (!ownsCharacter(state.picked)) return;
@@ -84,7 +92,7 @@ function render() {
   q('.avatar-screen__dest').textContent = t('avatar.forWorld', { world: t(`world.${world}`) });
 
   const img = q('.avatar-screen__stand');
-  const src = standUrl(picked, state.expression);
+  const src = standUrl(picked, state.expression, getCostume(picked));
   if (img.getAttribute('src') !== src) img.setAttribute('src', src);
   img.classList.toggle('is-locked', !owned);
   img.alt = t(nameKey(picked));
@@ -97,9 +105,24 @@ function render() {
     ? t('quote', { line: t(lineKey(picked, state.line)) })
     : t('avatar.lockedNote');
 
+  // 衣装：いつもの衣装と、持っている色違い
+  const box = q('.avatar-screen__costumes');
+  const cols = owned ? ['base', ...(COSTUMES[picked] || []).filter((c) => ownsCostume(picked, c))] : [];
+  box.hidden = cols.length < 2;
+  box.setAttribute('aria-label', t('avatar.costume'));
+  const wearing = getCostume(picked);
+  box.innerHTML = cols.length < 2 ? '' : `<span class="avatar-screen__costume-label">${t('avatar.costume')}</span>` + cols.map((c) => {
+    const label = c === 'base' ? t('gofuku.base') : t(`color.${c}`);
+    const color = c === 'base' ? '#FFFFFF' : COLOR_HEX[c];
+    return `<button type="button" class="swatch" role="radio" aria-checked="${c === wearing}" aria-label="${label}" title="${label}" data-col="${c}" style="--swatch:${color}"></button>`;
+  }).join('');
+
   root.querySelectorAll('.avatar-chip').forEach((b) => {
     const id = b.dataset.id;
     const has = ownsCharacter(id);
+    const face = faceUrl(id, getCostume(id));
+    const fimg = b.querySelector('img');
+    if (fimg.getAttribute('src') !== face) fimg.setAttribute('src', face);
     b.setAttribute('aria-checked', String(id === picked));
     b.setAttribute('aria-label', has ? t(nameKey(id)) : t('avatar.chipLocked', { name: t(nameKey(id)), price: price(id) }));
     b.classList.toggle('is-locked', !has);

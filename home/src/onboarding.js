@@ -1,12 +1,13 @@
 // home/src/onboarding.js
 // 初めて起動したときの流れ（仕様書 6章）
 //   言語の選択 → ニックネームの入力（本名は使わない注意） → 広報官ツカサによる国の説明 → 広場へ
-// 開国交付金1,000ヒヤマの支給は、ヒヤマを作る home v0.3 でこの流れに足す。
+// ツカサの説明の4場面目で、開国交付金（1,000ヒヤマ）を支給する（1人1回だけ）。
 
 import { t, tIn, setLang, getLang, onLangChange } from '../../shared/i18n.js';
 import { getUser, setNickname, cleanNickname, finishOnboarding, NICKNAME_MAX } from '../../shared/auth.js';
 import { standUrl, nameKey, lineKey } from '../../shared/characters.js';
 import { ONBOARDING } from './config.js';
+import { grantFounding, SETTINGS, formatHiyama } from '../../shared/economy.js';
 
 export function runOnboarding() {
   const root = document.getElementById('onboard');
@@ -98,17 +99,26 @@ export function runOnboarding() {
       <div class="onboard__bubble">
         <p class="onboard__speaker"></p>
         <p class="onboard__line" aria-live="polite"></p>
+        <p class="onboard__grant" hidden></p>
         <div class="onboard__bubble-foot">
           <span class="onboard__step"></span>
           <button type="button" class="btn ${last ? 'btn--primary' : 'btn--small'} onboard__advance"></button>
         </div>
       </div>`;
+    const isGrant = talkIndex + 1 === ONBOARDING.grantLine;
+    if (isGrant) grantFounding();   // すでに支給済みなら何もしない
+    const amount = formatHiyama(SETTINGS.foundingGrant);
+    if (isGrant) {
+      const g = box.querySelector('.onboard__grant');
+      g.hidden = false;
+      g.textContent = t('onboard.grantBadge', { amount });
+    }
     const img = box.querySelector('img');
-    img.src = standUrl('tsukasa', last ? 'smile' : 'normal');
+    img.src = standUrl('tsukasa', last || isGrant ? 'smile' : 'normal');
     img.alt = t(nameKey('tsukasa'));
     box.querySelector('.onboard__speaker').textContent = t(nameKey('tsukasa'));
     box.querySelector('.onboard__line').textContent =
-      t(lineKey('tsukasa', `onboard${talkIndex + 1}`), { name: getUser().nickname });
+      t(lineKey('tsukasa', `onboard${talkIndex + 1}`), { name: getUser().nickname, amount });
     box.querySelector('.onboard__step').textContent = t('onboard.step', { n: talkIndex + 1, total });
     const adv = box.querySelector('.onboard__advance');
     adv.textContent = last ? t('onboard.toPlaza') : t('onboard.tapNext');

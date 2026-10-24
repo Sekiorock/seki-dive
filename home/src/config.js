@@ -1,7 +1,7 @@
 // home/src/config.js
 // ホームワールドの数値の設定。数値はここに集め、プログラムの中に直接書かない。
 
-export const VERSION = 'home v0.2.0';
+export const VERSION = 'home v0.3.0';
 
 // QRコードで配る公開URL。
 // 空のままなら、いま開いているページのURL（例 https://ユーザー名.github.io/seki-dive/）を自動で使う。
@@ -70,7 +70,23 @@ export const STANDEE = {
   plazaLines: 3,        // 広場でタップしたときのセリフの数（char.tsukasa.line.plaza1〜3）
 };
 
+// 広場の施設。門と門の間に置く（angleDeg：北が0、東が90）。南東は v1.0 までに書庫・対戦の広場を置くため空けておく
+export const FACILITY = {
+  distanceFromCenter: 8.2,
+  width: 3.4,           // 建物の間口
+  depth: 2.4,
+  wallHeight: 2.2,
+  roofHeight: 1.2,
+  labelHeight: 4.6,     // 名札の高さ
+};
+export const FACILITIES = [
+  { id: 'bank',   angleDeg: 45,  keeper: 'tsukasa' },  // 北東  銀行（番人：ツカサ兼任）
+  { id: 'gofuku', angleDeg: 315, keeper: 'eta' },      // 北西  呉服屋（番人：灯野 エタ）
+  { id: 'dougu',  angleDeg: 225, keeper: 'karin' },    // 南西  道具屋（番人：硝 カリン兼任）
+];
+
 // 初めて起動したときの流れ
 export const ONBOARDING = {
-  talkLines: 4,         // ツカサの説明のセリフの数（char.tsukasa.line.onboard1〜4）
+  talkLines: 5,         // ツカサの説明のセリフの数（char.tsukasa.line.onboard1〜5）
+  grantLine: 4,         // 開国交付金を支給する場面（4場面目）
 };

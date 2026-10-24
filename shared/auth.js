@@ -1,6 +1,6 @@
 // shared/auth.js
-// 本人の情報（ニックネーム、ワールドごとのアバター、持っているキャラクター）。
-// home v0.2 では端末の中（localStorage）だけに保存する。
+// 本人の情報（ニックネーム、ワールドごとのアバター、持っているキャラクター・衣装・道具）。
+// home v0.3 までは端末の中（localStorage）だけに保存する。
 // home v0.4 で Firebase の匿名ログインと users/{uid} に移し、先生のログインもここに足す。
 
 import { CHARACTERS, DEFAULT_AVATAR } from './characters.js';
@@ -15,6 +15,9 @@ function blank() {
     avatars: {},                      // ワールドごとのアバター { hydration: 'minato', ... }
     lastAvatar: DEFAULT_AVATAR,       // 最後に選んだアバター（上の帯の顔アイコン）
     owned: CHARACTERS.filter((c) => c.start).map((c) => c.id),   // 持っているキャラクター
+    costumesOwned: {},                // 持っている衣装の色違い { minato: ['gunjo'], ... }
+    costume: {},                      // キャラクターごとに今着ている衣装 { minato: 'gunjo' }（なければ base）
+    items: {},                        // 道具屋で買ったもの { hint: 2, ... }
   };
 }
 
@@ -57,4 +60,37 @@ export function setAvatar(world, charId) {
   save();
 }
 
+// ── キャラクターと衣装 ──
 export function ownsCharacter(charId) { return getUser().owned.includes(charId); }
+export function addCharacter(charId) {
+  const u = getUser();
+  if (!u.owned.includes(charId)) { u.owned.push(charId); save(); }
+}
+
+export function ownsCostume(charId, costume) {
+  return costume === 'base' || (getUser().costumesOwned[charId] || []).includes(costume);
+}
+export function addCostume(charId, costume) {
+  const u = getUser();
+  const list = u.costumesOwned[charId] || (u.costumesOwned[charId] = []);
+  if (!list.includes(costume)) list.push(costume);
+  save();
+}
+/** そのキャラクターが今着ている衣装（持っていない衣装なら base） */
+export function getCostume(charId) {
+  const c = getUser().costume[charId] || 'base';
+  return ownsCostume(charId, c) ? c : 'base';
+}
+export function setCostume(charId, costume) {
+  if (!ownsCostume(charId, costume)) return;
+  getUser().costume[charId] = costume;
+  save();
+}
+
+// ── 道具屋で買ったもの ──
+export function itemCount(itemId) { return getUser().items[itemId] || 0; }
+export function addItem(itemId, n = 1) {
+  const u = getUser();
+  u.items[itemId] = (u.items[itemId] || 0) + n;
+  save();
+}

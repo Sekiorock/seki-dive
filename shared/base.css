@@ -73,8 +73,38 @@ body { font-variant-numeric: tabular-nums; }
   object-fit: cover;
 }
 .topbar__name { font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.topbar__right { display: flex; align-items: center; gap: 8px; flex: none; }
-.topbar__qr { display: inline-flex; align-items: center; gap: 4px; font-family: var(--font-en); }
+.topbar__right { display: flex; align-items: center; gap: 6px; flex: none; }
+.topbar__qr { display: inline-flex; align-items: center; justify-content: center; width: 34px; padding: 0; }
+.topbar__qr svg { width: 16px; height: 16px; }
+
+/* 残高（山吹色） */
+.topbar__balance {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 32px;
+  padding: 0 9px 0 7px;
+  border: 1px solid var(--sumi);
+  border-radius: 16px;
+  background: #F8B500;          /* 山吹 */
+  color: var(--sumi);
+  font-family: var(--font-en);
+  font-size: 14px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+.topbar__balance:active { background: var(--sumi); color: #F8B500; }
+.topbar__balance.is-arrears { background: var(--white); }
+.topbar__coin {
+  width: 14px; height: 14px;
+  border-radius: 50%;
+  border: 1.5px solid currentColor;
+  position: relative;
+}
+.topbar__coin::after { content: ""; position: absolute; inset: 3px; border-radius: 50%; border: 1px solid currentColor; }
 
 /* ── 言語の切り替え「日本語｜EN」 ── */
 .lang-toggle {
@@ -251,3 +281,103 @@ body { font-variant-numeric: tabular-nums; }
 .avatar-screen__note.is-price { color: #B07F00; font-weight: 700; }   /* ヒヤマの値段は山吹系（白地で読める濃さ） */
 .avatar-screen__actions { display: grid; grid-template-columns: 1fr 2fr; gap: 10px; }
 .btn--primary:disabled { background: var(--white); color: var(--nezumi); border-color: var(--nezumi); }
+
+/* アバター選択：衣装の色見本 */
+.avatar-screen__costumes { display: flex; align-items: center; gap: 10px; min-height: 32px; }
+.avatar-screen__costumes[hidden] { display: none; }
+.avatar-screen__costume-label { font-size: 12px; color: var(--nezumi); margin-right: 2px; }
+.swatch {
+  appearance: none;
+  width: 30px; height: 30px;
+  border-radius: 50%;
+  border: 1px solid var(--sumi);
+  background: var(--swatch, #fff);
+  padding: 0;
+  cursor: pointer;
+}
+.swatch[aria-checked="true"] { box-shadow: 0 0 0 2px var(--white), 0 0 0 4px var(--sumi); }
+
+/* ── 施設の画面（ホームの銀行・呉服屋・道具屋） ── */
+.shop {
+  position: fixed;
+  top: calc(var(--topbar-h) + env(safe-area-inset-top));
+  left: 0; right: 0; bottom: 0;
+  z-index: 25;
+  background: var(--white);
+  display: flex;
+  flex-direction: column;
+  padding: 12px 16px calc(28px + env(safe-area-inset-bottom));
+}
+.shop[hidden] { display: none; }
+.shop__head { display: flex; align-items: center; gap: 12px; }
+.shop__keeper { width: 52px; height: 52px; border-radius: 50%; border: 1px solid var(--sumi); flex: none; }
+.shop__title { margin: 0; font-size: 20px; font-weight: 700; }
+.shop__keeper-name { margin: 0; font-size: 12px; color: var(--nezumi); }
+.shop__speech { margin: 10px 0 8px; font-size: 14px; line-height: 1.6; padding: 8px 12px; border: 1px solid var(--sumi); border-left: 4px solid var(--accent-1); }
+.shop__body { flex: 1 1 auto; overflow-y: auto; min-height: 0; padding-bottom: 8px; -webkit-overflow-scrolling: touch; }
+.shop__foot { display: grid; padding-top: 10px; border-top: 1px solid var(--sumi); }
+.shop__sub { font-size: 14px; font-weight: 700; margin: 16px 0 6px; padding-bottom: 4px; border-bottom: 1px solid var(--sumi); display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+.shop__note, .shop__disclaimer, .shop__empty { font-size: 12px; color: var(--nezumi); margin: 6px 0; line-height: 1.6; }
+.shop__alert { font-size: 13px; font-weight: 700; margin: 6px 0; padding: 6px 10px; border: 1px solid var(--sumi); }
+
+/* 銀行 */
+.bank__balance-box { display: flex; align-items: baseline; gap: 8px; padding: 10px 14px; border: 1px solid var(--sumi); border-radius: 2px; background: #F8B500; }
+.bank__label { font-size: 13px; }
+.bank__balance { font-family: var(--font-en); font-size: 30px; font-weight: 700; margin-left: auto; }
+.bank__balance.is-arrears::before { content: ""; }
+.bank__unit { font-size: 13px; }
+.ledger { list-style: none; margin: 0; padding: 0; }
+.ledger__row { display: flex; gap: 10px; padding: 10px 0; border-bottom: 1px solid #DDDDDD; }
+.ledger__main { flex: 1; min-width: 0; display: grid; grid-template-columns: auto 1fr; column-gap: 8px; row-gap: 2px; align-items: baseline; }
+.ledger__when { font-family: var(--font-en); font-size: 12px; color: var(--nezumi); }
+.ledger__type { font-size: 11px; justify-self: start; padding: 0 6px; border: 1px solid var(--sumi); border-radius: 2px; }
+.ledger__item { grid-column: 1 / -1; font-size: 14px; font-weight: 700; }
+.ledger__partner { grid-column: 1 / -1; font-size: 12px; color: var(--nezumi); }
+.ledger__detail { grid-column: 1 / -1; font-size: 11px; color: var(--nezumi); font-variant-numeric: tabular-nums; }
+.ledger__nums { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; flex: none; }
+.ledger__amount { font-family: var(--font-en); font-size: 17px; font-weight: 700; }
+.ledger__row.is-in .ledger__amount { color: #8A6400; }   /* 収入：山吹系（白地で読める濃さ） */
+.ledger__balance { font-family: var(--font-en); font-size: 11px; color: var(--nezumi); }
+
+/* 品物の一覧（呉服屋・道具屋） */
+.goods-list { list-style: none; margin: 0; padding: 0; }
+.goods { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid #DDDDDD; }
+.goods__face { width: 56px; height: 56px; border: 1px solid var(--nezumi); border-radius: 2px; flex: none; }
+.goods__face.is-locked, .costume__face.is-locked { filter: grayscale(1); opacity: 0.4; }
+.goods__text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.goods__name { font-size: 15px; font-weight: 700; }
+.goods__desc { font-size: 12px; color: var(--nezumi); line-height: 1.5; }
+.goods__have { font-size: 12px; }
+.goods__owned { font-size: 12px; padding: 4px 8px; border: 1px solid var(--nezumi); color: var(--nezumi); flex: none; }
+.buy { display: grid; justify-items: end; gap: 2px; flex: none; }
+.buy__price { font-family: var(--font-en); font-weight: 700; font-size: 14px; }
+html[lang="ja"] .buy__price { font-family: var(--font-ja); }
+.buy__tax { font-size: 11px; color: var(--nezumi); }
+.buy__why { font-size: 11px; color: var(--sumi); }
+.tabs { display: grid; grid-template-columns: 1fr 1fr; border: 1px solid var(--sumi); border-radius: 2px; margin-bottom: 4px; }
+.tabs__tab { appearance: none; font: inherit; font-size: 14px; padding: 8px; border: 0; background: var(--white); color: var(--sumi); cursor: pointer; }
+.tabs__tab + .tabs__tab { border-left: 1px solid var(--sumi); }
+.tabs__tab[aria-selected="true"] { background: var(--sumi); color: var(--white); }
+.costume-block__lock { font-size: 11px; font-weight: 400; color: var(--nezumi); }
+.costume-list { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.costume { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 4px; border: 1px solid transparent; }
+.costume.is-wearing { border-color: var(--sumi); }
+.costume__face { width: 100%; aspect-ratio: 1 / 1; height: auto; border: 1px solid #DDDDDD; }
+.costume__name { font-size: 11px; display: inline-flex; align-items: center; gap: 4px; text-align: center; }
+.costume__swatch { width: 10px; height: 10px; border-radius: 50%; border: 1px solid var(--sumi); display: inline-block; flex: none; }
+.costume__state { font-size: 11px; font-weight: 700; min-height: 32px; display: inline-flex; align-items: center; }
+.costume .btn--small { font-family: var(--font-en); padding: 4px 6px; min-width: 56px; }
+
+/* 買う前の確認 */
+.confirm {
+  position: fixed; inset: 0; z-index: 45;
+  background: rgba(17, 17, 17, 0.45);
+  display: grid; place-items: center; padding: 20px;
+}
+.confirm[hidden] { display: none; }
+.confirm__box { width: 100%; max-width: 340px; background: var(--white); border: 1px solid var(--sumi); padding: 18px 16px 14px; }
+.confirm__title { margin: 0 0 8px; font-size: 16px; }
+.confirm__item { margin: 0 0 10px; font-size: 17px; font-weight: 700; }
+.confirm__price { margin: 0 0 4px; font-size: 14px; }
+.confirm__after { margin: 0 0 14px; font-size: 13px; color: var(--nezumi); }
+.confirm__actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }

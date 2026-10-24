@@ -181,3 +181,80 @@ body.is-onboarding .place-title,
 body.is-onboarding .hint,
 body.is-avatar-open .place-title,
 body.is-avatar-open .hint { visibility: hidden; }
+.onboard__grant {
+  margin: 8px 0 0;
+  display: inline-block;
+  padding: 3px 10px;
+  border: 1px solid var(--sumi);
+  border-radius: 14px;
+  background: #F8B500;   /* 山吹：通貨 */
+  font-family: var(--font-en);
+  font-weight: 700;
+  font-size: 14px;
+}
+html[lang="ja"] .onboard__grant { font-family: var(--font-ja); }
+.onboard__grant[hidden] { display: none; }
+
+/* タイトルの下の注意書き（ヒヤマはゲームの中だけの通貨） */
+.place-title__note {
+  display: block;
+  margin: 6px auto 0;
+  max-width: 300px;
+  font-size: 10px;
+  line-height: 1.5;
+  color: var(--nezumi);
+  background: rgba(255, 255, 255, 0.85);
+}
+
+/* 施設と門の一覧 */
+.hint { bottom: calc(66px + env(safe-area-inset-bottom)); }
+.nav-open {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: calc(26px + env(safe-area-inset-bottom));
+  z-index: 12;
+  min-width: 180px;
+  min-height: 36px;
+}
+.nav-open:active { transform: translateX(-50%); }
+.nav {
+  position: fixed;
+  inset: 0;
+  z-index: 35;
+  background: rgba(17, 17, 17, 0.35);
+  display: flex;
+  align-items: flex-end;
+}
+.nav[hidden] { display: none; }
+.nav__box {
+  width: 100%;
+  background: var(--white);
+  border-top: 1px solid var(--sumi);
+  padding: 14px 16px calc(30px + env(safe-area-inset-bottom));
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.nav__head { margin: 4px 0 2px; font-size: 12px; font-weight: 700; color: var(--nezumi); }
+.nav__list { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.nav__item {
+  appearance: none; width: 100%;
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 10px; min-height: 44px;
+  font: inherit; font-size: 13px; text-align: left;
+  background: var(--white); color: var(--sumi);
+  border: 1px solid var(--sumi); border-radius: 2px; cursor: pointer;
+}
+.nav__item:active { background: var(--sumi); color: var(--white); }
+.nav__item span { flex: 1; line-height: 1.3; }
+.nav__item small { font-size: 10px; color: var(--nezumi); }
+.nav__mark { width: 6px; align-self: stretch; flex: none; }
+.nav__mark--facility { background: var(--accent-1); }
+.nav__close { margin-top: 6px; }
+
+body.is-onboarding .nav-open,
+body.is-avatar-open .nav-open,
+body.is-shop-open .nav-open,
+body.is-shop-open .place-title,
+body.is-shop-open .hint { visibility: hidden; }

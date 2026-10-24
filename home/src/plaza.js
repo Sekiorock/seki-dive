@@ -2,7 +2,7 @@
 // 白い3D広場と4つの門を作る。Three.js（cdnjs）を読み込んだあとに使う（グローバルの THREE）。
 // 見た目：つや消しの白に細い墨の輪郭線。奥は白い霧に溶ける。影は使わない。
 
-import { PLAZA, GATE, GATES, STANDEE } from './config.js';
+import { PLAZA, GATE, GATES, STANDEE, FACILITY, FACILITIES } from './config.js';
 import { standUrl } from '../../shared/characters.js';
 import { BASE, ACCENTS, hexToInt } from '../../shared/theme.js';
 import { t } from '../../shared/i18n.js';
@@ -47,11 +47,11 @@ function fitText(ctx, text, maxWidth, size, weight) {
   return s;
 }
 
-/** 門の上に浮かぶ名札（ワールド名）。常にカメラの方を向く。 */
-function drawNameLabel(canvas, id) {
+/** 門や施設の上に浮かぶ名札。常にカメラの方を向く。accentId は差し色を取るワールド、textKey は文字の鍵。 */
+function drawNameLabel(canvas, accentId, textKey) {
   const ctx = canvas.getContext('2d');
   const { width: W, height: H } = canvas;
-  const acc = ACCENTS[id];
+  const acc = ACCENTS[accentId];
   ctx.clearRect(0, 0, W, H);
   // 白地に墨の細い枠
   ctx.fillStyle = BASE.white;
@@ -65,7 +65,7 @@ function drawNameLabel(canvas, id) {
   ctx.fillStyle = acc.a2.hex;
   ctx.fillRect(22, 4, 6, H - 8);
   // ワールド名
-  const name = t(`world.${id}`);
+  const name = t(textKey);
   ctx.fillStyle = BASE.sumi;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
@@ -173,7 +173,7 @@ function buildGate(def) {
 
   // 門の上に浮かぶ名札
   const labelCanvas = makeCanvas(640, 128);
-  drawNameLabel(labelCanvas, def.id);
+  drawNameLabel(labelCanvas, def.id, `world.${def.id}`);
   const labelTex = makeTexture(labelCanvas);
   const label = new THREE.Sprite(new THREE.SpriteMaterial({ map: labelTex, depthTest: false, transparent: true, fog: false }));
   label.scale.set(5.0, 1.0, 1);
@@ -196,7 +196,7 @@ function buildGate(def) {
   g.lookAt(0, 0, 0);
 
   const redraw = () => {
-    drawNameLabel(labelCanvas, def.id); labelTex.needsUpdate = true;
+    drawNameLabel(labelCanvas, def.id, `world.${def.id}`); labelTex.needsUpdate = true;
     drawScalePlaque(plaqueCanvas, def.id); plaqueTex.needsUpdate = true;
   };
   return { group: g, hit, redraw };
@@ -258,6 +258,72 @@ function buildGround() {
   return g;
 }
 
+/** 広場の施設（銀行・呉服屋・道具屋）。白い壁と切妻屋根、入口に藍ののれん。 */
+function buildFacility(def) {
+  const g = new THREE.Group();
+  g.name = `facility-${def.id}`;
+  const F = FACILITY;
+  const home = ACCENTS.home;
+
+  // 壁
+  const walls = outlined(new THREE.BoxGeometry(F.width, F.wallHeight, F.depth));
+  walls.position.y = F.wallHeight / 2;
+  g.add(walls);
+
+  // 切妻屋根（三角形を奥行きの方向に押し出す）
+  const half = F.width / 2 + 0.35;
+  const shape = new THREE.Shape();
+  shape.moveTo(-half, 0); shape.lineTo(half, 0); shape.lineTo(0, F.roofHeight); shape.lineTo(-half, 0);
+  const roofDepth = F.depth + 0.5;
+  const roofGeo = new THREE.ExtrudeGeometry(shape, { depth: roofDepth, bevelEnabled: false });
+  roofGeo.translate(0, F.wallHeight, -roofDepth / 2);
+  g.add(outlined(roofGeo));
+
+  // 入口（中心を向く面）と、藍ののれん（3枚）
+  const front = F.depth / 2 + 0.01;
+  const door = new THREE.LineSegments(
+    new THREE.EdgesGeometry(new THREE.PlaneGeometry(1.4, 1.7)), lineMat());
+  door.position.set(0, 0.85, front);
+  g.add(door);
+  const norenMat = new THREE.MeshBasicMaterial({ color: hexToInt(home.a1.hex), side: THREE.DoubleSide });
+  for (let i = -1; i <= 1; i++) {
+    const n = new THREE.Mesh(new THREE.PlaneGeometry(0.44, 0.62), norenMat);
+    n.position.set(i * 0.47, 1.4, front + 0.02);
+    g.add(n);
+  }
+  // のれんの上の山吹の細い横木（通貨にかかわる施設のしるし）
+  const bar = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.06, 0.06),
+    new THREE.MeshBasicMaterial({ color: hexToInt(home.a2.hex) }));
+  bar.position.set(0, 1.74, front + 0.04);
+  g.add(bar);
+
+  // 名札
+  const labelCanvas = makeCanvas(640, 128);
+  const textKey = `facility.${def.id}`;
+  drawNameLabel(labelCanvas, 'home', textKey);
+  const labelTex = makeTexture(labelCanvas);
+  const label = new THREE.Sprite(new THREE.SpriteMaterial({ map: labelTex, depthTest: false, transparent: true, fog: false }));
+  label.scale.set(3.6, 0.72, 1);
+  label.position.set(0, F.labelHeight, 0);
+  label.renderOrder = 10;
+  g.add(label);
+
+  // タップの当たり判定
+  const hitH = F.labelHeight + 0.5;
+  const hit = new THREE.Mesh(new THREE.BoxGeometry(F.width + 0.6, hitH, F.depth + 0.6),
+    new THREE.MeshBasicMaterial({ visible: false }));
+  hit.position.y = hitH / 2;
+  hit.userData.facilityId = def.id;
+  g.add(hit);
+
+  const a = THREE.MathUtils.degToRad(def.angleDeg);
+  g.position.set(Math.sin(a) * F.distanceFromCenter, 0, -Math.cos(a) * F.distanceFromCenter);
+  g.lookAt(0, 0, 0);
+
+  const redraw = () => { drawNameLabel(labelCanvas, 'home', textKey); labelTex.needsUpdate = true; };
+  return { group: g, hit, redraw };
+}
+
 /** 立ち絵を切り絵のような板にして立たせる（いつもカメラの方を向く）。 */
 function buildStandee(id, height, onLoad) {
   const w = height * (1024 / 1536);
@@ -285,9 +351,14 @@ export function buildPlaza(scene, { onTextureLoad } = {}) {
     scene.add(gate.group);
     return gate;
   });
+  const facilities = FACILITIES.map((def) => {
+    const f = buildFacility(def);
+    scene.add(f.group);
+    return f;
+  });
   return {
-    hitTargets: [standee, ...gates.map((g) => g.hit)],
-    redrawLabels: () => gates.forEach((g) => g.redraw()),
+    hitTargets: [standee, ...gates.map((g) => g.hit), ...facilities.map((f) => f.hit)],
+    redrawLabels: () => [...gates, ...facilities].forEach((g) => g.redraw()),
     /** 立ち絵の板をカメラの方へ向ける（縦の軸のまわりだけ回す） */
     faceCamera: (camera) => { standee.rotation.y = Math.atan2(camera.position.x, camera.position.z); },
   };

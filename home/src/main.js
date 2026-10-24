@@ -3,6 +3,7 @@
 // v0.1：白い3D広場を見回す、4つの門、上の帯、日本語・英語の切り替え、QRコード表示
 // v0.2：門をタップするとアバター選択の画面へ（ワールドの中身はまだ準備中）、
 //       中央に立つ広報官ツカサのセリフ、初めて起動したときの流れ
+// v0.3：ヒヤマ（端末の中だけ）、開国交付金、銀行・呉服屋・道具屋、施設と門の一覧
 
 import { VERSION, RENDER, PLAZA, CAMERA, UI, STANDEE } from './config.js';
 import { initI18n, t, onLangChange, applyToDom } from '../../shared/i18n.js';
@@ -14,6 +15,9 @@ import { runOnboarding } from './onboarding.js';
 import { getUser } from '../../shared/auth.js';
 import { openAvatarSelect } from '../../shared/avatar.js';
 import { nameKey, lineKey } from '../../shared/characters.js';
+import { grantFounding, foundingGranted, SETTINGS, formatHiyama } from '../../shared/economy.js';
+import { openShop, setShopToast } from './shops.js';
+import { createNav } from './nav.js';
 
 const SHARED_PATH = 'shared/';   // index.html から見た shared フォルダの場所
 
@@ -47,7 +51,8 @@ async function start() {
   }
 
   const qr = createQrOverlay();
-  createTopbar({ mount: document.getElementById('topbar'), showQR: true, onQR: qr.open });
+  createTopbar({ mount: document.getElementById('topbar'), showQR: true, onQR: qr.open, onBalance: () => openShop('bank') });
+  setShopToast(toast);
   applyToDom();
 
   if (typeof window.THREE === 'undefined') {
@@ -64,6 +69,15 @@ async function start() {
 
   // 初めて起動したときだけ、言語 → ニックネーム → ツカサの説明 の流れを出す
   if (!getUser().onboarded) await runOnboarding();
+
+  // v0.2 までに初回の流れを終えた人には、開国交付金をここで支給する
+  if (!foundingGranted()) {
+    grantFounding();
+    toast(t('talk', {
+      name: t(nameKey('tsukasa')),
+      line: t(lineKey('tsukasa', 'lateGrant'), { amount: formatHiyama(SETTINGS.foundingGrant) }),
+    }));
+  }
   document.body.classList.add('is-home');
 }
 
@@ -192,6 +206,8 @@ function startScene() {
       toast(t('talk', { name: t(nameKey(data.talkId)), line: t(lineKey(data.talkId, `plaza${talkCount}`)) }));
     } else if (data.gateId) {
       enterGate(data.gateId);
+    } else if (data.facilityId) {
+      openShop(data.facilityId);
     }
   }
   let talkCount = 0;
@@ -202,6 +218,8 @@ function startScene() {
     const chosen = await openAvatarSelect(world);
     if (chosen) toast(t('world.notReady', { world: t(`world.${world}`) }));
   }
+
+  createNav({ onGate: enterGate, onFacility: openShop });
 
   // 言語を切り替えたら、3Dの名札と額の文字を描き直す
   onLangChange(() => {
