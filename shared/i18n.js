@@ -54,10 +54,12 @@ export function t(key, vars) {
   return s;
 }
 
-/** 言語を指定して文字を取り出す（言語を選ぶ画面で、両方の言語を並べて出すときに使う）。 */
-export function tIn(lang, key) {
-  const s = (dict[lang] || {})[key];
-  return s === undefined ? t(key) : s;
+/** 言語を指定して文字を取り出す（両方の言語を並べて出すときや、日本語と英語の両方で保存するお知らせに使う）。 */
+export function tIn(lang, key, vars) {
+  let s = (dict[lang] || {})[key];
+  if (s === undefined) return t(key, vars);
+  if (vars) for (const k of Object.keys(vars)) s = s.split(`{${k}}`).join(vars[k]);
+  return s;
 }
 
 export function getLang() { return current; }

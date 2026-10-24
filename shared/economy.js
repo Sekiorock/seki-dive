@@ -24,6 +24,12 @@ export const SETTINGS = {
   dailyRewardCap: 2000,       // 1日に受け取れる報酬の上限（5つのワールドの合計）
   itemMax: 9,                 // 道具屋の品を、1種類につき持てる数
   ledgerShow: 100,            // 通帳に表示する行の数（新しいほうから）
+  lessonGrant: 300,           // 授業交付金（先生が授業の始めに配る）
+  battleFee: 100,             // 対戦の参加料（対戦の版で使う）
+  quitFine: 200,              // 対戦の途中退出・放置の罰金（対戦の版で使う）
+  residentTax: 100,           // 住民税（任意。先生が徴収を押したときに1人あたり）
+  assetTaxRate: 0.05,         // 資産税（任意。基準を超えた分にかける割合）
+  assetTaxThreshold: 5000,    // 資産税がかかり始める残高
   services: [                 // 道具屋のサービス（使えるのは各ワールドができてから）
     { id: 'hint', price: 50 },
     { id: 'practice', price: 100 },
@@ -31,7 +37,18 @@ export const SETTINGS = {
   ],
 };
 // 管理画面から変えてよい項目
-const REMOTE_KEYS = ['foundingGrant', 'incomeTaxRate', 'consumptionTaxRate', 'betTaxRate', 'dailyRewardCap', 'itemMax'];
+export const REMOTE_KEYS = ['foundingGrant', 'incomeTaxRate', 'consumptionTaxRate', 'betTaxRate', 'dailyRewardCap', 'itemMax',
+  'lessonGrant', 'battleFee', 'quitFine', 'residentTax', 'assetTaxRate', 'assetTaxThreshold'];
+
+// 数でない設定（ワールドの開閉、対戦の可否、任意の税のオン・オフ）。Firebase の settings から届く
+let settingsRaw = {};
+const settingsListeners = [];
+/** 設定の生の値（worldsOpen, battleMode, residentTaxOn, assetTaxOn, leaderboardOn など） */
+export function getSettings() { return settingsRaw; }
+/** 設定が変わったときに呼ぶ。fn(設定) */
+export function onSettingsChange(fn) { settingsListeners.push(fn); fn(settingsRaw); }
+/** ワールドの門が開いているか（先生が閉じていなければ開いている） */
+export function isWorldOpen(world) { return !(settingsRaw.worldsOpen && settingsRaw.worldsOpen[world] === false); }
 
 const KEY = 'sekidive.wallet';
 const TREASURY_KEY = 'sekidive.treasury';
@@ -44,6 +61,7 @@ function blankWallet() {
 let wallet = null;
 let ledger = [];          // 新しいものが先頭
 let treasury = null;      // 国庫の残高（わからないときは null）
+let leaderboard = null;   // 長者番付 { at, list: [{ nickname, balance }] }
 const listeners = [];
 const moneyListeners = [];
 const treasuryListeners = [];
@@ -117,10 +135,17 @@ async function startRemote() {
       if (first3) { first3 = false; once(); }
     });
   });
+  // 長者番付（先生が更新したもの。掲示板に出すかどうかは設定の leaderboardOn）
+  F.onValue(r('public/leaderboard'), (s) => {
+    leaderboard = s.val() || null;
+    treasuryListeners.forEach((fn) => fn(treasury));
+  }, () => {});
   // 設定（税率など）：あれば上書き
   F.onValue(r('settings'), (s) => {
     const v = s.val() || {};
     for (const k of REMOTE_KEYS) if (typeof v[k] === 'number') SETTINGS[k] = v[k];
+    settingsRaw = v;
+    settingsListeners.forEach((fn) => fn(v));
     notify();
   });
 }
@@ -137,6 +162,8 @@ export function onTreasuryChange(fn) { treasuryListeners.push(fn); if (treasury 
 export function getBalance() { return wallet ? wallet.balance : 0; }
 export function getLedger() { return ledger; }
 export function getTreasury() { return treasury; }
+/** 長者番付（先生が更新したもの） */
+export function getLeaderboard() { return leaderboard; }
 export function foundingGranted() { return !!(wallet && wallet.foundingGranted); }
 /** 滞納（残高がマイナス）中は、買い物と対戦の参加ができない */
 export function isInArrears() { return getBalance() < 0; }

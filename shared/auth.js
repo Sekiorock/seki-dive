@@ -190,3 +190,65 @@ export function addItem(itemId, n = 1) {
   u.items[itemId] = (u.items[itemId] || 0) + n;
   save();
 }
+
+// ───────────── 先生のログイン（管理画面 admin.html だけで使う） ─────────────
+// 生徒の匿名ログインと混ざらないように、別の名前（'admin'）で Firebase を立ち上げる。
+// 同じブラウザで生徒として遊んでいても、先生のログインで生徒のデータが消えることはない。
+
+export const adminBackend = {
+  ready: false,
+  reason: '',       // 'noconfig'（設定がない） / 'offline'（つながらない）
+  db: null, fb: null, auth: null, authM: null,
+  uid: null, email: null,
+  isAdmin: false,
+};
+
+let adminReady = null;
+/** 管理画面のための接続（1回だけ）。前回のログインが残っていれば、それを使う。 */
+export function initAdminBackend() {
+  if (!adminReady) adminReady = (async () => {
+    if (!FIREBASE_CONFIG.apiKey || !FIREBASE_CONFIG.databaseURL) { adminBackend.reason = 'noconfig'; return adminBackend; }
+    try {
+      const base = `https://www.gstatic.com/firebasejs/${FIREBASE_SDK_VERSION}/`;
+      const [appM, authM, dbM] = await withTimeout(Promise.all([
+        import(`${base}firebase-app.js`), import(`${base}firebase-auth.js`), import(`${base}firebase-database.js`),
+      ]), CONNECT_TIMEOUT_MS);
+      const app = appM.initializeApp(FIREBASE_CONFIG, 'admin');
+      adminBackend.auth = authM.getAuth(app);
+      adminBackend.authM = authM;
+      adminBackend.db = dbM.getDatabase(app);
+      adminBackend.fb = dbM;
+      await withTimeout(adminBackend.auth.authStateReady(), CONNECT_TIMEOUT_MS);
+      adminBackend.ready = true;
+      await checkAdmin();
+    } catch (e) {
+      console.info('[セキオダイブ] 管理画面が Firebase につながりません。', e && e.message);
+      adminBackend.reason = 'offline';
+    }
+    return adminBackend;
+  })();
+  return adminReady;
+}
+
+async function checkAdmin() {
+  const u = adminBackend.auth.currentUser;
+  adminBackend.uid = u && !u.isAnonymous ? u.uid : null;
+  adminBackend.email = u && !u.isAnonymous ? (u.email || '') : null;
+  adminBackend.isAdmin = false;
+  if (!adminBackend.uid) return;
+  const { fb, db } = adminBackend;
+  const snap = await fb.get(fb.ref(db, `admins/${adminBackend.uid}`));
+  adminBackend.isAdmin = snap.val() === true;
+}
+
+/** 先生のメールとパスワードでログインする。失敗したときは、エラーの種類の文字（Firebase の code）を投げる */
+export async function adminSignIn(email, password) {
+  await adminBackend.authM.signInWithEmailAndPassword(adminBackend.auth, email, password);
+  await checkAdmin();
+  return adminBackend;
+}
+
+export async function adminSignOut() {
+  await adminBackend.authM.signOut(adminBackend.auth);
+  adminBackend.uid = null; adminBackend.email = null; adminBackend.isAdmin = false;
+}

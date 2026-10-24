@@ -1,7 +1,7 @@
 // home/src/config.js
 // ホームワールドの数値の設定。数値はここに集め、プログラムの中に直接書かない。
 
-export const VERSION = 'home v0.4.0';
+export const VERSION = 'home v0.5.0';
 
 // QRコードで配る公開URL。
 // 空のままなら、いま開いているページのURL（例 https://ユーザー名.github.io/seki-dive/）を自動で使う。
@@ -18,8 +18,8 @@ export const RENDER = {
 
 // 広場の大きさ（単位：m。人の大きさの世界）
 export const PLAZA = {
-  radius: 13,           // つやのある円い広場の半径
-  ringCount: 4,         // ネオンの同心円の数
+  radius: 13,           // 和柄の円い広場の半径
+  lanternRadius: 12.3,  // 縁の石灯籠（8つ）を置く半径
   groundSize: 160,      // 広場の外の地面の大きさ
   fogColor: '#0A1030',  // 奥が溶けていく夜の霧の色
   fogNearOffset: 6,     // 霧が始まる距離（カメラから広場の中心までの距離に足す）
@@ -45,10 +45,10 @@ export const CAMERA = {
 export const GATE = {
   distanceFromCenter: 11.5,
   pillarHeight: 4.2,
-  pillarRadius: 0.26,   // 丸い柱の太さ
+  pillarRadius: 0.28,   // 八角の柱の太さ
   width: 3.6,           // 柱と柱の間
   beamOverhang: 0.8,    // 笠木（いちばん上の横木）のはみ出し
-  kasagiLift: 0.32,     // 笠木の両端の反り上がり
+  kasagiLift: 0.22,     // 笠木の両端の反り上がり
   labelHeight: 6.3,     // 門の名札の高さ
 }
 
@@ -63,12 +63,24 @@ export const UI = {
   toastMs: 3600,        // 短いお知らせを出しておく時間（ミリ秒）
 };
 
-// 中央の政府庁舎（丸い塔）と、宙に浮かぶ国庫の掲示板
+// 中央の政府庁舎（三重の塔）と、宙に浮かぶ国庫の掲示板
 export const GOV = {
-  baseRadius: 2.4,
-  towerRadius: 1.25,
-  towerHeight: 2.6,
-  boardHeight: 6.4,     // 掲示板の高さ
+  baseRadius: 2.4,      // 八角の基壇
+  tiers: [              // 各階の幅と高さ（下から）
+    { size: 2.2, height: 1.3 },
+    { size: 1.7, height: 0.9 },
+    { size: 1.25, height: 0.75 },
+  ],
+  ringRadius: 2.0,      // 塔のまわりを回る光の帯
+  ringHeight: 2.6,
+  boardHeight: 7.0,     // 国庫の掲示板の高さ
+};
+
+// 演出（ゲームらしい動き）
+export const FX = {
+  particles: 140,       // 浮かぶ光の粒の数
+  particleHeight: 7,    // 粒が昇る高さ
+  wavePeriod: 4.5,      // 床を走る光の輪が1回広がる秒数
 };
 
 // 政府庁舎の前に立つ広報官ツカサ（切り絵のような板）

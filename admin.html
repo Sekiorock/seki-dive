@@ -4,39 +4,20 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="robots" content="noindex">
+  <meta name="theme-color" content="#05081A">
   <title>セキオダイブ</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@400;700;800&family=Nunito:wght@400;700;800&display=swap">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=M+PLUS+1p:wght@400;700;800&family=Chakra+Petch:wght@500;700&display=swap">
   <link rel="stylesheet" href="shared/base.css">
-  <style>
-    .admin { padding: calc(var(--topbar-h) + 40px) 20px 60px; text-align: center; line-height: 1.7; }
-    .admin h1 { font-size: 19px; margin: 0 0 12px; text-shadow: 0 0 12px rgba(54, 169, 255, 0.6); }
-    .admin p { color: var(--dim); margin: 0 0 24px; }
-    .admin a.btn { display: inline-block; text-decoration: none; }
-  </style>
+  <link rel="stylesheet" href="admin/style.css">
 </head>
 <body data-title-key="admin.title">
-  <!-- 科学政府セキオロックの管理画面。本体は home v0.5 で作る。今は準備中の表示だけ。 -->
-  <header id="topbar"></header>
-  <main class="admin">
-    <h1 data-i18n="admin.title"></h1>
-    <p data-i18n="admin.soon"></p>
-    <a class="btn" href="./" data-i18n="admin.back"></a>
-  </main>
+  <!-- 科学政府セキオロックの管理画面（先生だけ）。プログラムは admin/main.js -->
+  <header id="admin-head" class="adm-head"></header>
+  <main id="admin" class="adm"></main>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
   <div id="version" class="version"></div>
-
-  <script type="module">
-    import { VERSION } from './home/src/config.js';
-    import { initI18n, applyToDom } from './shared/i18n.js';
-    import { applyTheme } from './shared/theme.js';
-    import { createTopbar } from './shared/topbar.js';
-
-    applyTheme('home');
-    document.getElementById('version').textContent = VERSION;
-    await initI18n('shared/');
-    createTopbar({ mount: document.getElementById('topbar'), showQR: false });
-    applyToDom();
-  </script>
+  <script type="module" src="admin/main.js"></script>
 </body>
 </html>

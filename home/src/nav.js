@@ -4,6 +4,7 @@
 import { t, onLangChange } from '../../shared/i18n.js';
 import { GATES, FACILITIES } from './config.js';
 import { ACCENTS } from '../../shared/theme.js';
+import { isWorldOpen } from '../../shared/economy.js';
 
 export function createNav({ onGate, onFacility }) {
   const btn = document.getElementById('nav-open');
@@ -12,7 +13,7 @@ export function createNav({ onGate, onFacility }) {
   const render = () => {
     btn.textContent = t('nav.open');
     const gate = (g) => `
-      <li><button type="button" class="nav__item" data-gate="${g.id}">
+      <li><button type="button" class="nav__item ${isWorldOpen(g.id) ? '' : 'is-closed'}" data-gate="${g.id}">
         <i class="nav__mark" style="background:${ACCENTS[g.id].a1.neon};color:${ACCENTS[g.id].a1.neon}"></i>
         <span>${t(`world.${g.id}`)}</span><small>${t(`scale.${g.id}`)}</small>
       </button></li>`;

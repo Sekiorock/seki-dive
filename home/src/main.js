@@ -6,7 +6,7 @@
 // v0.3：ヒヤマ（端末の中だけ）、開国交付金、銀行・呉服屋・道具屋、施設と門の一覧
 // v0.4：サイバー和風のデザイン、ヒヤマを Firebase へ、国庫、政府庁舎の掲示板、お知らせ、出来事の発光
 
-import { VERSION, RENDER, PLAZA, CAMERA, UI, STANDEE } from './config.js';
+import { VERSION, RENDER, PLAZA, CAMERA, UI, STANDEE, GATES } from './config.js';
 import { initI18n, t, onLangChange, applyToDom, getLang, setLang } from '../../shared/i18n.js';
 import { applyTheme, ACCENTS, hexToInt } from '../../shared/theme.js';
 import { createTopbar } from '../../shared/topbar.js';
@@ -16,7 +16,7 @@ import { runOnboarding } from './onboarding.js';
 import { getUser, initBackend, backend, setUserLang } from '../../shared/auth.js';
 import { openAvatarSelect } from '../../shared/avatar.js';
 import { nameKey, lineKey } from '../../shared/characters.js';
-import { initEconomy, grantFounding, foundingGranted, onTreasuryChange, SETTINGS, formatHiyama } from '../../shared/economy.js';
+import { initEconomy, grantFounding, foundingGranted, onTreasuryChange, onSettingsChange, isWorldOpen, SETTINGS, formatHiyama } from '../../shared/economy.js';
 import { initNotices } from '../../shared/notices.js';
 import { openShop, setShopToast } from './shops.js';
 import { createNav } from './nav.js';
@@ -243,6 +243,7 @@ function startScene() {
   // 門に入る：アバター選択の画面 → （ワールドの中身はまだ準備中なので広場に戻る）
   async function enterGate(world) {
     document.getElementById('toast').classList.remove('is-shown');
+    if (!isWorldOpen(world)) { toast(t('gate.closedToast', { world: t(`world.${world}`) })); return; }
     const chosen = await openAvatarSelect(world);
     if (chosen) toast(t('world.notReady', { world: t(`world.${world}`) }));
   }
@@ -259,6 +260,8 @@ function startScene() {
 
   // 国庫の残高を、政府庁舎の上に浮かぶ掲示板に出す
   onTreasuryChange((n) => { plaza.setTreasury(n); requestRender(); });
+  // 先生が閉じたワールドの門は、灰色にして入れなくする
+  onSettingsChange(() => { GATES.forEach((gt) => plaza.setGateOpen(gt.id, isWorldOpen(gt.id))); requestRender(); });
 
   // 描き直し：触っているときは毎回、何もしていないときは少なめに（電池のため）
   let last = 0;

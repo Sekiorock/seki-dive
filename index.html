@@ -6,10 +6,10 @@
   <meta name="theme-color" content="#060A1A">
   <title>セキオダイブ</title>
 
-  <!-- 文字：丸い字体（日本語は M PLUS Rounded 1c、英語と数字は Nunito） -->
+  <!-- 文字：日本語は M PLUS 1p、英語と数字はゲームらしい Chakra Petch -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@400;700;800&family=Nunito:wght@400;700;800&display=swap">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=M+PLUS+1p:wght@400;700;800&family=Chakra+Petch:wght@500;700&display=swap">
 
   <link rel="stylesheet" href="shared/base.css">
   <link rel="stylesheet" href="home/style.css">
@@ -18,6 +18,8 @@
   <header id="topbar"></header>
 
   <canvas id="scene" aria-hidden="true"></canvas>
+  <!-- 画面のふちの飾り（ゲームの照準のような四すみ、流れる走査の光） -->
+  <div class="hud-frame" aria-hidden="true"></div>
 
   <div class="place-title">
     <span class="place-title__sub" data-i18n="home.subtitle"></span>

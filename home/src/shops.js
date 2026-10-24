@@ -6,7 +6,7 @@
 import { t, onLangChange } from '../../shared/i18n.js';
 import {
   getBalance, getLedger, isInArrears, canAfford, pay, consumptionTax, priceWithTax,
-  formatHiyama, onWalletChange, onTreasuryChange, getTreasury, SETTINGS,
+  formatHiyama, onWalletChange, onTreasuryChange, getTreasury, getLeaderboard, getSettings, onSettingsChange, SETTINGS,
 } from '../../shared/economy.js';
 import { backend } from '../../shared/auth.js';
 import { getNotices, getPersonalNotices, onNoticesChange, noticeText } from '../../shared/notices.js';
@@ -57,6 +57,7 @@ function build() {
   onLangChange(() => { rerender(); if (!confirmEl.hidden) confirmEl.hidden = true; });
   onWalletChange(rerender);
   onTreasuryChange(() => { if (current === 'gov') render(); });
+  onSettingsChange(() => { if (current === 'gov') render(); });
   onNoticesChange(() => { if (current === 'gov') render(); });
   onUserChange(rerender);
   document.addEventListener('keydown', (e) => {
@@ -121,6 +122,16 @@ function bankHtml() {
     ${rows ? `<ol class="ledger">${rows}</ol>` : `<p class="shop__empty">${esc(t('bank.empty'))}</p>`}`;
 }
 
+// ── 長者番付（先生が「出す」にしているときだけ） ──
+function leaderboardHtml() {
+  const lb = getLeaderboard();
+  if (!getSettings().leaderboardOn || !lb || !lb.list) return '';
+  const d = new Date(lb.at || 0);
+  return `
+    <h3 class="shop__sub">${esc(t('gov.leaderboard'))}<span class="costume-block__lock">${esc(t('gov.leaderboardAt', { date: `${d.getMonth() + 1}/${d.getDate()}` }))}</span></h3>
+    <ol class="leaderboard">${lb.list.map((x) => `<li><span>${esc(x.nickname)}</span><b>${formatHiyama(x.balance)}</b></li>`).join('')}</ol>`;
+}
+
 // ── 政府庁舎の掲示板：国庫の残高、税率、お知らせ ──
 function govHtml() {
   const tr = getTreasury();
@@ -149,6 +160,7 @@ function govHtml() {
     <p class="shop__note">${esc(t('gov.treasuryNote'))}</p>
     <h3 class="shop__sub">${esc(t('gov.rates'))}</h3>
     <ul class="rates">${rates}</ul>
+    ${leaderboardHtml()}
     <h3 class="shop__sub">${esc(t('gov.notices'))}</h3>
     ${notices ? `<ol class="notices">${notices}</ol>` : `<p class="shop__empty">${esc(t('gov.noNotices'))}</p>`}
     <p class="net-status ${backend.mode === 'online' ? 'is-online' : ''}"><i></i>${esc(net)}</p>`;
