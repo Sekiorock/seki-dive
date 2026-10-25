@@ -161,6 +161,8 @@ html[lang="en"] body { font-family: var(--font-en); }
 .topbar__right { display: flex; align-items: center; gap: 5px; flex: none; padding-right: 6px; }
 .topbar__qr { display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; min-height: 36px; padding: 0; }
 .topbar__qr svg { width: 16px; height: 16px; }
+.topbar__home { display: inline-flex; align-items: center; gap: 4px; min-height: 36px; padding: 0 10px; flex: none; font-size: 12px; }
+.topbar__left.has-home .topbar__name { display: none; }   /* ワールドの中では、名前の代わりに「ホームへ」 */
 
 /* 残高（山吹のネオン） */
 .topbar__balance {

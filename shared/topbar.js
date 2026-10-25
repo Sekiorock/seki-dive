@@ -2,6 +2,7 @@
 // 画面の上の帯。左にニックネームと顔アイコン、右に残高・QR・言語の切り替え。
 // 残高は山吹色で表示する（仕様書 5章）。ニックネームがまだないときは「ゲスト」と出す。
 // QRコードの表示ボタンはホームだけ（showQR: true のときだけ出す）。
+// ワールドの中では、左上に「ホームへ」ボタンを出す（onHome を渡したときだけ。全体の仕様書 1章）。
 
 import { createLangToggle, onLangChange, t } from './i18n.js';
 import { getUser, onUserChange, getCostume } from './auth.js';
@@ -15,8 +16,9 @@ import { fx } from './theme.js';
  * @param {boolean} [opt.showQR]   QRボタンを出すか（ホームだけ true）
  * @param {Function} [opt.onQR]    QRボタンを押したとき
  * @param {Function} [opt.onBalance] 残高を押したとき（ホームでは銀行の通帳を開く）
+ * @param {Function} [opt.onHome]  「ホームへ」を押したとき（ワールドの中だけ）
  */
-export function createTopbar({ mount, showQR = false, onQR, onBalance }) {
+export function createTopbar({ mount, showQR = false, onQR, onBalance, onHome }) {
   mount.classList.add('topbar');
   mount.innerHTML = '';
 
@@ -29,6 +31,15 @@ export function createTopbar({ mount, showQR = false, onQR, onBalance }) {
   face.width = 30; face.height = 30;
   const name = document.createElement('span');
   name.className = 'topbar__name';
+  if (onHome) {
+    const home = document.createElement('button');
+    home.type = 'button';
+    home.className = 'btn btn--small topbar__home';
+    home.innerHTML = '<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M2 8 8 2.5 14 8M4 7v6.5h3V10h2v3.5h3V7" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg><span data-i18n="topbar.home"></span>';
+    home.addEventListener('click', () => onHome());
+    left.append(home);
+    left.classList.add('has-home');
+  }
   left.append(face, name);
 
   const refreshIdentity = () => {

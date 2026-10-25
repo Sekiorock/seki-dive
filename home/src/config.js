@@ -1,7 +1,7 @@
 // home/src/config.js
 // ホームワールドの数値の設定。数値はここに集め、プログラムの中に直接書かない。
 
-export const VERSION = 'home v0.5.0';
+export const VERSION = 'home v0.5.1';
 
 // QRコードで配る公開URL。
 // 空のままなら、いま開いているページのURL（例 https://ユーザー名.github.io/seki-dive/）を自動で使う。
@@ -58,6 +58,9 @@ export const GATES = [
   { id: 'freeze',    angleDeg: 180 },  // 南  ③ フリーズ・ガード
   { id: 'colloid',   angleDeg: 270 },  // 西  ④ コロイド・ミスト
 ];
+
+// できあがっているワールド（門から、そのワールドのページへ移る）。できたら足していく
+export const READY_WORLDS = ['hydration'];
 
 export const UI = {
   toastMs: 3600,        // 短いお知らせを出しておく時間（ミリ秒）

@@ -5,8 +5,10 @@
 //       中央に立つ広報官ツカサのセリフ、初めて起動したときの流れ
 // v0.3：ヒヤマ（端末の中だけ）、開国交付金、銀行・呉服屋・道具屋、施設と門の一覧
 // v0.4：サイバー和風のデザイン、ヒヤマを Firebase へ、国庫、政府庁舎の掲示板、お知らせ、出来事の発光
+// v0.5：管理画面、和柄とゲームの演出、先生が閉じた門
+// hydration v0.1 から：① の門から、ハイドレーション・ビートのページへ移る
 
-import { VERSION, RENDER, PLAZA, CAMERA, UI, STANDEE, GATES } from './config.js';
+import { VERSION, RENDER, PLAZA, CAMERA, UI, STANDEE, GATES, READY_WORLDS } from './config.js';
 import { initI18n, t, onLangChange, applyToDom, getLang, setLang } from '../../shared/i18n.js';
 import { applyTheme, ACCENTS, hexToInt } from '../../shared/theme.js';
 import { createTopbar } from '../../shared/topbar.js';
@@ -245,7 +247,10 @@ function startScene() {
     document.getElementById('toast').classList.remove('is-shown');
     if (!isWorldOpen(world)) { toast(t('gate.closedToast', { world: t(`world.${world}`) })); return; }
     const chosen = await openAvatarSelect(world);
-    if (chosen) toast(t('world.notReady', { world: t(`world.${world}`) }));
+    if (!chosen) return;
+    // できあがっているワールドは、そのページへ移る（アバターはここで選んだので、向こうでは聞かない）
+    if (READY_WORLDS.includes(world)) location.href = `${world}/?from=home`;
+    else toast(t('world.notReady', { world: t(`world.${world}`) }));
   }
 
   createNav({ onGate: enterGate, onFacility: openShop });
