@@ -1,7 +1,7 @@
 // hydration/src/config.js
 // ① ハイドレーション・ビートの数値の設定。数値はここに集め、プログラムの中に直接書かない。
 
-export const VERSION = 'hydration v0.1.0';
+export const VERSION = 'hydration v0.2.0';
 
 // ── 判定の幅（ミリ秒。ノーツが判定リングに来た瞬間からのずれ） ──
 export const JUDGE = {
@@ -13,7 +13,23 @@ export const JUDGE = {
   // 見逃し（MISS）と決めるまでの待ち時間（ミリ秒）。描画が重い端末で、タップの知らせが遅れて届いても
   // 正しく判定できるように、判定の幅を過ぎてから少しだけ待つ（判定の幅そのものは変わらない）
   missGraceMs: 120,
+  // 同時押し：左右のボタンを、この時間の内に両方押せば「同時」とみなす（ミリ秒）
+  simulMs: 90,
 };
+
+// ── 難易度（ハイドレーション・ビート仕様書 4章）──
+//   assist    補助輪の段階。1：色と文字（陽イオン など）／2：色だけ／3：色も消え、化学式と白黒の模型だけ
+//   approachSec  奥から判定リングまで飛んでくる秒数（長いほど遅く、粒子どうしの間隔が広く見える）
+//   thin      true なら、8分音符の裏拍のノーツを抜いて、続けて押すところを減らす
+//   chainStep 糖（-OH が多い）の同時押しの連続の間隔（拍）。大きいほどゆっくり
+//   hclGap    HCl の O のあと、Cl⁻（H）が来るまでの間隔（拍）
+//   reward    1曲の報酬の目安（ヒヤマ）。報酬を出すのはこの先の版
+export const DIFFICULTY = {
+  easy:   { assist: 1, approachSec: 3.2, thin: true,  chainStep: 1, hclGap: 1,   reward: 30 },
+  normal: { assist: 2, approachSec: 2.7, thin: false, chainStep: 1, hclGap: 0.5, reward: 80 },
+  hard:   { assist: 3, approachSec: 2.2, thin: false, chainStep: 0.5, hclGap: 0.5, reward: 200 },
+};
+export const DEFAULT_DIFFICULTY = 'easy';
 
 // ── 点数（1曲の満点は 1,000,000 点。ノーツ1個の点数 × 判定ごとの割合） ──
 export const SCORE = {
@@ -37,8 +53,8 @@ export const CUTIN_EVERY = 30;
 
 // ── ノーツの動き ──
 export const NOTE = {
-  approachSec: 2.4,     // 奥から判定リングまで飛んでくる秒数（v0.2 からは難易度で変える）
-  spawnZ: -46,          // 現れる場所（奥）
+  approachSec: 2.7,     // 奥から判定リングまで飛んでくる秒数（難易度の approachSec で上書きする）
+  spawnZ: -36,          // 現れる場所（奥）
   judgeZ: 0,            // 判定リングの場所
   passZ: 4,             // 見逃したノーツが消える場所（手前）
   leadInSec: 2.0,       // 曲が始まるまでの待ち時間
@@ -48,16 +64,24 @@ export const NOTE = {
 export const RENDER = {
   maxPixelRatio: 2,     // 画素の倍率は最大2
   maxMolecules: 40,     // 画面に出す分子は同時に40個まで（ハイドレーション・ビート仕様書 9章）
-  fov: 58,
-  fogNear: 14,
-  fogFar: 52,
+  // カメラ：v0.2 で、高く・遠くから、狭い画角（望遠）で道を見下ろすようにした。
+  // 遠近の差が小さくなり、奥の粒子も大きめに、粒子どうしの間隔も広く見える
+  fov: 32,
+  cameraY: 14,
+  cameraZ: 22,
+  lookAtY: 0,
+  lookAtZ: -4.6,
+  fogNear: 48,          // 霧が始まる距離（カメラからの距離）
+  fogFar: 86,
+  noteScale: 1.15,      // 粒子の大きさの倍率
+  labelScale: 1.6,      // 化学式の札の大きさの倍率
 };
 
 // 背景の NaCl の結晶（正しく水和させるたびにイオンが1個ずつはがれる）
 export const CRYSTAL = {
   size: 3,              // 3×3×3 = 27個のイオン
   spacing: 1.15,
-  position: [5.5, 6.5, -30],
+  position: [4.2, 9, -34],
 };
 
 // 音量（0〜1）

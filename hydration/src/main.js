@@ -1,13 +1,14 @@
 // hydration/src/main.js
 // ① ハイドレーション・ビート：画面の切り替えと全体の進行。
 // v0.1：3D空間、水分子、飛んでくる Na⁺ と Cl⁻、左右のボタン、タイミング判定。ステージ1の曲だけ。
+// v0.2：3章のすべての溶質ノーツ（同時押し・見送り・HCl の電離）、難易度と補助輪の3段階、練習曲。
 //
 // 画面：タイトル → プレイ（一時停止あり）→ 結果。ワールドに入るときは、毎回アバター選択の画面を通る。
 // 時刻の基準は、音の時計（audio.js の heardTime）。
 
-import { VERSION, NOTE, COMBO_LAYERS, CUTIN_EVERY, FLASH } from './config.js';
+import { VERSION, NOTE, COMBO_LAYERS, CUTIN_EVERY, FLASH, DIFFICULTY, DEFAULT_DIFFICULTY } from './config.js';
 import { NOTES } from './notes.js';
-import { CHARTS, expandChart } from './charts.js';
+import { CHARTS, CHART_ORDER, expandChart, chartFormulas } from './charts.js';
 import { createJudge } from './judge.js';
 import { unlockAudio, heardTime, heardTimeAt, pauseAudio, resumeAudio } from './audio.js';
 import { createSong, playHit, playWrong } from './music.js';
@@ -24,7 +25,19 @@ import { DEFAULT_AVATAR, standUrl, lineKey, nameKey } from '../../shared/charact
 
 const $ = (id) => document.getElementById(id);
 const params = new URLSearchParams(location.search);
-const STAGE = 1;
+const DIFF_ORDER = ['easy', 'normal', 'hard'];
+const STORE_KEY = 'sekio.hb.pick';
+
+// 選んだ曲と難易度（この端末だけで覚えておく）
+let pick = { chart: CHART_ORDER[0], diff: DEFAULT_DIFFICULTY };
+try {
+  const saved = JSON.parse(localStorage.getItem(STORE_KEY) || 'null');
+  if (saved && CHARTS[saved.chart]) pick.chart = saved.chart;
+  if (saved && DIFFICULTY[saved.diff]) pick.diff = saved.diff;
+} catch (e) { /* 覚えておけない端末では、毎回はじめの選び方になる */ }
+function savePick() { try { localStorage.setItem(STORE_KEY, JSON.stringify(pick)); } catch (e) { /* 何もしない */ } }
+
+function stageLabel(chart) { return chart.stageNo ? t('hb.stageLabel', { n: chart.stageNo }) : t('hb.practiceLabel'); }
 
 let screen = 'loading';      // 'title' / 'play' / 'result'
 let scene = null;
@@ -54,27 +67,43 @@ function renderTitle() {
   st.querySelector('.hb-guide__stand').src = standUrl('minato', 'normal');
   st.querySelector('.hb-guide__stand').alt = t(nameKey('minato'));
   st.querySelector('.hb-guide__line').textContent = t('quote', { line: t(lineKey('minato', 'hb1')) });
-  const chart = CHARTS[STAGE];
-  st.querySelector('.hb-stage__no').textContent = t('hb.stageLabel', { n: STAGE });
-  st.querySelector('.hb-stage__name').textContent = t(chart.titleKey);
-  st.querySelector('.hb-stage__info').textContent = t('hb.stageInfo', { bpm: chart.bpm, notes: `${NOTES.Na.formula} ${NOTES.Cl.formula}` });
+  const esc = (x) => String(x).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  $('chart-pick').innerHTML = CHART_ORDER.map((id) => {
+    const c = CHARTS[id];
+    const on = id === pick.chart;
+    return `<button type="button" class="hb-chart${on ? ' is-on' : ''}" data-act="pick-chart" data-chart="${id}" aria-pressed="${on}">
+      <span class="hb-chart__no">${esc(stageLabel(c))}</span>
+      <span class="hb-chart__name">${esc(t(c.titleKey))}</span>
+      <span class="hb-chart__info">${esc(t('hb.chartInfo', { bpm: c.bpm }))}</span>
+      <span class="hb-chart__notes">${esc(chartFormulas(c).join(' '))}</span>
+    </button>`;
+  }).join('');
+  $('diff-pick').innerHTML = DIFF_ORDER.map((d) => {
+    const on = d === pick.diff;
+    return `<button type="button" class="hb-diff__btn${on ? ' is-on' : ''}" data-act="pick-diff" data-diff="${d}" aria-pressed="${on}">
+      <b>${esc(t(`hb.diff.${d}`))}</b><span>${esc(t(`hb.diff.${d}Sub`))}</span>
+    </button>`;
+  }).join('');
+  $('diff-note').textContent = t(`hb.diff.${pick.diff}Note`);
 }
 
 // ───────────── プレイ ─────────────
 async function startPlay() {
   const ctx = await unlockAudio();
-  const chart = CHARTS[STAGE];
-  const exp = expandChart(chart);
+  const chart = CHARTS[pick.chart];
+  const diff = DIFFICULTY[pick.diff];
+  const exp = expandChart(chart, diff);
   const notes = exp.notes.map((n) => ({ ...n, state: 'pending', slot: null }));
   const judge = createJudge(notes, NOTES);
   const song = createSong(chart, exp);
   const t0 = ctx.currentTime + NOTE.leadInSec;
   scene.reset();
+  scene.setPlay({ approachSec: diff.approachSec, assist: diff.assist });
   scene.setTiming(0, chart.bpm);
   scene.setComboLevel(0);
   song.start(t0);
   play = {
-    chart, exp, notes, judge, song, t0,
+    chart, diff, diffId: pick.diff, exp, notes, judge, song, t0,
     paused: false, finished: false, hits: 0,
     peelEvery: Math.max(1, Math.ceil(notes.length / scene.crystalCount)),
     lastScore: -1, lastCombo: -1,
@@ -86,12 +115,21 @@ async function startPlay() {
 
 function comboLevel(c) { return COMBO_LAYERS.filter((x) => c >= x).length; }
 
-function showJudge(result) {
+/** 判定の文字。見送り成功・片側だけ・誤水和は、専用の文字にする */
+function judgeLabel(ev) {
+  if (ev.pass) return 'pass';
+  if (ev.result !== 'wrong') return ev.result;
+  if (ev.kind === 'ohOneSide') return 'oneSide';
+  if (ev.kind === 'nonpolarHydrated' || ev.kind === 'insolubleDissolved') return 'badHydrate';
+  return 'wrong';
+}
+function showJudge(label) {
   const el = $('hud-judge');
   el.className = 'hb-judge';
   void el.offsetWidth;
-  el.textContent = t(`hb.j.${result}`);
-  el.classList.add('is-shown', `is-${result}`);
+  el.textContent = t(`hb.j.${label}`);
+  const cls = label === 'pass' ? 'perfect' : (label === 'oneSide' || label === 'badHydrate') ? 'wrong' : label;
+  el.classList.add('is-shown', `is-${cls}`, `is-${label}`);
 }
 
 let lastFlash = 0;
@@ -115,30 +153,44 @@ function cutin(combo) {
   el.classList.add('is-shown');
 }
 
+/** 判定が決まったノーツの知らせ（events）を、演出・音・文字に反映する */
+function applyEvents(events, now) {
+  if (!events.length) return;
+  const st = play.judge.stats;
+  let shown = null;
+  for (const ev of events) {
+    if (ev.result === 'wrong') {
+      scene.wrong(ev.note, now);
+      playWrong();
+      shown = ev;
+    } else if (ev.result === 'miss') {
+      if (!shown) shown = ev;
+    } else if (ev.pass) {
+      scene.pass(ev.note, now);
+      if (!shown) shown = ev;
+    } else {
+      play.hits += 1;
+      scene.hit(ev.note, ev.result, now, play.hits % play.peelEvery === 0);
+      playHit(ev.result);
+      shown = ev;
+      if (ev.result === 'perfect') flashPerfect();
+      if (st.combo > 0 && st.combo % CUTIN_EVERY === 0) cutin(st.combo);
+    }
+  }
+  if (shown) showJudge(judgeLabel(shown));
+  const lv = comboLevel(st.combo);
+  play.song.setLayers(lv);
+  scene.setComboLevel(lv);
+}
+
 /** ボタンを押したときの処理。time は、押した瞬間の「曲の始まりからの秒」 */
 function handleInput(input, time) {
   if (screen !== 'play' || !play || play.paused || play.finished) return null;
   play.lastPress = { input, time };
-  scene.press(input);
-  const r = play.judge.press(input, time);
-  if (!r) return null;
-  const st = play.judge.stats;
-  if (r.result === 'wrong') {
-    scene.wrong(r.note, time);
-    playWrong();
-    showJudge('wrong');
-  } else {
-    play.hits += 1;
-    scene.hit(r.note, r.result, time, play.hits % play.peelEvery === 0);
-    playHit(r.result);
-    showJudge(r.result);
-    if (r.result === 'perfect') flashPerfect();
-    if (st.combo > 0 && st.combo % CUTIN_EVERY === 0) cutin(st.combo);
-  }
-  const lv = comboLevel(st.combo);
-  play.song.setLayers(lv);
-  scene.setComboLevel(lv);
-  return r;
+  scene.press(input, time);
+  const events = play.judge.press(input, time);
+  applyEvents(events, time);
+  return events;
 }
 
 function updateHud() {
@@ -158,7 +210,7 @@ function finish() {
   play.finished = true;
   play.song.stop();
   renderResult($('result'), {
-    stageNo: STAGE, stageTitleKey: play.chart.titleKey,
+    stageLabel: stageLabel(play.chart), stageTitleKey: play.chart.titleKey, diffId: play.diffId,
     score: play.judge.score(), stats: play.judge.stats, avatar,
   });
   show('result');
@@ -193,12 +245,7 @@ function loop(nowMs) {
   if (screen === 'play' && play && !play.finished) {
     if (play.paused) return;
     const now = heardTime() - play.t0;
-    const missed = play.judge.tick(now);
-    if (missed.length) {
-      showJudge('miss');
-      play.song.setLayers(0);
-      scene.setComboLevel(0);
-    }
+    applyEvents(play.judge.tick(now), now);
     updateHud();
     const ready = $('hud-ready');
     ready.textContent = now < -0.6 ? t('hb.ready') : now < 0.4 ? t('hb.go') : '';
@@ -247,6 +294,8 @@ function setupInput() {
     if (!b) return;
     const act = b.dataset.act;
     if (act === 'solo') startPlay();
+    else if (act === 'pick-chart') { pick.chart = b.dataset.chart; savePick(); renderTitle(); }
+    else if (act === 'pick-diff') { pick.diff = b.dataset.diff; savePick(); renderTitle(); }
     else if (act === 'pause') pause();
     else if (act === 'resume') resume();
     else if (act === 'retry') { await quitPlay(); startPlay(); }
@@ -333,6 +382,9 @@ async function start() {
       get play() { return play; },
       pressAt: (input, songTime) => handleInput(input, songTime),
       songTime: () => (play ? heardTime() - play.t0 : null),
+      setPick: (chart, diff) => { if (CHARTS[chart]) pick.chart = chart; if (DIFFICULTY[diff]) pick.diff = diff; renderTitle(); },
+      start: () => startPlay(),
+      defs: NOTES,
     };
   }
 }
