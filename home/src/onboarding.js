@@ -1,7 +1,7 @@
 // home/src/onboarding.js
 // 初めて起動したときの流れ（仕様書 6章）
-//   言語の選択 → ニックネームの入力（本名は使わない注意） → 広報官ツカサによる国の説明 → 広場へ
-// ツカサの説明の4場面目で、開国交付金（1,000ヒヤマ）を支給する（1人1回だけ）。
+//   言語の選択 → ニックネームの入力（本名は使わない注意） → 広報官キタローによる国の説明 → 広場へ
+// キタローの説明の4場面目で、開国交付金（1,000ヒヤマ）を支給する（1人1回だけ）。
 
 import { t, tIn, setLang, getLang, onLangChange } from '../../shared/i18n.js';
 import { getUser, setNickname, cleanNickname, finishOnboarding, NICKNAME_MAX } from '../../shared/auth.js';

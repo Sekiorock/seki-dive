@@ -78,6 +78,7 @@ function blank() {
     costumesOwned: {},                // 持っている衣装の色違い { minato: ['gunjo'], ... }
     costume: {},                      // キャラクターごとに今着ている衣装 { minato: 'gunjo' }
     items: {},                        // 道具屋で買ったもの { hint: 2, ... }
+    worlds: {},                       // ワールドごとの記録 { hydration: { clears: {...} } }（hydration v0.3〜）
   };
 }
 
@@ -110,9 +111,10 @@ async function loadRemoteProfile() {
     user.costumesOwned = user.costumesOwned || {};
     user.costume = user.costume || {};
     user.items = user.items || {};
+    user.worlds = user.worlds || {};
     user.owned = user.owned || blank().owned;
   } else {
-    user = { ...blank(), nickname: local.nickname, lang: local.lang, onboarded: local.onboarded, avatars: local.avatars, lastAvatar: local.lastAvatar };
+    user = { ...blank(), nickname: local.nickname, lang: local.lang, onboarded: local.onboarded, avatars: local.avatars, lastAvatar: local.lastAvatar, worlds: local.worlds || {} };
     if (!user.owned.includes(user.lastAvatar)) user.lastAvatar = DEFAULT_AVATAR;
     await fb.set(fb.ref(db, `users/${uid}`), toRemote(user));
   }
@@ -157,6 +159,13 @@ export function setAvatar(world, charId) {
 }
 
 // ── キャラクターと衣装 ──
+/** ワールドごとの記録（ステージのクリアや最高点など）。Firebase の users/{uid}/worlds にも保存される */
+export function getWorldData(world) { return JSON.parse(JSON.stringify((getUser().worlds || {})[world] || {})); }
+export function setWorldData(world, data) {
+  const u = getUser();
+  u.worlds = { ...(u.worlds || {}), [world]: data };
+  save();
+}
 export function ownsCharacter(charId) { return getUser().owned.includes(charId); }
 export function addCharacter(charId) {
   const u = getUser();

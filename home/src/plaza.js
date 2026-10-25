@@ -546,7 +546,7 @@ function buildWave() {
   };
 }
 
-// ───────────── 立ち絵の板（ツカサ） ─────────────
+// ───────────── 立ち絵の板（キタロー） ─────────────
 function buildStandee(id, height, onLoad) {
   const w = height * (1024 / 1536);
   const mat = new THREE.MeshBasicMaterial({ transparent: true, alphaTest: 0.4, side: THREE.DoubleSide, toneMapped: false });

@@ -1,7 +1,7 @@
 // home/src/config.js
 // ホームワールドの数値の設定。数値はここに集め、プログラムの中に直接書かない。
 
-export const VERSION = 'home v0.5.2';
+export const VERSION = 'home v0.5.3';
 
 // QRコードで配る公開URL。
 // 空のままなら、いま開いているページのURL（例 https://ユーザー名.github.io/seki-dive/）を自動で使う。
@@ -86,7 +86,7 @@ export const FX = {
   wavePeriod: 4.5,      // 床を走る光の輪が1回広がる秒数
 };
 
-// 政府庁舎の前に立つ広報官ツカサ（切り絵のような板）
+// 政府庁舎の前に立つ広報官キタロー（切り絵のような板）
 export const STANDEE = {
   id: 'tsukasa',
   height: 2.8,          // 板の高さ（m）。門の柱は 4.2 m（見やすさのため人より少し大きめ）
@@ -105,13 +105,13 @@ export const FACILITY = {
   labelHeight: 4.6,     // 名札の高さ
 };
 export const FACILITIES = [
-  { id: 'bank',   angleDeg: 45,  keeper: 'tsukasa' },  // 北東  銀行（番人：ツカサ兼任）
-  { id: 'gofuku', angleDeg: 315, keeper: 'eta' },      // 北西  呉服屋（番人：灯野 エタ）
-  { id: 'dougu',  angleDeg: 225, keeper: 'karin' },    // 南西  道具屋（番人：硝 カリン兼任）
+  { id: 'bank',   angleDeg: 45,  keeper: 'tsukasa' },  // 北東  銀行（番人：キタロー兼任）
+  { id: 'gofuku', angleDeg: 315, keeper: 'eta' },      // 北西  呉服屋（番人：タロー）
+  { id: 'dougu',  angleDeg: 225, keeper: 'karin' },    // 南西  道具屋（番人：ユウタロー兼任）
 ];
 
 // 初めて起動したときの流れ
 export const ONBOARDING = {
-  talkLines: 5,         // ツカサの説明のセリフの数（char.tsukasa.line.onboard1〜5）
+  talkLines: 5,         // キタローの説明のセリフの数（char.tsukasa.line.onboard1〜5）
   grantLine: 4,         // 開国交付金を支給する場面（4場面目）
 };

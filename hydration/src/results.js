@@ -1,6 +1,7 @@
 // hydration/src/results.js
 // 結果の画面。v0.1 は、スコア、判定の内訳、最大コンボ、水和したイオンの数、アバターの立ち絵。
 // v0.2：難易度、見送り成功の数、間違いの種類ごとの回数（名前だけ）を足した。
+// v0.3：CLEAR／FAILED、水和ゲージ、最高点の更新、新しく開いたステージの知らせ。
 // 間違いの種類ごとの解説と図鑑は v0.4、水和ゲージとクリアは v0.3、ヒヤマの報酬はそのあとで足す。
 
 import { t } from '../../shared/i18n.js';
@@ -12,11 +13,11 @@ const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<
 
 /**
  * @param {HTMLElement} el   結果の画面の入れ物
- * @param {object} r         { stageLabel, stageTitleKey, diffId, score, stats, avatar }
+ * @param {object} r         { stageLabel, stageTitleKey, diffId, score, stats, avatar, clear, gauge, clearPct, news, unlockedLabel }
  */
 export function renderResult(el, r) {
   const s = r.stats;
-  const good = r.score >= 700000;
+  const good = r.clear;
   const hydrated = s.perfect + s.great + s.good - (s.passed || 0);
   const m = s.mistakes || {};
   const ORDER = ['cationH', 'anionO', 'ohOneSide', 'hclOrder', 'nonpolarHydrated', 'insolubleDissolved', 'timing'];
@@ -27,6 +28,7 @@ export function renderResult(el, r) {
   el.innerHTML = `
     <div class="hb-result__head">
       <p class="hb-result__label">${esc(t('hb.result.title'))}</p>
+      <p class="hb-result__badge ${r.clear ? 'is-clear' : 'is-failed'}">${esc(t(r.clear ? 'hb.result.clear' : 'hb.result.failed'))}</p>
       <p class="hb-result__stage">${esc(r.stageLabel)} ・ ${esc(t(r.stageTitleKey))} ・ ${esc(t(`hb.diff.${r.diffId}`))}</p>
     </div>
     <div class="hb-result__hero">
@@ -34,10 +36,14 @@ export function renderResult(el, r) {
       <div class="hb-result__score">
         <span>${esc(t('hb.result.score'))}</span>
         <b>${formatHiyama(r.score)}</b>
+        ${r.news && r.news.newRecord ? `<em class="hb-result__new">${esc(t('hb.result.newRecord'))}</em>` : ''}
         <p class="hb-result__line">${esc(t('quote', { line: t(lineKey('minato', good ? 'hbResultGood' : 'hbResultTry')) }))}</p>
       </div>
     </div>
+    ${r.unlockedLabel ? `<p class="hb-result__news">${esc(t('hb.result.unlocked', r.unlockedLabel))}</p>` : ''}
+    ${r.clear ? '' : `<p class="hb-result__news is-fail">${esc(t('hb.result.failNote', { pct: r.clearPct }))}</p>`}
     <ul class="hb-result__grid">
+      <li class="is-wide is-gauge"><span>${esc(t('hb.result.gauge'))}</span><b>${Math.floor(r.gauge)}%</b></li>
       ${cells}
       <li class="is-wrong is-wide"><span>${esc(t('hb.result.wrong'))}</span><b>${s.wrong}</b></li>
       <li class="is-wide"><span>${esc(t('hb.result.maxCombo'))}</span><b>${s.maxCombo}</b></li>

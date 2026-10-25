@@ -51,15 +51,43 @@
       <button type="button" class="btn btn--primary hb-title__solo" data-act="solo" data-i18n="hb.solo"></button>
       <button type="button" class="btn hb-title__battle" disabled data-i18n="hb.battle"></button>
     </div>
+    <button type="button" class="btn hb-title__calib" data-act="calib"><span data-i18n="hb.calib.open"></span><b id="calib-now"></b></button>
     <p class="hb-title__note" data-i18n="hb.battleSoon"></p>
     <p class="hb-title__note hb-title__keys" data-i18n="hb.howto.keys"></p>
     <p class="hb-title__note" data-i18n="hiyama.disclaimer"></p>
+  </section>
+
+  <!-- タイミング調整（ハイドレーション・ビート仕様書 4章） -->
+  <section id="calib" class="hb-screen hb-calib" hidden>
+    <h2 class="hb-calib__title" data-i18n="hb.calib.title"></h2>
+    <p class="hb-calib__lead" data-i18n="hb.calib.lead"></p>
+    <div class="hb-calib__beat" id="calib-beat" aria-hidden="true"><i></i></div>
+    <p class="hb-calib__state" id="calib-state" aria-live="polite"></p>
+    <ol class="hb-calib__dots" id="calib-dots" aria-hidden="true"></ol>
+    <button type="button" class="hb-calib__pad" id="calib-pad" data-i18n-aria="hb.calib.tapAria"><span data-i18n="hb.calib.tap"></span></button>
+    <div class="hb-calib__result">
+      <p class="hb-calib__value"><span data-i18n="hb.calib.value"></span><b id="calib-value">0 ms</b></p>
+      <div class="hb-calib__nudge">
+        <button type="button" class="btn btn--small" data-act="calib-minus">−10 ms</button>
+        <button type="button" class="btn btn--small" data-act="calib-plus">+10 ms</button>
+      </div>
+      <p class="hb-calib__hint" id="calib-hint"></p>
+    </div>
+    <div class="hb-calib__actions">
+      <button type="button" class="btn" data-act="calib-start" id="calib-start" data-i18n="hb.calib.start"></button>
+      <button type="button" class="btn btn--primary" data-act="calib-save" data-i18n="hb.calib.save"></button>
+    </div>
+    <button type="button" class="btn btn--small hb-calib__skip" data-act="calib-skip" data-i18n="hb.calib.skip"></button>
   </section>
 
   <!-- プレイ -->
   <section id="play" class="hb-screen hb-play" hidden>
     <div class="hb-hud">
       <div class="hb-hud__score"><span data-i18n="hb.score"></span><b id="hud-score">0</b></div>
+      <div class="hb-gauge" id="hud-gauge" role="meter" aria-valuemin="0" aria-valuemax="100" data-i18n-aria="hb.gauge">
+        <span class="hb-gauge__label"><span data-i18n="hb.gauge"></span><b id="hud-gauge-pct">0%</b></span>
+        <div class="hb-gauge__bar"><i class="hb-gauge__fill" id="hud-gauge-fill"></i><i class="hb-gauge__mark"></i></div>
+      </div>
       <button type="button" class="btn btn--small hb-hud__pause" data-act="pause" data-i18n-aria="hb.pause">
         <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M4 2h3v12H4zM9 2h3v12H9z" fill="currentColor"/></svg>
       </button>

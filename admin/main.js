@@ -4,7 +4,7 @@
 //   生徒      ：残高と最後に動いた日時、通帳、点検の結果。1人ずつ特別交付金・罰金
 //   支給・罰金：授業交付金・特別交付金・罰金を、全員または選んだ生徒に（理由は必ず。本人に通知が届く）
 //   お知らせ  ：掲示板に出す（日本語は必ず、英語は任意。重大発表も）
-//   設定      ：税率、金額、ワールドの開閉、対戦の可否、任意の税と長者番付。税率を変えるとツカサが自動で発表
+//   設定      ：税率、金額、ワールドの開閉、対戦の可否、任意の税と長者番付。税率を変えるとキタローが自動で発表
 //   国庫の記録：国庫の出入り
 // 書き込みは、生徒の端末と同じく「トランザクション」で行う（同時に書いても数が狂わない）。
 
@@ -520,7 +520,7 @@ async function saveSettings() {
   await F().update(ref('settings'), v);
   state.draft = {};
   toast(t('admin.set.saved'));
-  // 税率を変えたときは、広報官ツカサが自動で重大発表をする（仕様書 5章）
+  // 税率を変えたときは、広報官キタローが自動で重大発表をする（仕様書 5章）
   if (v.incomeTaxRate !== before.income || v.consumptionTaxRate !== before.consumption || v.betTaxRate !== before.bet) {
     const vars = { income: pct(v.incomeTaxRate), consumption: pct(v.consumptionTaxRate), bet: pct(v.betTaxRate) };
     await F().set(F().push(ref('notices')), {

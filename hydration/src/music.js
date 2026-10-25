@@ -11,13 +11,20 @@ import { AUDIO } from './config.js';
 
 const mtof = (m) => 440 * Math.pow(2, (m - 69) / 12);
 
-// 4小節で1周する和音：Dm → B♭ → C → Am
-const CHORDS = [
-  { root: 38, pad: [62, 65, 69], arp: [74, 69, 77, 69, 74, 81, 77, 69] },
-  { root: 34, pad: [58, 62, 65], arp: [70, 65, 74, 65, 70, 77, 74, 65] },
-  { root: 36, pad: [60, 64, 67], arp: [72, 67, 76, 67, 72, 79, 76, 67] },
-  { root: 33, pad: [57, 60, 64], arp: [69, 64, 72, 64, 69, 76, 72, 64] },
-];
+// 4小節で1周する和音。曲ごとに charts.js の music.chords で選び、music.transpose（半音）で高さを変える
+//   a：Dm → B♭ → C → Am（ステージ1）  b：Dm → Gm → B♭ → C  c：Dm → C → B♭ → A
+function triad(root, minor) {
+  const third = minor ? 3 : 4;
+  const p = [root + 24, root + 24 + third, root + 31];
+  const a = [root + 36, root + 31, root + 36 + third, root + 31, root + 36, root + 43, root + 36 + third, root + 31];
+  return { root, pad: p, arp: a };
+}
+const CHORD_SETS = {
+  a: [triad(38, true), triad(34, false), triad(36, false), triad(33, true)],
+  b: [triad(38, true), triad(31, true), triad(34, false), triad(36, false)],
+  c: [triad(38, true), triad(36, false), triad(34, false), triad(33, false)],
+};
+const shift = (c, n) => ({ root: c.root + n, pad: c.pad.map((m) => m + n), arp: c.arp.map((m) => m + n) });
 // 笛の旋律（4小節。1小節＝16分音符16個。null は休み）
 const MELODY = [
   [74, null, null, 72, null, null, 69, null, 72, null, 74, null, null, null, null, null],
@@ -144,6 +151,9 @@ export function createSong(chart, expanded) {
   out.connect(bus.music);
   const stepSec = expanded.barSec / 16;     // 16分音符
   const totalSteps = expanded.totalBars * 16;
+  const mus = chart.music || { transpose: 0, chords: 'a' };
+  const CHORDS = (CHORD_SETS[mus.chords] || CHORD_SETS.a).map((c) => shift(c, mus.transpose || 0));
+  const mel = (m) => (m ? m + (mus.transpose || 0) : m);
   let t0 = 0, next = 0, layers = 0, timer = 0, running = false;
 
   function scheduleStep(s) {
@@ -173,7 +183,7 @@ export function createSong(chart, expanded) {
     if ((e >= 2 || layers >= 2) && i % 2 === 0 && e >= 1) koto(ctx, t, out, ch.arp[i / 2], e >= 3 ? 1 : 0.8);
     // 笛の旋律（いちばん盛り上がった場面、またはコンボ3段目から）
     if ((e >= 3 || layers >= 3) && e >= 1) {
-      const m = MELODY[bar % 4][i];
+      const m = mel(MELODY[bar % 4][i]);
       if (m) flute(ctx, t, out, m, stepSec * 2.6);
     }
   }

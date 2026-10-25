@@ -12,7 +12,7 @@ export const UNLOCK_PRICE = {
   kou: 5000,
 };
 
-// selectable: アバターとして選べるか（ツカサは政府の広報官なので選べない）
+// selectable: アバターとして選べるか（キタローは政府の広報官なので選べない）
 // start: 最初から使えるか
 export const CHARACTERS = [
   { id: 'tsukasa', selectable: false, start: false, accent: '#F8B500' },

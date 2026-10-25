@@ -2,7 +2,7 @@
 // ホームワールド「セキオロック中央広場」 v0.4
 // v0.1：白い3D広場を見回す、4つの門、上の帯、日本語・英語の切り替え、QRコード表示
 // v0.2：門をタップするとアバター選択の画面へ（ワールドの中身はまだ準備中）、
-//       中央に立つ広報官ツカサのセリフ、初めて起動したときの流れ
+//       中央に立つ広報官キタローのセリフ、初めて起動したときの流れ
 // v0.3：ヒヤマ（端末の中だけ）、開国交付金、銀行・呉服屋・道具屋、施設と門の一覧
 // v0.4：サイバー和風のデザイン、ヒヤマを Firebase へ、国庫、政府庁舎の掲示板、お知らせ、出来事の発光
 // v0.5：管理画面、和柄とゲームの演出、先生が閉じた門
@@ -84,7 +84,7 @@ async function start() {
 
   startScene();
 
-  // 初めて起動したときだけ、言語 → ニックネーム → ツカサの説明 の流れを出す
+  // 初めて起動したときだけ、言語 → ニックネーム → キタローの説明 の流れを出す
   if (!getUser().onboarded) await runOnboarding();
 
   // 初回の流れを終えているのに開国交付金をまだ受け取っていない人（v0.3 までの人、Firebase に移った人）
@@ -231,7 +231,7 @@ function startScene() {
     if (!hits.length) return;
     const data = hits[0].object.userData;
     if (data.talkId) {
-      // ツカサのセリフを順番に
+      // キタローのセリフを順番に
       talkCount = (talkCount % STANDEE.plazaLines) + 1;
       toast(t('talk', { name: t(nameKey(data.talkId)), line: t(lineKey(data.talkId, `plaza${talkCount}`)) }));
     } else if (data.gateId) {

@@ -544,6 +544,8 @@ export function createScene(canvas, { noteDefs }) {
         s.g.position.set(0, RING_Y + Math.sin((nt.t - now) * 3) * 0.04, z);
         s.holder.rotation.y = now * 1.2 + (nt.chainIdx || 0) * 0.6;
         s.holder.rotation.x = Math.sin(now * 0.9 + nt.t) * 0.25;
+        // 判定リングを過ぎたノーツの札は消す（手前で大きく写って、ボタンにかぶらないように）
+        if (z > NOTE.judgeZ + 0.3) s.label.visible = false;
         if (flying) {
           const kf = Math.max(0, z / NOTE.passZ);
           s.g.scale.setScalar(RENDER.noteScale * Math.max(0.25, 1 - kf * 0.7));

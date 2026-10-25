@@ -1,14 +1,15 @@
 // hydration/src/config.js
 // ① ハイドレーション・ビートの数値の設定。数値はここに集め、プログラムの中に直接書かない。
 
-export const VERSION = 'hydration v0.2.0';
+export const VERSION = 'hydration v0.3.0';
 
 // ── 判定の幅（ミリ秒。ノーツが判定リングに来た瞬間からのずれ） ──
 export const JUDGE = {
   perfect: 50,
   great: 90,
   good: 130,
-  // 端末ごとの音と画面のずれ（ミリ秒）。v0.3 のタイミング調整の画面で測って入れるようにする
+  // 端末ごとの音とタップのずれ（ミリ秒）のはじめの値。v0.3 からは、タイミング調整の画面で測った値を
+  // その端末に覚えておいて使う（測っていない端末では、この値）
   inputOffsetMs: 0,
   // 見逃し（MISS）と決めるまでの待ち時間（ミリ秒）。描画が重い端末で、タップの知らせが遅れて届いても
   // 正しく判定できるように、判定の幅を過ぎてから少しだけ待つ（判定の幅そのものは変わらない）
@@ -30,6 +31,26 @@ export const DIFFICULTY = {
   hard:   { assist: 3, approachSec: 2.2, thin: false, chainStep: 0.5, hclGap: 0.5, reward: 200 },
 };
 export const DEFAULT_DIFFICULTY = 'easy';
+
+// ── 水和ゲージ（ハイドレーション・ビート仕様書 2章：曲の終わりに clearPct % 以上ならクリア） ──
+//   1つのノーツで増える量は「gain × 1目盛り」。1目盛りは、ノーツ全体の fullAt の割合を
+//   Perfect で取ったときにちょうど 100% になる大きさ（ノーツの数が違う曲でも同じ感覚になる）
+export const GAUGE = {
+  clearPct: 70,
+  startPct: 0,
+  fullAt: 0.8,
+  gain: { perfect: 1.0, great: 0.9, good: 0.6, miss: -1.0, wrong: -1.2 },
+};
+
+// ── タイミング調整（ハイドレーション・ビート仕様書 4章：メトロノームに合わせて8回タップ） ──
+export const CALIB = {
+  bpm: 100,             // メトロノームの速さ
+  taps: 8,              // たたく回数
+  leadBeats: 4,         // たたき始める前に鳴らす拍の数（数えるため）
+  limitMs: 250,         // 補正の上限（これより大きいずれは、上限で止める）
+  spreadWarnMs: 60,     // たたいたずれのばらつきがこれより大きいと「もう一度」をすすめる
+  stepMs: 10,           // 手で直すボタン（−／＋）の1回分
+};
 
 // ── 点数（1曲の満点は 1,000,000 点。ノーツ1個の点数 × 判定ごとの割合） ──
 export const SCORE = {

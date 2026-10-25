@@ -6,17 +6,20 @@
 //     押すと「誤水和」としてミス。
 //   ・判定の幅：Perfect ±50 ms、Great ±90 ms、Good ±130 ms（config.js で変えられる）。
 //   ・時刻はすべて「聞こえている音の時刻」から曲の始まりを引いた秒。
+//   ・v0.3：水和ゲージ（GAUGE）。判定ごとに増減し、曲の終わりに clearPct % 以上ならクリア。
+//     タイミング調整で測った、その端末のずれ（offsetMs）を差し引いて判定する。
 //
 // press() と tick() は、判定が決まったノーツの知らせ（events）の列を返す：
 //   { note, result: 'perfect'|'great'|'good'|'miss'|'wrong', ms, kind?, pass? }
 //   kind は間違いの種類（notes.js の mistakeKind）。pass は見送り成功。
 
-import { JUDGE, SCORE } from './config.js';
+import { JUDGE, SCORE, GAUGE } from './config.js';
 import { mistakeKind } from './notes.js';
 
-export function createJudge(notes, defs) {
+export function createJudge(notes, defs, { offsetMs = JUDGE.inputOffsetMs } = {}) {
   const goodSec = JUDGE.good / 1000;
-  const offset = JUDGE.inputOffsetMs / 1000;
+  const offset = offsetMs / 1000;
+  const gaugeUnit = notes.length ? 100 / (notes.length * GAUGE.fullAt) : 0;
   const graceSec = (JUDGE.missGraceMs || 0) / 1000;
   const simulSec = (JUDGE.simulMs || 90) / 1000;
   let cursor = 0;            // まだ判定していない、いちばん早いノーツ
@@ -27,7 +30,8 @@ export function createJudge(notes, defs) {
     passed: 0,               // 見送り成功（perfect にも数える）
     combo: 0, maxCombo: 0, rateSum: 0,
     mistakes: {},            // 間違いの種類ごとの回数（v0.4 の解説で使う）
-    offsets: [],             // 当たったときのずれ（ミリ秒）。v0.3 のタイミング調整の参考
+    offsets: [],             // 当たったときのずれ（ミリ秒）。タイミング調整の参考
+    gauge: GAUGE.startPct,   // 水和ゲージ（0〜100 %）
   };
 
   function grade(absMs) {
@@ -43,6 +47,7 @@ export function createJudge(notes, defs) {
     stats.rateSum += SCORE.rate[result] || 0;
     if (extra.kind) stats.mistakes[extra.kind] = (stats.mistakes[extra.kind] || 0) + 1;
     if (extra.pass) stats.passed += 1;
+    stats.gauge = Math.max(0, Math.min(100, stats.gauge + (GAUGE.gain[result] || 0) * gaugeUnit));
     if (result === 'miss' || result === 'wrong') stats.combo = 0;
     else { stats.combo += 1; stats.maxCombo = Math.max(stats.maxCombo, stats.combo); }
     return { note, result, ...extra };
@@ -135,5 +140,7 @@ export function createJudge(notes, defs) {
     /** 点数（全部 Perfect でちょうど 1,000,000 点） */
     score() { return stats.total ? Math.round((stats.rateSum / stats.total) * SCORE.max) : 0; },
     done() { return cursor >= notes.length; },
+    /** クリアしたか（曲の終わりに水和ゲージが clearPct % 以上） */
+    cleared() { return stats.gauge >= GAUGE.clearPct; },
   };
 }
