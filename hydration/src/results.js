@@ -25,16 +25,16 @@ const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<
 /** 対戦の結果の箱（v0.8） */
 function battleBox(b) {
   if (!b) return '';
-  const rows = (b.ranks || []).map((p) => `<li class="${p.me ? 'is-me' : ''}"><b>${p.dropped ? '—' : esc(p.rank)}</b><span>${esc(p.name)}${p.me ? ` ${esc(t('hb.battle.you'))}` : ''}${p.dropped ? ` ${esc(t('hb.battle.dropped'))}` : ''}</span><em>${formatHiyama(p.score)}</em></li>`).join('');
+  const rows = (b.ranks || []).map((p) => `<li class="${p.me ? 'is-me' : ''}"><b>${p.dropped ? '—' : esc(p.rank)}</b><span>${esc(p.name)}${p.me ? ` ${esc(t('hb.battle.you'))}` : ''}${p.dropped ? ` ${esc(t('hb.battle.dropped'))}` : p.out ? ` ${esc(t('hb.battle.out'))}` : ''}</span><em>${formatHiyama(p.score)}</em></li>`).join('');
   if (b.state !== 'done') {
-    return `<div class="hb-bres"><p class="hb-bres__head">VS<small>${esc(t('hb.battle.waitRival'))}</small></p><ol>${rows}</ol></div>`;
+    return `<div class="hb-bres"><p class="hb-bres__head">${b.mode === 'royale' ? 'ROYALE' : 'VS'}<small>${esc(t(b.mode === 'royale' ? 'hb.battle.waitAll' : 'hb.battle.waitRival'))}</small></p><ol>${rows}</ol></div>`;
   }
-  const head = b.draw ? 'DRAW' : b.win ? 'WIN' : 'LOSE';
+  const head = b.mode === 'royale' ? (b.win ? 'WINNER' : `#${b.rank || '-'}`) : b.draw ? 'DRAW' : b.win ? 'WIN' : 'LOSE';
   let money = '';
   if (b.prize) money = `<p>${esc(t('hb.battle.prize', { gross: formatHiyama(b.prize.gross), tax: formatHiyama(b.prize.tax), net: formatHiyama(b.prize.net) }))}</p>`;
   else if (b.share > 0) money = `<p>${esc(t('hb.reward.pending'))}</p>`;
-  else money = `<p>${esc(t('hb.battle.noPrize', { pot: formatHiyama(b.pot || 0) }))}</p>`;
-  return `<div class="hb-bres${b.win ? ' is-win' : ''}"><p class="hb-bres__head">${head}<small>${esc(t(b.draw ? 'hb.battle.draw' : b.win ? 'hb.battle.win' : 'hb.battle.lose'))}</small></p>
+  else money = `<p>${esc(t(b.mode === 'royale' ? 'hb.battle.noPrizeRoyale' : 'hb.battle.noPrize', { pot: formatHiyama(b.pot || 0) }))}</p>`;
+  return `<div class="hb-bres${b.win ? ' is-win' : ''}"><p class="hb-bres__head">${head}<small>${esc(b.mode === 'royale' ? t(b.win ? 'hb.battle.royaleWin' : 'hb.battle.royaleRank', { n: b.rank || '-' }) : t(b.draw ? 'hb.battle.draw' : b.win ? 'hb.battle.win' : 'hb.battle.lose'))}</small></p>
     <ol>${rows}</ol>${money}<p>${esc(t('hb.battle.privacy'))}</p></div>`;
 }
 

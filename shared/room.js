@@ -3,7 +3,8 @@
 // 部屋：rooms/{4桁の番号} = {
 //   world, mode, host, state: 'lobby' | 'countdown' | 'playing' | 'done', createdAt, startAt, max,
 //   meta: { ワールドごとの設定（曲・難易度など） },
-//   players: { uid: { name, avatar, costume, joinedAt, lastSeen, paid, score, gauge, combo, done, final, left } },
+//   players: { uid: { name, avatar, costume, joinedAt, lastSeen, paid, score, gauge, combo, done, final, left, out } },
+//            out はバトルロイヤルで脱落した時刻（水和ゲージが0になった）
 //   attacks: { pushId: { from, to, kind, at } },   // 妨害
 //   claims: { uid: true },                          // 賞金を受け取った印（2回受け取れないように）
 // }
@@ -11,7 +12,7 @@
 // 無料のプランではサーバーのプログラムが使えないので、参加料・賞金・罰金は、それぞれ本人の端末が払う・受け取る。
 //
 // 対戦できるとき：先生の設定 settings.battleMode が
-//   'always' いつでも ／ 'class' 授業中のみ（先生が管理画面で「授業を始める」を押してから終えるまで） ／ 'off' 停止
+//   'always' いつでも（はじめの設定） ／ 'class' 授業中のみ（先生が管理画面で「授業を始める」を押してから終えるまで） ／ 'off' 停止
 
 import { backend, getUser, getCostume } from './auth.js';
 import { getSettings, SETTINGS, getBalance, isInArrears } from './economy.js';
@@ -43,7 +44,8 @@ export function serverNow() { watchOffset(); return Date.now() + serverOffset; }
 export function battleAllowed() {
   if (backend.mode !== 'online') return { ok: false, reason: 'offline' };
   const s = getSettings();
-  const mode = s.battleMode || 'class';
+  // はじめは「いつでも」（生徒どうしで自由に対戦を始められる）。先生は「授業中のみ」「停止」にもできる
+  const mode = s.battleMode || 'always';
   if (mode === 'off') return { ok: false, reason: 'off' };
   if (mode === 'class' && !(typeof s.classUntil === 'number' && s.classUntil > serverNow())) return { ok: false, reason: 'class' };
   if (isInArrears()) return { ok: false, reason: 'arrears' };
@@ -125,16 +127,21 @@ export function isDropped(p, now = serverNow()) {
 }
 
 /**
- * 順位を決める（各自の端末で同じ結果になるように、点数 → 名前 → uid の順で並べる）。
- * 抜けた人は最下位。返り値：[{ uid, ...player, rank, dropped }]
+ * 順位を決める（各自の端末で同じ結果になるように並べる）。
+ *   1. 最後まで残った人（脱落していない人）を、点数の高い順に
+ *   2. 脱落した人（バトルロイヤル）を、あとまで残った順に
+ *   3. 抜けた人（途中退出・切断）は最下位
+ * 返り値：[{ uid, ...player, rank, dropped }]
  */
 export function ranking(players, now = serverNow()) {
   const list = Object.entries(players || {}).map(([uid, p]) => ({ uid, ...p, dropped: isDropped(p, now) }));
-  list.sort((a, b) => (a.dropped - b.dropped) || ((b.final ?? b.score ?? 0) - (a.final ?? a.score ?? 0)) || String(a.uid).localeCompare(String(b.uid)));
+  const group = (p) => (p.dropped ? 2 : p.out ? 1 : 0);
+  const key = (p) => (p.dropped ? -1 : p.out ? p.out : (p.final ?? p.score ?? 0));
+  list.sort((a, b) => (group(a) - group(b)) || (key(b) - key(a)) || String(a.uid).localeCompare(String(b.uid)));
   let rank = 0, prev = null;
   list.forEach((p, i) => {
-    const sc = p.dropped ? -1 : (p.final ?? p.score ?? 0);
-    if (sc !== prev) { rank = i + 1; prev = sc; }
+    const k = `${group(p)}:${key(p)}`;
+    if (k !== prev) { rank = i + 1; prev = k; }
     p.rank = rank;
   });
   return list;

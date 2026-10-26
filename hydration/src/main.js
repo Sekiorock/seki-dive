@@ -7,10 +7,12 @@
 // v0.5：クリアの報酬（ヒヤマ。所得税と1日の上限つき）、ショップの演出、道具屋の券（ヒント券・苦手問題の練習券・
 //       図鑑の追加ページ）を使えるように。言語の切りかえで、どの画面も描き直すように。
 // v0.8：対戦（タイマン）。2人で同じ曲を同時に演奏し、10コンボごとに妨害を送り合う（battle.js）。
+// v0.9：対戦（バトルロイヤル、3〜12人）。水和ゲージが0になると脱落して観戦に移る。妨害を送る相手を選べる。
 //
 // 画面：（初めてのときはタイミング調整）→ タイトル → プレイ（一時停止あり）→ 結果。ワールドに入るときは、毎回アバター選択の画面を通る。
 // 時刻の基準は、音の時計（audio.js の heardTime）。
 
+import { ROYALE } from './config.js';
 import { VERSION, NOTE, COMBO_LAYERS, CUTIN_EVERY, FLASH, DIFFICULTY, DEFAULT_DIFFICULTY, GAUGE, CALIB, JUDGE, SHOP_FX, WEAK } from './config.js';
 import { NOTES } from './notes.js';
 import { CHARTS, CHART_ORDER, STAGE_ORDER, expandChart, chartFormulas, makeWeakChart } from './charts.js';
@@ -154,7 +156,12 @@ async function startPlay(opts = {}) {
   if (params.has('debug') && params.has('short')) { exp.notes = exp.notes.filter((n) => n.t < 12); exp.lengthSec = 14; exp.totalBars = Math.ceil(14 / exp.barSec); }
   const notes = exp.notes.map((n) => ({ ...n, state: 'pending', slot: null }));
   const off = savedOffset();
-  const judge = createJudge(notes, NOTES, { offsetMs: off === null ? JUDGE.inputOffsetMs : off });
+  const royale = bt && bt.mode === 'royale';
+  const judge = createJudge(notes, NOTES, {
+    offsetMs: off === null ? JUDGE.inputOffsetMs : off,
+    // バトルロイヤル：ゲージは半分から始まり、ミスで大きく減る（0 で脱落）
+    ...(royale ? { startPct: ROYALE.startPct, negMul: ROYALE.negMul } : {}),
+  });
   const song = createSong(chart, exp);
   // 対戦では、2人の端末で同じ時刻に始まるように、サーバーの時計で決めた開始の時刻に合わせる
   const t0 = bt ? ctx.currentTime + Math.max(0.5, (bt.startAt - serverNow()) / 1000) : ctx.currentTime + NOTE.leadInSec;
@@ -174,6 +181,11 @@ async function startPlay(opts = {}) {
   };
   $('hud-score').textContent = '0';
   play.lastGauge = -1;
+  play.out = false;
+  document.body.classList.remove('is-out');
+  $('spectate').hidden = true;
+  $('hud-target').hidden = !royale;
+  if (royale) $('hud-target').textContent = t('hb.battle.targetChip', { target: t(`hb.battle.target.${battle.currentTarget()}`) });
   $('hud-combo').classList.remove('is-on');
   show('play');
 }
@@ -267,7 +279,7 @@ function setSolvent(sv, announce = true) {
 }
 
 function handleInput(input, time) {
-  if (screen !== 'play' || !play || play.paused || play.finished) return null;
+  if (screen !== 'play' || !play || play.paused || play.finished || play.out) return null;
   // ヘキサンのときは「なじむ」だけ、水のときは O と H だけ
   if ((scene.solvent === 'hexane') !== (input === 'M')) return null;
   play.lastPress = { input, time };
@@ -399,18 +411,24 @@ function applyAttack(kind, from) {
   }
 }
 
-/** 相手の小さな表示（左の上） */
+/** 相手たちの小さな表示（左の上）と、脱落したあとの観戦の一覧 */
+function rivalRow(r) {
+  const esc = (x) => String(x).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const state = r.dropped ? t('hb.battle.dropped') : r.out ? t('hb.battle.out') : r.done ? t('hb.battle.finished') : (r.combo >= 2 ? t('hb.battle.combo', { n: r.combo }) : '');
+  return `<div class="hb-rv${r.out || r.dropped ? ' is-out' : ''}${r.attacker ? ' is-attacker' : ''}${r.me ? ' is-me' : ''}">
+    <img src="${esc(r.face)}" alt="" width="32" height="32">
+    <div><b>${esc(r.rank)}. ${esc(r.name)}${r.me ? ` ${esc(t('hb.battle.you'))}` : ''}</b><span>${formatHiyama(r.score)}</span>
+      <i><i style="width:${Math.max(0, Math.min(100, r.gauge))}%"></i></i><small>${esc(state)}</small></div></div>`;
+}
 function updateRival(v) {
   const el = $('hud-rival');
-  if (!v) { el.hidden = true; return; }
+  if (!v || !v.rows.length) { el.hidden = true; return; }
   el.hidden = false;
-  const img = el.querySelector('img');
-  if (img.getAttribute('src') !== v.face) img.setAttribute('src', v.face);
-  el.querySelector('.hb-rival__name').textContent = v.name;
-  el.querySelector('.hb-rival__score').textContent = formatHiyama(v.score);
-  el.querySelector('.hb-rival__gauge i').style.width = `${Math.max(0, Math.min(100, v.gauge))}%`;
-  el.querySelector('.hb-rival__combo').textContent = v.dropped ? t('hb.battle.dropped') : v.done ? t('hb.battle.finished') : (v.combo >= 2 ? t('hb.battle.combo', { n: v.combo }) : '');
-  el.classList.toggle('is-dropped', v.dropped);
+  el.classList.toggle('is-royale', v.mode === 'royale');
+  // 左上には相手だけ（多いときは上位の6人まで）
+  const others = v.rows.filter((r) => !r.me);
+  el.innerHTML = others.slice(0, v.mode === 'royale' ? 6 : 1).map(rivalRow).join('');
+  if (!$('spectate').hidden) $('spectate-list').innerHTML = v.rows.map((r) => `<li>${rivalRow(r)}</li>`).join('');
 }
 
 /** 対戦の曲が終わったとき：自分の結果の画面（順位とスコア）を出し、相手を待つ */
@@ -437,6 +455,7 @@ function updateBattleResult(v) {
 async function pause() {
   if (screen !== 'play' || !play || play.paused || play.finished) return;
   // 対戦中は止められない（相手は演奏を続けている）。やめるかどうかだけ聞く
+  if (play.battle && play.out) return;   // 脱落して観戦中は、観戦の画面の「タイトルへ」で出る
   if (play.battle) {
     $('bpause-note').textContent = t('hb.battle.pauseNote', { amount: formatHiyama(SETTINGS.quitFine) });
     $('bpause').hidden = false;
@@ -454,6 +473,9 @@ async function resume() {
   play.paused = false;
 }
 async function quitPlay() {
+  document.body.classList.remove('is-out');
+  $('spectate').hidden = true;
+  $('hud-target').hidden = true;
   $('pause').hidden = true;
   $('bpause').hidden = true;
   if (play) { play.finished = true; play.song.stop(); }
@@ -631,6 +653,15 @@ function loop(nowMs) {
     if (play.paused) return;
     const now = heardTime() - play.t0;
     applyEvents(play.judge.tick(now), now);
+    // バトルロイヤル：水和ゲージが0になったら脱落して、観戦に移る
+    if (play.battle && play.battle.mode === 'royale' && !play.out && now > 0 && play.judge.stats.gauge <= 0) {
+      play.out = true;
+      document.body.classList.add('is-out');
+      $('spectate').hidden = false;
+      $('hud-target').hidden = true;
+      attackBanner(t('hb.spectate.out'));
+      battle.eliminate(play.judge.score());
+    }
     updateHud();
     const ready = $('hud-ready');
     ready.textContent = now < -0.6 ? t('hb.ready') : now < 0.4 ? t('hb.go') : '';
@@ -719,7 +750,10 @@ function setupInput() {
     else if (act === 'resume') resume();
     else if (act === 'retry') { await quitPlay(); startPlay(); }
     else if (act === 'battle') battle.openBattle();
-    else if (act === 'battle-create') battle.createRoom();
+    else if (act === 'battle-create') battle.createRoom(b.dataset.mode);
+    else if (act === 'battle-target') battle.setTarget(b.dataset.target);
+    else if (act === 'battle-next-target') { const k = battle.nextTarget(); b.textContent = t('hb.battle.targetChip', { target: t(`hb.battle.target.${k}`) }); }
+    else if (act === 'spectate-leave') { battle.leave(); await quitPlay(); renderTitle(); show('title'); }
     else if (act === 'battle-join') battle.joinRoom();
     else if (act === 'battle-start') battle.startRoom();
     else if (act === 'battle-leave') battle.leaveLobby();

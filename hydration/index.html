@@ -142,10 +142,15 @@
     </div>
     <p class="hb-solvent" id="hud-solvent" aria-live="polite"></p>
     <!-- v0.8：対戦の相手（左の上）と、妨害の知らせ -->
-    <div class="hb-rival" id="hud-rival" hidden>
-      <img alt="" width="36" height="36">
-      <div><b class="hb-rival__name"></b><span class="hb-rival__score"></span>
-        <i class="hb-rival__gauge"><i></i></i><span class="hb-rival__combo"></span></div>
+    <div class="hb-rivals" id="hud-rival" hidden></div>
+    <!-- v0.9：バトルロイヤルで妨害を送る相手（タップで切りかえ） -->
+    <button type="button" class="btn btn--small hb-target" id="hud-target" data-act="battle-next-target" hidden></button>
+    <!-- v0.9：脱落したあとの観戦 -->
+    <div class="hb-spectate" id="spectate" hidden>
+      <p class="hb-spectate__title" data-i18n="hb.spectate.title"></p>
+      <p class="hb-spectate__sub" data-i18n="hb.spectate.sub"></p>
+      <ol class="hb-spectate__list" id="spectate-list"></ol>
+      <button type="button" class="btn btn--small" data-act="spectate-leave" data-i18n="hb.spectate.leave"></button>
     </div>
     <p class="hb-attack" id="hud-attack" aria-live="polite"></p>
   </section>

@@ -211,7 +211,7 @@ const CLASS_MIN = 70;   // 「授業を始める」を押すと、この分だ�
 function classBox() {
   const until = state.settings.classUntil || 0;
   const on = until > Date.now();
-  const mode = state.settings.battleMode || 'class';
+  const mode = state.settings.battleMode || 'always';
   const hm = (ms) => new Date(ms).toLocaleTimeString(getLang() === 'ja' ? 'ja-JP' : 'en-US', { hour: '2-digit', minute: '2-digit' });
   return `<div class="adm-class ${on ? 'is-on' : ''}">
     <p><b>${esc(t(on ? 'admin.class.on' : 'admin.class.off'))}</b>${on ? ` ${esc(t('admin.class.until', { time: hm(until) }))}` : ''}</p>
@@ -344,7 +344,7 @@ const flagOn = (key) => (key in state.draft ? state.draft[key] : !!state.setting
 function settingsTab() {
   const s = state.settings;
   const worldsOpen = s.worldsOpen || {};
-  const mode = s.battleMode || 'class';
+  const mode = s.battleMode || 'always';
   return `
     <h2 class="shop__sub">${esc(t('admin.set.taxes'))}</h2>
     <div class="adm-grid">${num('', 'incomeTaxRate', true, 0.5)}${num('', 'consumptionTaxRate', true, 0.5)}${num('', 'betTaxRate', true, 0.5)}</div>
@@ -358,7 +358,7 @@ function settingsTab() {
         <div class="tabs">${['open', 'closed'].map((k) => `<button type="button" class="tabs__tab" aria-selected="${(worldsOpen[g.id] !== false) === (k === 'open')}" data-act="world" data-world="${g.id}" data-open="${k === 'open'}">${esc(t(`admin.set.${k}`))}</button>`).join('')}</div>
       </li>`).join('')}</ul>
     <h2 class="shop__sub">${esc(t('admin.set.battle'))}</h2>
-    <div class="tabs adm-tabs3">${['class', 'always', 'off'].map((k) => `<button type="button" class="tabs__tab" aria-selected="${mode === k}" data-act="battle" data-mode="${k}">${esc(t(`admin.set.battle.${k}`))}</button>`).join('')}</div>
+    <div class="tabs adm-tabs3">${['always', 'class', 'off'].map((k) => `<button type="button" class="tabs__tab" aria-selected="${mode === k}" data-act="battle" data-mode="${k}">${esc(t(`admin.set.battle.${k}`))}</button>`).join('')}</div>
     <p class="shop__note">${esc(t('admin.set.battleNote'))}</p>
     <h2 class="shop__sub">${esc(t('admin.set.optional'))}</h2>
     <label class="adm-check"><input type="checkbox" data-flag="residentTaxOn" ${flagOn('residentTaxOn') ? 'checked' : ''}> <span>${esc(t('admin.set.residentTaxOn'))}</span></label>

@@ -16,7 +16,7 @@
 import { JUDGE, SCORE, GAUGE } from './config.js';
 import { mistakeKind } from './notes.js';
 
-export function createJudge(notes, defs, { offsetMs = JUDGE.inputOffsetMs } = {}) {
+export function createJudge(notes, defs, { offsetMs = JUDGE.inputOffsetMs, startPct = GAUGE.startPct, negMul = 1 } = {}) {
   const goodSec = JUDGE.good / 1000;
   const offset = offsetMs / 1000;
   const gaugeUnit = notes.length ? 100 / (notes.length * GAUGE.fullAt) : 0;
@@ -32,7 +32,7 @@ export function createJudge(notes, defs, { offsetMs = JUDGE.inputOffsetMs } = {}
     mistakes: {},            // 間違いの種類ごとの回数（結果の画面の解説で使う）
     mistakeNotes: {},        // 間違いの種類ごとに、どの溶質で間違えたか { cationH: { Na: 3 } }（解説の模型に使う）
     offsets: [],             // 当たったときのずれ（ミリ秒）。タイミング調整の参考
-    gauge: GAUGE.startPct,   // 水和ゲージ（0〜100 %）
+    gauge: startPct,         // 水和ゲージ（0〜100 %）。バトルロイヤルでは半分から始まり、0 で脱落
   };
 
   // ノーツの正解（溶媒で変わる。charts.js が n.answer に入れておく）
@@ -55,7 +55,8 @@ export function createJudge(notes, defs, { offsetMs = JUDGE.inputOffsetMs } = {}
       per[note.noteId] = (per[note.noteId] || 0) + 1;
     }
     if (extra.pass) stats.passed += 1;
-    stats.gauge = Math.max(0, Math.min(100, stats.gauge + (GAUGE.gain[result] || 0) * gaugeUnit));
+    const g = GAUGE.gain[result] || 0;
+    stats.gauge = Math.max(0, Math.min(100, stats.gauge + g * (g < 0 ? negMul : 1) * gaugeUnit));
     if (result === 'miss' || result === 'wrong') stats.combo = 0;
     else { stats.combo += 1; stats.maxCombo = Math.max(stats.maxCombo, stats.combo); }
     return { note, result, ...extra };

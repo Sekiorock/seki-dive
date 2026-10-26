@@ -1,7 +1,7 @@
 // hydration/src/config.js
 // ① ハイドレーション・ビートの数値の設定。数値はここに集め、プログラムの中に直接書かない。
 
-export const VERSION = 'hydration v0.8.0';
+export const VERSION = 'hydration v0.9.0';
 
 // ── 判定の幅（ミリ秒。ノーツが判定リングに来た瞬間からのずれ） ──
 export const JUDGE = {
@@ -128,4 +128,12 @@ export const WEAK = {
   bpm: 90,
   maxNotes: 4,          // 溶媒ごとに、間違いの多い溶質をこの数まで
   barsPerSolvent: 8,
+};
+
+// ── v0.9：バトルロイヤル（ハイドレーション・ビート仕様書 6章：3〜12人。水和ゲージが0になると脱落） ──
+export const ROYALE = {
+  minPlayers: 3,
+  maxPlayers: 12,
+  startPct: 50,         // 水和ゲージは半分から始まる（0 から始めると、すぐに脱落してしまうため）
+  negMul: 3,            // ミスでゲージが減る量を、ひとりのときの何倍にするか（脱落が起きるように）
 };
