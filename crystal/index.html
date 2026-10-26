@@ -32,9 +32,9 @@
     </div>
     <h2 class="cr-sec" data-i18n="cr.benches"></h2>
     <div class="cr-cards">
-      <button type="button" class="cr-card is-on" data-act="bench-solid"><b data-i18n="cr.bench.solid"></b><span data-i18n="cr.bench.solidSub"></span></button>
-      <button type="button" class="cr-card" disabled><b data-i18n="cr.bench.gas"></b><span data-i18n="cr.soon2"></span></button>
-      <button type="button" class="cr-card" disabled><b data-i18n="cr.bench.conc"></b><span data-i18n="cr.soon2"></span></button>
+      <button type="button" class="cr-card" data-act="pick-bench" data-bench="solid"><b data-i18n="cr.bench.solid"></b><span data-i18n="cr.bench.solidSub"></span></button>
+      <button type="button" class="cr-card" data-act="pick-bench" data-bench="gas"><b data-i18n="cr.bench.gas"></b><span data-i18n="cr.bench.gasSub"></span></button>
+      <button type="button" class="cr-card" data-act="pick-bench" data-bench="conc"><b data-i18n="cr.bench.conc"></b><span data-i18n="cr.bench.concSub"></span></button>
     </div>
     <h2 class="cr-sec" data-i18n="cr.modes"></h2>
     <div class="cr-cards">
@@ -47,24 +47,61 @@
     <p class="cr-note" data-i18n="hiyama.disclaimer"></p>
   </section>
 
-  <!-- 固体の実験台（自由実験） -->
+  <!-- 実験台（自由実験）。固体・気体・濃度で、操作盤の中身を切りかえる -->
   <section id="lab" class="cr-screen cr-lab" hidden>
-    <button type="button" class="btn btn--primary cr-seed" data-act="seed" id="seed-btn" hidden data-i18n="cr.seed"></button>
-    <div class="cr-bottom">
-    <div class="cr-readout" id="readout" aria-live="polite"></div>
-    <div class="cr-panel">
-      <div class="cr-solutes" id="solutes" role="radiogroup" data-i18n-aria="cr.solute"></div>
-      <label class="cr-slider"><span><b data-i18n="cr.temp"></b><output id="v-temp"></output></span>
-        <input type="range" id="s-temp" data-k="temp"></label>
-      <label class="cr-slider"><span><b data-i18n="cr.water"></b><output id="v-water"></output></span>
-        <input type="range" id="s-water" data-k="water"></label>
-      <label class="cr-slider"><span><b data-i18n="cr.mass"></b><output id="v-mass"></output></span>
-        <input type="range" id="s-mass" data-k="mass"></label>
-      <div class="cr-panel__foot">
-        <button type="button" class="btn btn--small" data-act="to-title" data-i18n="cr.toTitle"></button>
-        <button type="button" class="btn btn--small" data-act="found" id="found-btn2"></button>
+    <div class="cr-views" id="views" role="toolbar" data-i18n-aria="cr.view.label"></div>
+    <div class="cr-bottom" id="bottom">
+      <button type="button" class="btn btn--primary cr-seed" data-act="seed" id="seed-btn" hidden data-i18n="cr.seed"></button>
+      <div class="cr-readout" id="readout" aria-live="polite"></div>
+      <div class="cr-panel" id="panel">
+        <div class="cr-panel__head">
+          <div class="cr-tabs" role="tablist" id="bench-tabs">
+            <button type="button" class="cr-tab" role="tab" data-act="bench" data-bench="solid" data-i18n="cr.bench.solid"></button>
+            <button type="button" class="cr-tab" role="tab" data-act="bench" data-bench="gas" data-i18n="cr.bench.gas"></button>
+            <button type="button" class="cr-tab" role="tab" data-act="bench" data-bench="conc" data-i18n="cr.bench.conc"></button>
+          </div>
+          <button type="button" class="cr-fold" data-act="fold" id="fold-btn" aria-expanded="true"></button>
+        </div>
+        <div class="cr-panel__body" id="panel-body">
+          <!-- 固体 -->
+          <div class="cr-ctl" id="ctl-solid">
+            <div class="cr-solutes" id="solutes" role="radiogroup" data-i18n-aria="cr.solute"></div>
+            <label class="cr-slider"><span><b data-i18n="cr.temp"></b><output id="v-temp"></output></span>
+              <input type="range" id="s-temp"></label>
+            <label class="cr-slider"><span><b data-i18n="cr.water"></b><output id="v-water"></output></span>
+              <input type="range" id="s-water"></label>
+            <label class="cr-slider"><span><b data-i18n="cr.mass"></b><output id="v-mass"></output></span>
+              <input type="range" id="s-mass"></label>
+          </div>
+          <!-- 気体 -->
+          <div class="cr-ctl" id="ctl-gas" hidden>
+            <div class="cr-solutes" id="gases" role="radiogroup" data-i18n-aria="cr.g.gas"></div>
+            <label class="cr-slider"><span><b data-i18n="cr.g.pressure"></b><output id="v-gp"></output></span>
+              <input type="range" id="s-gp"></label>
+            <label class="cr-slider"><span><b data-i18n="cr.temp"></b><output id="v-gt"></output></span>
+              <input type="range" id="s-gt"></label>
+            <div class="cr-row">
+              <label class="cr-slider"><span><b data-i18n="cr.g.volume"></b><output id="v-gv"></output></span>
+                <input type="range" id="s-gv"></label>
+              <button type="button" class="btn cr-open" data-act="open-cap" id="open-btn" data-i18n="cr.g.open"></button>
+            </div>
+          </div>
+          <!-- 濃度 -->
+          <div class="cr-ctl" id="ctl-conc" hidden>
+            <div class="cr-solutes cr-solutes--3" id="csolutes" role="radiogroup" data-i18n-aria="cr.solute"></div>
+            <label class="cr-slider"><span><b data-i18n="cr.c.solute"></b><output id="v-cs"></output></span>
+              <input type="range" id="s-cs"></label>
+            <label class="cr-slider"><span><b data-i18n="cr.c.solvent"></b><output id="v-cw"></output></span>
+              <input type="range" id="s-cw"></label>
+            <label class="cr-slider"><span><b data-i18n="cr.c.density"></b><output id="v-cd"></output></span>
+              <input type="range" id="s-cd"></label>
+          </div>
+          <div class="cr-panel__foot">
+            <button type="button" class="btn btn--small" data-act="to-title" data-i18n="cr.toTitle"></button>
+            <button type="button" class="btn btn--small" data-act="found" id="found-btn2"></button>
+          </div>
+        </div>
       </div>
-    </div>
     </div>
   </section>
 

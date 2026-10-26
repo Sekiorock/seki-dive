@@ -1,16 +1,19 @@
 // crystal/src/main.js
 // ② クリスタル・ラボ：画面の切り替えと全体の進行（全体の仕様書 8章）。
 // v0.1：固体の実験台と自由実験。
-//   ・溶質の種類（KNO₃、KCl、NaCl、CuSO₄、CuSO₄·5H₂O、KNO₃ と CuSO₄·5H₂O の混合物）、溶質の質量 0〜200 g、
-//     水の質量 50〜300 g、温度 0〜80℃ をスライダーで動かすと、溶け残り・析出する結晶が3Dでその場で変わる。
-//   ・背後の溶解度曲線の上を「今の状態」の点が動く。不飽和・飽和・過飽和を表示する。
-//   ・高温の溶液を急に冷やすと、まれに過飽和になる。「種結晶を落とす」で一気に結晶が出る。
-//   ・初めて見た現象（発見）ごとに、発見報酬として20ヒヤマ（所得税と1日の上限つき）。
+// v0.2：気体の実験台（ヘンリーの法則）と濃度の実験台（3つの濃度）。カメラを指で自由に動かせるように
+//       （1本指で回す・ピンチで寄る・2本指で動かす・ダブルタップで戻る・視点のボタン）。操作盤をたためる。
+//       結晶の形を本物に寄せた。
 // 画面：タイトル → 実験台（自由実験） ／ 発見の一覧。ワールドに入るときは、毎回アバター選択の画面を通る。
 
-import { VERSION, RANGE, SOLUTE_ORDER, DISCOVERY, DISCOVERIES } from './config.js';
+import {
+  VERSION, RANGE, SOLUTE_ORDER, DISCOVERY, DISCOVERIES, DISCOVERY_GROUPS, BENCHES,
+  GAS_RANGE, GAS_ORDER, GASES, GAS_VIEW, CONC_RANGE, CONC_ORDER, CONC_SOLUTES,
+} from './config.js';
 import { SOLUTES } from './solubility.js';
 import { createLab } from './lab.js';
+import { createGasLab, dissolve } from './gas.js';
+import { createConcLab } from './conc.js';
 import { createScene } from './scene3d.js';
 import { initI18n, t, onLangChange, applyToDom, getLang, setLang } from '../../shared/i18n.js';
 import { applyTheme, fx } from '../../shared/theme.js';
@@ -19,29 +22,34 @@ import { initBackend, getUser, setUserLang, getAvatar, getWorldData, setWorldDat
 import { initEconomy, isWorldOpen, onSettingsChange, formatHiyama, reward } from '../../shared/economy.js';
 import { initNotices } from '../../shared/notices.js';
 import { openAvatarSelect } from '../../shared/avatar.js';
-import { standUrl, faceUrl, lineKey, nameKey } from '../../shared/characters.js';
+import { standUrl, faceUrl, nameKey } from '../../shared/characters.js';
 
 const $ = (id) => document.getElementById(id);
 const esc = (x) => String(x ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const params = new URLSearchParams(location.search);
 const WORLD = 'crystal';
-const GUIDE = 'karin';         // 工房の親方（ユウタロー）
+const GUIDE = 'karin';         // 工房の親方
+const HINT_KEY = 'sekidive.crystal.hint';
 
 let screen = 'loading';
 let scene = null;
-let lab = null;
+let lab = null;                // 固体
+let gasLab = null;             // 気体
+let concLab = null;            // 濃度
+let bench = 'solid';
+let folded = false;
 let avatar = null;
-let backTo = 'title';          // 発見の一覧を閉じたときに戻る画面
+let backTo = 'title';
 
 function goHome() { location.href = '../'; }
 
 let toastTimer = 0;
-function toast(msg) {
+function toast(msg, ms = 3600) {
   const el = $('toast');
   el.textContent = msg;
   el.classList.add('is-shown');
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => el.classList.remove('is-shown'), 3600);
+  toastTimer = setTimeout(() => el.classList.remove('is-shown'), ms);
 }
 
 function show(name) {
@@ -50,6 +58,7 @@ function show(name) {
   document.body.classList.toggle('is-lab', name === 'lab');
   if (scene) scene.showPanel(name === 'lab');
   if (name === 'found') $('discover').hidden = true;
+  updateViewport();
 }
 
 // ───────────── 発見（自由実験の報酬） ─────────────
@@ -64,7 +73,6 @@ async function onDiscover(kind) {
   const d = getWorldData(WORLD);
   d.found = { ...(d.found || {}), [kind]: Date.now() };
   setWorldData(WORLD, d);
-  // 知らせ：親方の顔と、発見の名前、ひとこと
   const el = $('discover');
   el.querySelector('img').src = faceUrl(GUIDE);
   el.querySelector('b').textContent = t('cr.discover.head', { name: t(`cr.d.${kind}`) });
@@ -92,9 +100,14 @@ function renderFoundButtons() {
 function renderFound() {
   const f = foundMap();
   $('found-lead').textContent = t('cr.found.lead', { n: foundCount(), total: DISCOVERIES.length, reward: DISCOVERY.reward });
-  $('found-list').innerHTML = DISCOVERIES.map((k) => (f[k]
-    ? `<li><b>${esc(t(`cr.d.${k}`))}</b><p>${esc(t(`cr.d.${k}Line`))}</p></li>`
-    : `<li class="is-locked"><b>？？？</b><p>${esc(t(`cr.d.${k}Hint`))}</p></li>`)).join('');
+  $('found-list').innerHTML = BENCHES.map((b) => {
+    const list = DISCOVERY_GROUPS[b];
+    const n = list.filter((k) => f[k]).length;
+    return `<li class="cr-found__group">${esc(t(`cr.bench.${b}`))}<small>${n} / ${list.length}</small></li>`
+      + list.map((k) => (f[k]
+        ? `<li><b>${esc(t(`cr.d.${k}`))}</b><p>${esc(t(`cr.d.${k}Line`))}</p></li>`
+        : `<li class="is-locked"><b>？？？</b><p>${esc(t(`cr.d.${k}Hint`))}</p></li>`)).join('');
+  }).join('');
 }
 
 // ───────────── タイトル ─────────────
@@ -103,32 +116,58 @@ function renderTitle() {
   st.querySelector('.cr-guide__stand').src = standUrl(GUIDE, 'normal');
   st.querySelector('.cr-guide__stand').alt = t(nameKey(GUIDE));
   st.querySelector('.cr-guide__line').textContent = t('quote', { line: t('cr.guide1') });
+  st.querySelectorAll('[data-act="pick-bench"]').forEach((b) => b.classList.toggle('is-on', b.dataset.bench === bench));
+  st.querySelector('[data-act="free"]').classList.add('is-on');
   renderFoundButtons();
 }
 
-// ───────────── 実験台 ─────────────
+// ───────────── 3Dが見える場所 ─────────────
+// 上の帯・視点のボタンより下、下の操作盤より上に、見せたいものが収まるようにする
+function updateViewport() {
+  if (!scene) return;
+  requestAnimationFrame(() => {
+    const H = window.innerHeight;
+    if (screen !== 'lab') { scene.setViewport(0, H); return; }
+    const top = Math.max($('topbar').getBoundingClientRect().bottom, $('views').getBoundingClientRect().bottom) + 4;
+    const bottom = $('bottom').getBoundingClientRect().top - 4;
+    scene.setViewport(top, Math.max(top + 80, bottom));
+  });
+}
+
+function renderViews() {
+  $('views').innerHTML = scene.viewNames().map((v) => `<button type="button" class="cr-view${scene.view === v ? ' is-on' : ''}" data-act="view" data-view="${v}">${esc(t(`cr.view.${v}`))}</button>`).join('')
+    + `<button type="button" class="cr-view cr-view--help" data-act="view-help" aria-label="${esc(t('cr.view.help'))}">?</button>`;
+}
+
+// ───────────── スライダー ─────────────
+function slider(id, range, onInput) {
+  const el = $(id);
+  el.min = range.min; el.max = range.max; el.step = range.step;
+  el.addEventListener('input', () => onInput(Number(el.value)));
+}
 function setupSliders() {
-  for (const k of ['temp', 'water', 'mass']) {
-    const el = $(`s-${k}`);
-    const r = RANGE[k === 'mass' ? 'solute' : k];
-    el.min = r.min; el.max = r.max; el.step = r.step;
-    el.addEventListener('input', () => {
-      const v = Number(el.value);
-      if (k === 'temp') lab.setTemp(v);
-      else if (k === 'water') lab.setWater(v);
-      else lab.setMass(v);
-      renderLab();
-    });
-  }
+  slider('s-temp', RANGE.temp, (v) => { lab.setTemp(v); renderSolid(); });
+  slider('s-water', RANGE.water, (v) => { lab.setWater(v); renderSolid(); });
+  slider('s-mass', RANGE.solute, (v) => { lab.setMass(v); renderSolid(); });
+  slider('s-gp', GAS_RANGE.pressure, (v) => { gasLab.setPressure(v); gasLab.state.released = null; renderGas(); });
+  slider('s-gt', GAS_RANGE.temp, (v) => { gasLab.setTemp(v); renderGas(); });
+  slider('s-gv', GAS_RANGE.volume, (v) => { gasLab.setVolume(v); renderGas(); });
+  slider('s-cs', CONC_RANGE.solute, (v) => { concLab.setSoluteMass(v); renderConc(); });
+  slider('s-cw', CONC_RANGE.solvent, (v) => { concLab.setSolvent(v); renderConc(); });
+  slider('s-cd', CONC_RANGE.density, (v) => { concLab.setDensity(v); renderConc(); });
 }
 
-function renderSolutes() {
-  const s = lab.state;
-  $('solutes').innerHTML = SOLUTE_ORDER.map((id) => `<button type="button" class="cr-solute" role="radio" aria-checked="${s.solute === id}" data-act="solute" data-id="${id}">
-    ${esc(SOLUTES[id].formula)}<small>${esc(t(`cr.s.${id}`))}</small></button>`).join('');
+const choice = (act, id, on, formula, sub) => `<button type="button" class="cr-solute" role="radio" aria-checked="${on}" data-act="${act}" data-id="${id}">${esc(formula)}<small>${esc(sub)}</small></button>`;
+function renderChoices() {
+  $('solutes').innerHTML = SOLUTE_ORDER.map((id) => choice('solute', id, lab.state.solute === id, SOLUTES[id].formula, t(`cr.s.${id}`))).join('');
+  $('gases').innerHTML = GAS_ORDER.map((id) => choice('gas', id, gasLab.state.gas === id, id === 'AIR' ? t('cr.g.air') : GASES[id].formula, t(`cr.g.${id}`))).join('');
+  $('csolutes').innerHTML = CONC_ORDER.map((id) => choice('csolute', id, concLab.state.solute === id, CONC_SOLUTES[id].formula, t(`cr.c.s.${id}`))).join('');
 }
 
-function renderLab() {
+const cell = (k, v, sub = '') => `<div class="cr-cell"><dt>${esc(t(k))}</dt><dd>${v}${sub ? `<small class="cr-sub">${sub}</small>` : ''}</dd></div>`;
+
+// ───────────── 固体 ─────────────
+function renderSolid() {
   const s = lab.state;
   const e = s.eq;
   $('s-temp').value = s.temp; $('s-water').value = s.water; $('s-mass').value = s.mass;
@@ -138,8 +177,6 @@ function renderLab() {
   const g = (x) => `${x.toFixed(1)}<small>g</small>`;
   const multi = e.parts.length > 1;
   const name = (id) => (id === 'KNO3' ? 'KNO₃' : 'CuSO₄·5H₂O');
-  // 画面の下（操作盤の上）に、横一列で数値を出す
-  const cell = (k, v, sub = '') => `<div class="cr-cell"><dt>${esc(t(k))}</dt><dd>${v}${sub ? `<small class="cr-sub">${sub}</small>` : ''}</dd></div>`;
   const cells = [
     cell('cr.r.water', g(e.water), e.addedWater > 0.05 ? `+${e.addedWater.toFixed(1)} ${esc(t('cr.r.fromHydrate'))}` : ''),
     cell('cr.r.dissolved', g(e.dissolved)),
@@ -149,13 +186,106 @@ function renderLab() {
   const hydr = e.parts.some((p) => p.id === 'CuSO4' && p.crystal > 0.05) ? `<p class="cr-note">${esc(t('cr.r.hydrateNote'))}</p>` : '';
   $('readout').innerHTML = `<div class="cr-readout__row"><dl>${cells.join('')}</dl><p class="cr-state is-${e.state}">${esc(t(`cr.state.${e.state}`))}</p></div>${hydr}`;
   $('seed-btn').hidden = e.state !== 'supersaturated';
-  scene.setState(s);
+  scene.setState('solid', s);
+}
+
+// ───────────── 気体 ─────────────
+/** 粒1つが表す物質量（mol）：その気体を 20℃・1.0×10⁵ Pa・5 L の水に溶かしたとき、粒がおよそ12個になる */
+function gasUnit(gas) {
+  const r = GAS_VIEW.dotsAt;
+  const n = dissolve(gas, r.pressure * 1e5, r.temp, r.volume).n;
+  return n > 0 ? n / r.dots : 0;
+}
+const milli = (n) => `${(n * 1e3).toFixed(2)}<small>×10⁻³ mol</small>`;
+const mlOf = (L) => `${(L * 1000).toFixed(1)}<small>mL</small>`;
+const massOf = (g) => (g < 1 ? `${(g * 1000).toFixed(1)}<small>mg</small>` : `${g.toFixed(3)}<small>g</small>`);
+function renderGas() {
+  const s = gasLab.state;
+  const e = s.eq;
+  $('s-gp').value = s.pressure; $('s-gt').value = s.temp; $('s-gv').value = s.volume;
+  $('v-gp').textContent = `${s.pressure.toFixed(1)} ×10⁵ Pa`;
+  $('v-gt').textContent = `${s.temp} ℃`;
+  $('v-gv').textContent = `${s.volume.toFixed(1)} L`;
+  $('open-btn').disabled = !e.henry || s.pressure <= GAS_RANGE.pressure.min;
+  const unit = gasUnit(s.gas);
+  let html;
+  if (!e.henry) {
+    html = `<p class="cr-warn">${esc(t('cr.g.hclNote'))}</p>`;
+  } else {
+    const multi = e.parts.length > 1;
+    const per = (f) => (multi ? e.parts.map((p) => `${GASES[p.id].formula} ${f(p)}`).join('<br>') : '');
+    const cells = [
+      cell('cr.g.r.n', milli(e.n), per((p) => (p.n * 1e3).toFixed(2))),
+      cell('cr.g.r.mass', massOf(e.mass), per((p) => `${(p.mass * 1000).toFixed(1)} mg`)),
+      cell('cr.g.r.volP', multi ? '—' : mlOf(e.volP), multi ? per((p) => `${(p.volP * 1000).toFixed(1)} mL`) : esc(t('cr.g.r.volPSub', { p: s.pressure.toFixed(1), T: s.temp }))),
+      cell('cr.g.r.volStd', mlOf(e.volStd), per((p) => `${(p.volStd * 1000).toFixed(1)} mL`)),
+    ];
+    const rel = s.released && s.released.n > 0
+      ? `<p class="cr-note cr-note--hot">${esc(t('cr.g.released', { n: (s.released.n * 1e3).toFixed(2), v: (s.released.volStd * 1000).toFixed(1) }))}</p>`
+      : '';
+    const airNote = multi ? `<p class="cr-note">${esc(t('cr.g.airNote', { o: ((e.parts[1].n / e.n) * 100).toFixed(0) }))}</p>` : '';
+    html = `<div class="cr-readout__row"><dl>${cells.join('')}</dl><p class="cr-state cr-state--gas" style="--gas:${GASES[s.gas].color}">${esc(s.gas === 'AIR' ? t('cr.g.air') : GASES[s.gas].formula)}</p></div>`
+      + `<p class="cr-note cr-note--unit">${esc(t('cr.g.unit', { u: (unit * 1e3).toFixed(3) }))}</p>${airNote}${rel}`;
+  }
+  $('readout').innerHTML = html;
+  $('seed-btn').hidden = true;
+  scene.setState('gas', s, unit);
+}
+
+// ───────────── 濃度 ─────────────
+const METER_MAX = { percent: 50, molarity: 8, molality: 8 };
+function meter(k, v, unit, formula) {
+  const r = Math.min(1, v / METER_MAX[k]);
+  return `<div class="cr-meter cr-meter--${k}"><span class="cr-meter__name">${esc(t(`cr.c.m.${k}`))}</span>`
+    + `<span class="cr-meter__bar"><i style="width:${(r * 100).toFixed(1)}%"></i></span>`
+    + `<b class="cr-meter__val">${v >= 100 ? v.toFixed(1) : v.toFixed(2)}<small>${unit}</small>${v > METER_MAX[k] ? '<em>▲</em>' : ''}</b>`
+    + `<small class="cr-meter__f">${formula}</small></div>`;
+}
+function renderConc() {
+  const s = concLab.state;
+  const e = s.eq;
+  $('s-cs').value = s.solute_g; $('s-cw').value = s.solvent; $('s-cd').value = s.density;
+  $('v-cs').textContent = `${s.solute_g} g`;
+  $('v-cw').textContent = `${s.solvent} g`;
+  $('v-cd').textContent = `${s.density.toFixed(2)} g/cm³`;
+  const f1 = `${s.solute_g} ÷ ${e.mass} × 100`;
+  const f2 = `${e.n.toFixed(3)} mol ÷ ${(e.volMl / 1000).toFixed(3)} L`;
+  const f3 = `${e.n.toFixed(3)} mol ÷ ${(s.solvent / 1000).toFixed(3)} kg`;
+  $('readout').innerHTML = meter('percent', e.percent, '%', esc(f1)) + meter('molarity', e.molarity, 'mol/L', esc(f2)) + meter('molality', e.molality, 'mol/kg', esc(f3))
+    + `<p class="cr-note cr-note--unit">${esc(t('cr.c.volLine', { m: e.mass, d: s.density.toFixed(2), v: e.volMl.toFixed(1), n: e.n.toFixed(3), M: e.M }))}</p>`;
+  $('seed-btn').hidden = true;
+  scene.setState('conc', s);
+}
+
+function renderBench() {
+  for (const b of BENCHES) $(`ctl-${b}`).hidden = b !== bench;
+  document.querySelectorAll('#bench-tabs .cr-tab').forEach((x) => x.setAttribute('aria-selected', String(x.dataset.bench === bench)));
+  const fb = $('fold-btn');
+  fb.textContent = t(folded ? 'cr.panel.open' : 'cr.panel.fold');
+  fb.setAttribute('aria-expanded', String(!folded));
+  $('panel').classList.toggle('is-folded', folded);
+  renderChoices();
+  if (bench === 'solid') renderSolid();
+  else if (bench === 'gas') renderGas();
+  else renderConc();
+  renderViews();
+  updateViewport();
+}
+
+function setBench(name) {
+  bench = name;
+  scene.setBench(name);
+  renderBench();
 }
 
 function openLab() {
-  renderSolutes();
-  renderLab();
+  scene.setBench(bench);
   show('lab');
+  renderBench();
+  // はじめて実験台を開いたときだけ、指の使い方を知らせる
+  let seen = false;
+  try { seen = !!localStorage.getItem(HINT_KEY); localStorage.setItem(HINT_KEY, '1'); } catch (e) { /* 保存できなくても続ける */ }
+  if (!seen) toast(t('cr.view.help'), 5200);
 }
 
 // ───────────── 毎回の描き直し ─────────────
@@ -169,13 +299,28 @@ function setupInput() {
     const b = e.target.closest('[data-act]');
     if (!b || b.disabled) return;
     const act = b.dataset.act;
-    if (act === 'free' || act === 'bench-solid') openLab();
+    if (act === 'free') openLab();
+    else if (act === 'pick-bench') { bench = b.dataset.bench; scene.setBench(bench); renderTitle(); }
+    else if (act === 'bench') setBench(b.dataset.bench);
+    else if (act === 'fold') { folded = !folded; renderBench(); }
+    else if (act === 'view') { scene.setView(b.dataset.view); renderViews(); }
+    else if (act === 'view-help') toast(t('cr.view.help'), 5200);
     else if (act === 'to-title') { renderTitle(); show('title'); }
-    else if (act === 'solute') { lab.setSolute(b.dataset.id); renderSolutes(); renderLab(); }
-    else if (act === 'seed') { if (lab.seed()) { scene.sparkle(); renderLab(); } }
+    else if (act === 'solute') { lab.setSolute(b.dataset.id); renderChoices(); renderSolid(); }
+    else if (act === 'gas') { gasLab.setGas(b.dataset.id); renderChoices(); renderGas(); }
+    else if (act === 'csolute') { concLab.setSolute(b.dataset.id); renderChoices(); renderConc(); }
+    else if (act === 'seed') { if (lab.seed()) { scene.sparkle(); renderSolid(); } }
+    else if (act === 'open-cap') {
+      const rel = gasLab.openCap();
+      if (rel) scene.bubble(rel.n / Math.max(1e-9, gasUnit(gasLab.state.gas)));
+      renderGas();
+    }
     else if (act === 'found') { backTo = screen; renderFound(); show('found'); }
     else if (act === 'found-close') { if (backTo === 'lab') openLab(); else { renderTitle(); show('title'); } }
   });
+  $('discover').addEventListener('click', () => { $('discover').hidden = true; });
+  window.addEventListener('resize', updateViewport);
+  if (window.ResizeObserver) new ResizeObserver(updateViewport).observe($('bottom'));
 }
 
 // ───────────── はじまり ─────────────
@@ -201,7 +346,6 @@ async function start() {
   await initEconomy();
   loading.hidden = true;
 
-  // 初めて起動したときの流れ（言語・ニックネーム・開国交付金）は、ホームで行う
   if (!getUser().onboarded) { goHome(); return; }
   const savedLang = getUser().lang;
   if (savedLang && savedLang !== getLang()) setLang(savedLang);
@@ -209,21 +353,19 @@ async function start() {
     setUserLang(lang);
     applyToDom();
     if (screen === 'title') renderTitle();
-    if (screen === 'lab') { renderSolutes(); renderLab(); }
+    if (screen === 'lab') renderBench();
     if (screen === 'found') renderFound();
     renderFoundButtons();
-    if (scene && lab) scene.redraw(lab.state);
+    if (scene && lab) scene.redraw('solid', lab.state);
   });
 
   createTopbar({ mount: $('topbar'), showQR: false, onHome: () => goHome() });
   applyToDom();
   initNotices(toast);
 
-  // 先生がこのワールドを閉じているときは入れない
   if (!isWorldOpen(WORLD)) { toast(t('cr.closed')); setTimeout(goHome, 2500); return; }
   onSettingsChange(() => { if (!isWorldOpen(WORLD)) { toast(t('cr.closed')); setTimeout(goHome, 2500); } });
 
-  // ワールドに入るたびに、アバター選択の画面を通る（ホームの門から来たときは、そこで選んでいる）
   avatar = getAvatar(WORLD);
   if (params.get('from') !== 'home' || !avatar) {
     const chosen = await openAvatarSelect(WORLD);
@@ -234,12 +376,15 @@ async function start() {
 
   if (document.fonts && document.fonts.ready) await Promise.race([document.fonts.ready, new Promise((r) => setTimeout(r, 1500))]);
   lab = createLab({ onDiscover });
+  gasLab = createGasLab({ onDiscover });
+  concLab = createConcLab({ onDiscover });
   scene = createScene($('scene'));
-  scene.setState(lab.state);
+  scene.setState('solid', lab.state);
+  scene.setState('gas', gasLab.state, gasUnit(gasLab.state.gas));
+  scene.setState('conc', concLab.state);
+  scene.onView(() => { if (screen === 'lab') renderViews(); });
   setupSliders();
   setupInput();
-  // 発見の知らせは、タップすると早めに消える
-  $('discover').addEventListener('click', () => { $('discover').hidden = true; });
   renderTitle();
   show('title');
   requestAnimationFrame(loop);
@@ -247,8 +392,14 @@ async function start() {
   // 確かめるための入口（住所に ?debug=1 を付けたときだけ）
   if (params.has('debug')) {
     window.__cr = {
-      get lab() { return lab; }, get screen() { return screen; },
-      set: (o) => { if (o.solute) lab.setSolute(o.solute); if (o.water != null) lab.setWater(o.water); if (o.mass != null) lab.setMass(o.mass); if (o.temp != null) lab.setTemp(o.temp, o.at); if (o.forceSuper) lab.forceSuper(); renderSolutes(); renderLab(); },
+      get lab() { return lab; }, get gas() { return gasLab; }, get conc() { return concLab; },
+      get screen() { return screen; }, get scene() { return scene; },
+      bench: (b) => setBench(b),
+      view: (v) => { scene.setView(v); renderViews(); },
+      fold: (on) => { folded = !!on; renderBench(); },
+      set: (o) => { if (o.solute) lab.setSolute(o.solute); if (o.water != null) lab.setWater(o.water); if (o.mass != null) lab.setMass(o.mass); if (o.temp != null) lab.setTemp(o.temp, o.at); if (o.forceSuper) lab.forceSuper(); renderChoices(); renderSolid(); },
+      setGas: (o) => { if (o.gas) gasLab.setGas(o.gas); if (o.pressure != null) gasLab.setPressure(o.pressure); if (o.temp != null) gasLab.setTemp(o.temp); if (o.volume != null) gasLab.setVolume(o.volume); renderChoices(); renderGas(); },
+      setConc: (o) => { if (o.solute) concLab.setSolute(o.solute); if (o.solute_g != null) concLab.setSoluteMass(o.solute_g); if (o.solvent != null) concLab.setSolvent(o.solvent); if (o.density != null) concLab.setDensity(o.density); renderChoices(); renderConc(); },
     };
   }
 }
