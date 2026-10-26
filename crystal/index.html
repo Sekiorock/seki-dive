@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+  <meta name="theme-color" content="#05081A">
+  <title>セキオダイブ</title>
+  <!-- 文字：日本語は M PLUS 1p、英語と数字はゲームらしい Chakra Petch -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=M+PLUS+1p:wght@400;700;800&family=Chakra+Petch:wght@500;700&display=swap">
+  <link rel="stylesheet" href="../shared/base.css">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body data-title-key="cr.title">
+  <header id="topbar"></header>
+
+  <!-- 3Dの実験台 -->
+  <canvas id="scene" aria-hidden="true"></canvas>
+  <div class="cr-frame" aria-hidden="true"></div>
+
+  <!-- タイトル -->
+  <section id="title" class="cr-screen cr-title" hidden>
+    <div class="cr-logo">
+      <p class="cr-logo__layer" data-i18n="cr.layer"></p>
+      <h1 class="cr-logo__name" data-i18n="cr.title"></h1>
+      <p class="cr-logo__tag" data-i18n="cr.tagline"></p>
+    </div>
+    <div class="cr-guide">
+      <img class="cr-guide__stand" alt="" width="1024" height="1536">
+      <p class="cr-guide__line"></p>
+    </div>
+    <h2 class="cr-sec" data-i18n="cr.benches"></h2>
+    <div class="cr-cards">
+      <button type="button" class="cr-card is-on" data-act="bench-solid"><b data-i18n="cr.bench.solid"></b><span data-i18n="cr.bench.solidSub"></span></button>
+      <button type="button" class="cr-card" disabled><b data-i18n="cr.bench.gas"></b><span data-i18n="cr.soon2"></span></button>
+      <button type="button" class="cr-card" disabled><b data-i18n="cr.bench.conc"></b><span data-i18n="cr.soon2"></span></button>
+    </div>
+    <h2 class="cr-sec" data-i18n="cr.modes"></h2>
+    <div class="cr-cards">
+      <button type="button" class="cr-card is-on" data-act="free"><b data-i18n="cr.mode.free"></b><span data-i18n="cr.mode.freeSub"></span></button>
+      <button type="button" class="cr-card" disabled><b data-i18n="cr.mode.order"></b><span data-i18n="cr.soon3"></span></button>
+      <button type="button" class="cr-card" disabled><b data-i18n="cr.mode.refine"></b><span data-i18n="cr.soon3"></span></button>
+    </div>
+    <button type="button" class="btn btn--primary cr-start" data-act="free" data-i18n="cr.start"></button>
+    <button type="button" class="btn cr-sub" data-act="found" id="found-btn"></button>
+    <p class="cr-note" data-i18n="hiyama.disclaimer"></p>
+  </section>
+
+  <!-- 固体の実験台（自由実験） -->
+  <section id="lab" class="cr-screen cr-lab" hidden>
+    <button type="button" class="btn btn--primary cr-seed" data-act="seed" id="seed-btn" hidden data-i18n="cr.seed"></button>
+    <div class="cr-bottom">
+    <div class="cr-readout" id="readout" aria-live="polite"></div>
+    <div class="cr-panel">
+      <div class="cr-solutes" id="solutes" role="radiogroup" data-i18n-aria="cr.solute"></div>
+      <label class="cr-slider"><span><b data-i18n="cr.temp"></b><output id="v-temp"></output></span>
+        <input type="range" id="s-temp" data-k="temp"></label>
+      <label class="cr-slider"><span><b data-i18n="cr.water"></b><output id="v-water"></output></span>
+        <input type="range" id="s-water" data-k="water"></label>
+      <label class="cr-slider"><span><b data-i18n="cr.mass"></b><output id="v-mass"></output></span>
+        <input type="range" id="s-mass" data-k="mass"></label>
+      <div class="cr-panel__foot">
+        <button type="button" class="btn btn--small" data-act="to-title" data-i18n="cr.toTitle"></button>
+        <button type="button" class="btn btn--small" data-act="found" id="found-btn2"></button>
+      </div>
+    </div>
+    </div>
+  </section>
+
+  <!-- 発見の一覧 -->
+  <section id="found" class="cr-screen cr-found" hidden>
+    <h2 class="cr-found__title" data-i18n="cr.found.title"></h2>
+    <p class="cr-note" id="found-lead"></p>
+    <ol class="cr-found__list" id="found-list"></ol>
+    <button type="button" class="btn" data-act="found-close" data-i18n="cr.back"></button>
+  </section>
+
+  <!-- 発見したときの知らせ -->
+  <div class="cr-discover" id="discover" role="status" aria-live="polite" hidden>
+    <img alt="" width="64" height="64">
+    <div><b></b><p></p><span></span></div>
+  </div>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <p id="loading" class="cr-loading" role="status" hidden></p>
+  <div id="version" class="version"></div>
+
+  <!-- 3Dの描画（Three.js r128、ほかのワールドと同じ版）。cdnjs から -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script type="module" src="src/main.js"></script>
+</body>
+</html>
