@@ -1,7 +1,7 @@
 // hydration/src/config.js
 // ① ハイドレーション・ビートの数値の設定。数値はここに集め、プログラムの中に直接書かない。
 
-export const VERSION = 'hydration v0.4.0';
+export const VERSION = 'hydration v0.5.0';
 
 // ── 判定の幅（ミリ秒。ノーツが判定リングに来た瞬間からのずれ） ──
 export const JUDGE = {
@@ -24,7 +24,8 @@ export const JUDGE = {
 //   thin      true なら、8分音符の裏拍のノーツを抜いて、続けて押すところを減らす
 //   chainStep 糖（-OH が多い）の同時押しの連続の間隔（拍）。大きいほどゆっくり
 //   hclGap    HCl の O のあと、Cl⁻（H）が来るまでの間隔（拍）
-//   reward    1曲の報酬の目安（ヒヤマ）。報酬を出すのはこの先の版
+//   reward    1曲の報酬の目安（ヒヤマ）。v0.5 からは shared/economy.js の hbRewardEasy などを使う
+//             （先生が管理画面から変えられるようにするため。ここは説明のための値）
 export const DIFFICULTY = {
   easy:   { assist: 1, approachSec: 3.2, thin: true,  chainStep: 1, hclGap: 1,   reward: 30 },
   normal: { assist: 2, approachSec: 2.7, thin: false, chainStep: 1, hclGap: 0.5, reward: 80 },
@@ -111,4 +112,20 @@ export const AUDIO = {
   music: 0.75,
   sfx: 0.6,
   scheduleAheadSec: 0.25,   // 音を先に予約しておく長さ
+};
+
+// ── v0.5：ショップの演出（ハイドレーション・ビート仕様書 7章：演出エフェクト 300〜3,000 ヒヤマ） ──
+//   正しく水和させたときに、判定リングから飛び散る演出。買ったものから1つを選んで使う。値段に消費税がかかる
+export const SHOP_FX = [
+  { id: 'sakura', price: 500 },    // 桜の花びら
+  { id: 'kin', price: 1000 },      // 金の輪
+  { id: 'raiko', price: 1500 },    // 雷光（青白い火花）
+  { id: 'hoshi', price: 3000 },    // 星くず（七色の星）
+];
+
+// ── v0.5：苦手ノーツの練習曲（道具屋の「苦手問題の練習券」を1枚使う） ──
+export const WEAK = {
+  bpm: 90,
+  maxNotes: 4,          // 溶媒ごとに、間違いの多い溶質をこの数まで
+  barsPerSolvent: 8,
 };

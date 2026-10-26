@@ -48,11 +48,16 @@
         <li class="is-mix" data-i18n="hb.howto.8"></li>
       </ol>
     </details>
+    <!-- v0.5：道具屋で買った券（ヒント券・苦手問題の練習券） -->
+    <div class="hb-tickets" id="tickets"></div>
     <div class="hb-title__actions">
       <button type="button" class="btn btn--primary hb-title__solo" data-act="solo" data-i18n="hb.solo"></button>
       <button type="button" class="btn hb-title__battle" disabled data-i18n="hb.battle"></button>
     </div>
-    <button type="button" class="btn hb-title__zukan" data-act="zukan" data-i18n="hb.zukan.open"></button>
+    <div class="hb-title__sub2">
+      <button type="button" class="btn hb-title__zukan" data-act="zukan" data-i18n="hb.zukan.open"></button>
+      <button type="button" class="btn hb-title__shop" data-act="shop" data-i18n="hb.shop.open"></button>
+    </div>
     <button type="button" class="btn hb-title__calib" data-act="calib"><span data-i18n="hb.calib.open"></span><b id="calib-now"></b></button>
     <p class="hb-title__note" data-i18n="hb.battleSoon"></p>
     <p class="hb-title__note hb-title__keys" data-i18n="hb.howto.keys"></p>
@@ -88,9 +93,20 @@
     <div class="hb-zukan__tabs" role="tablist">
       <button type="button" class="hb-zukan__tab" role="tab" data-act="zukan-tab" data-tab="models" data-i18n="hb.zukan.models"></button>
       <button type="button" class="hb-zukan__tab" role="tab" data-act="zukan-tab" data-tab="notes" data-i18n="hb.zukan.notes"></button>
+      <button type="button" class="hb-zukan__tab" role="tab" data-act="zukan-tab" data-tab="pages" data-i18n="hb.zukan.pages"></button>
     </div>
     <div class="hb-zukan__body" id="zukan-body"></div>
     <button type="button" class="btn hb-zukan__back" data-act="zukan-close" data-i18n="hb.zukan.back"></button>
+  </section>
+
+  <!-- ショップ（v0.5：演出エフェクト） -->
+  <section id="shop" class="hb-screen hb-zukan hb-shop" hidden>
+    <h2 class="hb-zukan__title" data-i18n="hb.shop.title"></h2>
+    <p class="hb-zukan__empty" data-i18n="hb.shop.lead"></p>
+    <div class="hb-shop__list" id="shop-list"></div>
+    <p class="hb-zukan__empty" data-i18n="hb.shop.tickets"></p>
+    <p class="hb-title__note" data-i18n="hiyama.disclaimer"></p>
+    <button type="button" class="btn hb-zukan__back" data-act="shop-close" data-i18n="hb.zukan.back"></button>
   </section>
 
   <!-- プレイ -->

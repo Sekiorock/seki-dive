@@ -70,7 +70,10 @@ export function setLang(lang) {
   save(lang);
   document.documentElement.lang = lang;
   applyToDom();
-  listeners.forEach((fn) => fn(lang));
+  // 1つの画面の描き直しで失敗しても、ほかの画面（上の帯の言語ボタンなど）は必ず切りかわるように
+  listeners.forEach((fn) => {
+    try { fn(lang); } catch (e) { console.error('[i18n] 言語の切りかえの途中で失敗しました', e); }
+  });
 }
 
 /** 言語が変わったときに呼ぶ関数を登録する。プレイ中の画面はここで一時停止する。 */

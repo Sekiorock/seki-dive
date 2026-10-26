@@ -2,11 +2,13 @@
 // 図鑑（ハイドレーション・ビート仕様書 5章・8章、v0.4）。
 //   ・模型：溶質ノーツの3D模型を1つずつ回して見られる。水のとき・ヘキサンのときの正しい入力も出す。
 //   ・解説：結果の画面で「図鑑に保存」した、間違いの種類ごとの解説を読み返せる。
+//   ・特集ページ（v0.5）：道具屋の「図鑑の追加ページ」を1枚使うと、1ページずつ開く。
 
 import { t } from '../../shared/i18n.js';
 import { NOTES, ZUKAN_ORDER, answerIn } from './notes.js';
 import { showModel, hideModel } from './viewer.js';
-import { MISTAKE_ORDER, isSaved, savedKinds } from './progress.js';
+import { MISTAKE_ORDER, isSaved, savedKinds, PAGES, isPageOpen } from './progress.js';
+import { itemCount } from '../../shared/auth.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
@@ -35,6 +37,15 @@ export function renderZukan(root) {
         ${ZUKAN_ORDER.map((id) => `<button type="button" class="hb-zukan__chip${id === state.id ? ' is-on' : ''}" data-act="zukan-pick" data-id="${id}" aria-pressed="${id === state.id}">${esc(NOTES[id].formula)}</button>`).join('')}
       </div>`;
     showModel(body.querySelector('#zukan-view'), state.id);
+  } else if (state.tab === 'pages') {
+    hideModel();
+    const have = itemCount('zukan');
+    body.innerHTML = `
+      <p class="hb-zukan__empty">${esc(t('hb.page.lead', { n: have }))}</p>
+      ${PAGES.map((id) => (isPageOpen(id)
+        ? `<article class="hb-page"><h3>${esc(t(`hb.page.${id}.title`))}</h3>${t(`hb.page.${id}.body`).split('\n').map((x) => `<p>${esc(x)}</p>`).join('')}</article>`
+        : `<article class="hb-page is-locked"><h3>${esc(t(`hb.page.${id}.title`))}</h3><p>${esc(t('hb.page.locked'))}</p>
+            <button type="button" class="btn btn--small" data-act="page-open" data-id="${id}"${have ? '' : ' disabled'}>${esc(t('hb.page.open'))}</button></article>`)).join('')}`;
   } else {
     hideModel();
     const n = savedKinds().length;

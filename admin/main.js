@@ -335,6 +335,8 @@ function settingsTab() {
     <div class="adm-grid">${num('', 'incomeTaxRate', true, 0.5)}${num('', 'consumptionTaxRate', true, 0.5)}${num('', 'betTaxRate', true, 0.5)}</div>
     <h2 class="shop__sub">${esc(t('admin.set.amounts'))}</h2>
     <div class="adm-grid">${['foundingGrant', 'lessonGrant', 'dailyRewardCap', 'battleFee', 'quitFine', 'itemMax'].map((k) => num('', k)).join('')}</div>
+    <h2 class="shop__sub">${esc(t('admin.set.hbRewards'))}</h2>
+    <div class="adm-grid">${['hbRewardEasy', 'hbRewardNormal', 'hbRewardHard', 'firstClearMultiplier'].map((k) => num('', k)).join('')}</div>
     <h2 class="shop__sub">${esc(t('admin.set.worlds'))}</h2>
     <ul class="adm-list">${GATES.map((g) => `
       <li class="adm-switch"><span>${esc(t(`world.${g.id}`))}</span>

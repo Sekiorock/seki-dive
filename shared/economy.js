@@ -30,6 +30,11 @@ export const SETTINGS = {
   residentTax: 100,           // 住民税（任意。先生が徴収を押したときに1人あたり）
   assetTaxRate: 0.05,         // 資産税（任意。基準を超えた分にかける割合）
   assetTaxThreshold: 5000,    // 資産税がかかり始める残高
+  // ① ハイドレーション・ビートのクリアの報酬（難易度ごと。初めてクリアしたときは firstClearMultiplier 倍）
+  hbRewardEasy: 30,
+  hbRewardNormal: 80,
+  hbRewardHard: 200,
+  firstClearMultiplier: 2,
   services: [                 // 道具屋のサービス（使えるのは各ワールドができてから）
     { id: 'hint', price: 50 },
     { id: 'practice', price: 100 },
@@ -38,7 +43,8 @@ export const SETTINGS = {
 };
 // 管理画面から変えてよい項目
 export const REMOTE_KEYS = ['foundingGrant', 'incomeTaxRate', 'consumptionTaxRate', 'betTaxRate', 'dailyRewardCap', 'itemMax',
-  'lessonGrant', 'battleFee', 'quitFine', 'residentTax', 'assetTaxRate', 'assetTaxThreshold'];
+  'lessonGrant', 'battleFee', 'quitFine', 'residentTax', 'assetTaxRate', 'assetTaxThreshold',
+  'hbRewardEasy', 'hbRewardNormal', 'hbRewardHard', 'firstClearMultiplier'];
 
 // 数でない設定（ワールドの開閉、対戦の可否、任意の税のオン・オフ）。Firebase の settings から届く
 let settingsRaw = {};

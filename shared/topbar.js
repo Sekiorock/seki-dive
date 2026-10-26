@@ -71,9 +71,9 @@ export function createTopbar({ mount, showQR = false, onQR, onBalance, onHome })
   refreshBalance();
   onWalletChange(refreshBalance);
   onLangChange(refreshBalance);
-  // 交付金・賞金を受け取ったときは、残高の数字が金に光りながら増える（出来事の発光）
+  // 交付金・賞金・報酬を受け取ったときは、残高の数字が金に光りながら増える（出来事の発光）
   onMoneyEvent((e) => {
-    if (e.type !== 'grant' && e.type !== 'prize') return;
+    if (e.type !== 'grant' && e.type !== 'prize' && e.type !== 'reward') return;
     const from = e.balance - e.amount;
     counting = true;
     fx.countUp(amountEl, from, e.balance);

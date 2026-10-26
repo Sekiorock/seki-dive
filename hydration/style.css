@@ -407,3 +407,42 @@ body.is-hexane .hb-pad--m { display: flex; }
 .hb-zukan__empty { margin: 0; font-size: 12px; color: var(--dim); line-height: 1.6; }
 .hb-zukan__back { min-height: 44px; }
 .hb-howto li.is-mix { box-shadow: inset 3px 0 0 #C59BFF; }
+
+/* ── v0.5：券・ショップ・報酬 ── */
+.hb-title__sub2 { width: 100%; max-width: 420px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.hb-title__sub2 .btn { width: 100%; max-width: none; }
+.hb-title__shop { min-height: 40px; font-size: 13px; }
+.hb-zukan__tabs { grid-template-columns: repeat(3, 1fr); }
+.hb-tickets { width: 100%; max-width: 420px; display: flex; flex-direction: column; gap: 6px; }
+.hb-tickets:empty { display: none; }
+.hb-ticket { display: flex; align-items: center; gap: 10px; padding: 8px 12px; font-size: 12px; line-height: 1.5; clip-path: var(--chamfer-s); background: rgba(230, 180, 34, 0.12); box-shadow: inset 3px 0 0 var(--hiyama); }
+.hb-ticket input { width: 20px; height: 20px; accent-color: var(--hiyama); flex: none; }
+.hb-ticket b { color: var(--hiyama); font-family: var(--font-en); }
+.hb-ticket .btn { margin-left: auto; min-height: 36px; flex: none; }
+.hb-shop__list { display: grid; gap: 8px; }
+.hb-shop__item { display: grid; grid-template-columns: 54px 1fr auto; gap: 10px; align-items: center; padding: 10px; clip-path: var(--chamfer); background: var(--scan), var(--seigaiha), rgba(9, 15, 40, 0.92); box-shadow: inset 0 0 0 1px var(--stroke-strong); }
+.hb-shop__item.is-on { box-shadow: inset 0 0 0 2px var(--hiyama), inset 0 0 18px rgba(230, 180, 34, 0.3); }
+.hb-shop__swatch { width: 54px; height: 54px; clip-path: polygon(25% 0, 75% 0, 100% 50%, 75% 100%, 25% 100%, 0 50%); }
+.hb-shop__item b { display: block; font-size: 14px; }
+.hb-shop__item p { margin: 2px 0 0; font-size: 11px; line-height: 1.5; color: var(--dim); }
+.hb-shop__price { font-family: var(--font-en); color: var(--hiyama); font-size: 13px; }
+.hb-shop__item .btn { min-height: 40px; min-width: 76px; }
+.hb-reward { margin-top: 10px; padding: 10px 12px; clip-path: var(--chamfer); background: var(--scan), linear-gradient(120deg, rgba(230, 180, 34, 0.25), rgba(9, 15, 40, 0.92)); box-shadow: inset 0 0 0 1px rgba(230, 180, 34, 0.6); }
+.hb-reward__head { margin: 0 0 6px; display: flex; justify-content: space-between; align-items: baseline; font-size: 13px; font-weight: 800; color: var(--hiyama); }
+.hb-reward__head em { font-style: normal; font-family: var(--font-en); font-size: 12px; padding: 1px 8px; background: var(--hiyama); color: #05081A; }
+.hb-reward dl { margin: 0; display: grid; grid-template-columns: 1fr auto; gap: 2px 12px; font-size: 13px; }
+.hb-reward dt { color: var(--dim); }
+.hb-reward dd { margin: 0; text-align: right; font-family: var(--font-en); }
+.hb-reward dd.is-net { font-size: 18px; font-weight: 700; color: var(--hiyama); }
+.hb-reward p { margin: 4px 0 0; font-size: 12px; line-height: 1.5; color: var(--dim); }
+.hb-page { padding: 12px; clip-path: var(--chamfer); background: var(--scan), var(--seigaiha), rgba(9, 15, 40, 0.92); box-shadow: inset 0 0 0 1px var(--stroke-strong); }
+.hb-page h3 { margin: 0 0 6px; font-size: 15px; }
+.hb-page p { margin: 0 0 6px; font-size: 13px; line-height: 1.7; }
+.hb-page.is-locked { color: var(--dim); }
+.hb-page .btn { width: 100%; min-height: 40px; margin-top: 4px; }
+.hb-burst { position: fixed; z-index: 70; width: 10px; height: 10px; margin: -5px 0 0 -5px; pointer-events: none; animation: hb-burst .85s ease-out forwards; box-shadow: 0 0 8px currentColor; }
+.hb-burst--sakura { border-radius: 60% 0; }
+.hb-burst--kin { background: transparent !important; border: 2px solid #F8D25A; border-radius: 50%; width: 14px; height: 14px; }
+.hb-burst--raiko { width: 3px; height: 14px; }
+.hb-burst--hoshi { clip-path: polygon(50% 0, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%); width: 14px; height: 14px; }
+@keyframes hb-burst { from { opacity: 1; transform: translate(0, 0) scale(1); } to { opacity: 0; transform: translate(var(--dx), var(--dy)) scale(0.6) rotate(180deg); } }

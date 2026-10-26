@@ -3,7 +3,9 @@
 // v0.2：難易度、見送り成功の数、間違いの種類ごとの回数（名前だけ）を足した。
 // v0.3：CLEAR／FAILED、水和ゲージ、最高点の更新、新しく開いたステージの知らせ。
 // v0.4：間違いの種類ごとの解説（仕様書 5章）。いちばん多かった間違いを先頭に出し、その溶質の3D模型を回して見られる。
-//       「この解説を図鑑に保存」で、図鑑からいつでも読み返せる。ヒヤマの報酬はこの先の版。
+//       「この解説を図鑑に保存」で、図鑑からいつでも読み返せる。
+// v0.5：クリアの報酬（税引き前・所得税・手取り。初クリアは2倍。1日の上限）。言語を切りかえたら描き直せるように、
+//       r には文字ではなく i18n の鍵を入れる。
 
 import { t } from '../../shared/i18n.js';
 import { standUrl, nameKey, lineKey } from '../../shared/characters.js';
@@ -17,8 +19,26 @@ const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<
 
 /**
  * @param {HTMLElement} el   結果の画面の入れ物
- * @param {object} r         { stageLabel, stageTitleKey, diffId, score, stats, avatar, clear, gauge, clearPct, news, unlockedLabel }
+ * @param {object} r         { stageNo, practiceKey, stageTitleKey, diffId, score, stats, avatar, clear, gauge, clearPct, news, unlocked, reward, hinted }
  */
+/** 報酬の箱（v0.5） */
+function rewardBox(rw) {
+  if (!rw || rw.state === 'none') return '';
+  if (rw.state === 'practice') return `<p class="hb-result__note">${esc(t('hb.reward.practice'))}</p>`;
+  const head = `<p class="hb-reward__head"><span>${esc(t('hb.reward.title'))}</span>${rw.first ? `<em>${esc(t('hb.reward.first'))}</em>` : ''}</p>`;
+  if (rw.state === 'pending') return `<div class="hb-reward">${head}<p>${esc(t('hb.reward.pending'))}</p></div>`;
+  if (rw.state === 'cap') return `<div class="hb-reward">${head}<p>${esc(t('hb.reward.cap'))}</p></div>`;
+  return `<div class="hb-reward">${head}
+    <dl>
+      <dt>${esc(t('hb.reward.gross'))}</dt><dd>${esc(t('money', { amount: formatHiyama(rw.got) }))}</dd>
+      <dt>${esc(t('hb.reward.tax'))}</dt><dd>−${esc(t('money', { amount: formatHiyama(rw.tax) }))}</dd>
+      <dt>${esc(t('hb.reward.net'))}</dt><dd class="is-net">+${esc(t('money', { amount: formatHiyama(rw.net) }))}</dd>
+    </dl>
+    ${rw.capped ? `<p>${esc(t('hb.reward.partial'))}</p>` : ''}
+    <p>${esc(t('hiyama.disclaimer'))}</p>
+  </div>`;
+}
+
 export function renderResult(el, r) {
   const s = r.stats;
   const good = r.clear;
@@ -38,7 +58,7 @@ export function renderResult(el, r) {
     <div class="hb-result__head">
       <p class="hb-result__label">${esc(t('hb.result.title'))}</p>
       <p class="hb-result__badge ${r.clear ? 'is-clear' : 'is-failed'}">${esc(t(r.clear ? 'hb.result.clear' : 'hb.result.failed'))}</p>
-      <p class="hb-result__stage">${esc(r.stageLabel)} ・ ${esc(t(r.stageTitleKey))} ・ ${esc(t(`hb.diff.${r.diffId}`))}</p>
+      <p class="hb-result__stage">${esc(r.stageNo ? t('hb.stageLabel', { n: r.stageNo }) : t(r.practiceKey))} ・ ${esc(t(r.stageTitleKey))} ・ ${esc(t(`hb.diff.${r.diffId}`))}</p>
     </div>
     <div class="hb-result__hero">
       <img class="hb-result__stand" src="${standUrl(r.avatar, good ? 'smile' : 'surprise', getCostume(r.avatar))}" alt="${esc(t(nameKey(r.avatar)))}" width="1024" height="1536">
@@ -49,7 +69,9 @@ export function renderResult(el, r) {
         <p class="hb-result__line">${esc(t('quote', { line: t(lineKey('minato', good ? 'hbResultGood' : 'hbResultTry')) }))}</p>
       </div>
     </div>
-    ${r.unlockedLabel ? `<p class="hb-result__news">${esc(t('hb.result.unlocked', r.unlockedLabel))}</p>` : ''}
+    ${rewardBox(r.reward)}
+    ${r.unlocked ? `<p class="hb-result__news">${esc(t('hb.result.unlocked', { n: r.unlocked.n, title: t(r.unlocked.titleKey) }))}</p>` : ''}
+    ${r.hinted ? `<p class="hb-result__note">${esc(t('hb.ticket.hintNote'))}</p>` : ''}
     ${r.clear ? '' : `<p class="hb-result__news is-fail">${esc(t('hb.result.failNote', { pct: r.clearPct }))}</p>`}
     <ul class="hb-result__grid">
       <li class="is-wide is-gauge"><span>${esc(t('hb.result.gauge'))}</span><b>${Math.floor(r.gauge)}%</b></li>
@@ -74,7 +96,6 @@ export function renderResult(el, r) {
         <button type="button" class="btn hb-explain__save" data-act="save-explain" data-kinds="${kinds.map(([k]) => k).join(',')}"${allSaved ? ' disabled' : ''}>${esc(t(allSaved ? 'hb.explain.savedAll' : 'hb.explain.save'))}</button>
       </div>` : `<p class="hb-result__note">${esc(t('hb.result.noMistakes'))}</p>`}
     </div>
-    <p class="hb-result__note">${esc(t('hb.result.later'))}</p>
     <div class="hb-result__actions">
       <button type="button" class="btn btn--primary" data-act="retry">${esc(t('hb.result.retry'))}</button>
       <button type="button" class="btn" data-act="to-title">${esc(t('hb.result.toTitle'))}</button>

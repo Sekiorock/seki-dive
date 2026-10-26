@@ -323,3 +323,44 @@ export function chartFormulas(chart) {
   chart.bars.forEach((row) => [...row].forEach((ch) => { if (SYMBOLS[ch]) ids.add(SYMBOLS[ch]); }));
   return [...ids].map((id) => NOTES[id].formula);
 }
+
+/**
+ * v0.5：苦手ノーツの練習曲を作る（道具屋の「苦手問題の練習券」）。
+ * @param {{ water: string[], hexane: string[] }} weak  溶媒ごとの苦手な溶質
+ * @param {{ bpm: number, barsPerSolvent: number }} opt
+ */
+export function makeWeakChart(weak, opt) {
+  const sym = Object.fromEntries(Object.entries(SYMBOLS).map(([k, v]) => [v, k]));
+  const bars = ['........', '........'];
+  const solvents = [];
+  const sections = [{ from: 0, to: 1, name: 'intro', energy: 0 }];
+  const part = (ids, solvent) => {
+    if (!ids.length) return;
+    // 前のパートのあとと、ヘキサンの前には、ノーツのない2小節（ボタンが変わるのを待つ）
+    const gap = bars.length > 2 || solvent === 'hexane';
+    if (gap) { bars.push('........', '........'); sections.push({ from: bars.length - 2, to: bars.length - 1, name: 'break', energy: 0 }); }
+    const from = bars.length - (gap ? 2 : 0);
+    let i = 0;
+    const start = bars.length;
+    const chain = (id) => solvent === 'water' && NOTES[id].chain;
+    while (bars.length - start < opt.barsPerSolvent) {
+      const a = ids[i % ids.length]; i += 1;
+      // 糖は -OH の数だけ続くので、それだけで2小節
+      if (chain(a)) { bars.push(`${sym[a]}.......`, '........'); continue; }
+      const b = ids[i % ids.length];
+      if (chain(b) || ids.length === 1) { bars.push(`${sym[a]}...${ids.length === 1 ? sym[a] : '.'}...`); continue; }
+      i += 1;
+      bars.push(`${sym[a]}...${sym[b]}...`);
+    }
+    sections.push({ from: start, to: bars.length - 1, name: 'A', energy: 2 });
+    if (solvent === 'hexane') solvents.push({ from, to: bars.length - 1, solvent });
+  };
+  part(weak.water || [], 'water');
+  part(weak.hexane || [], 'hexane');
+  bars.push('........');
+  sections.push({ from: bars.length - 1, to: bars.length - 1, name: 'outro', energy: 1 });
+  return {
+    id: 'weak', stageNo: 0, titleKey: 'hb.weak.title', bpm: opt.bpm, stepsPerBar: 8, bars, solvents, sections,
+    newIds: null, music: { transpose: 0, chords: 'b' }, tailBars: 1, practice: true,
+  };
+}

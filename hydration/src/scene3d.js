@@ -12,6 +12,7 @@
 //   ・背景の奥に NaCl の結晶。正しく水和させるたびにイオンが1個ずつはがれる。
 //   ・v0.4：溶媒がヘキサンのとき（setSolvent）は、プレイヤーがヘキサン分子に変わり、道は藤色に。
 //     無極性分子を「なじむ」で取りこむと、小さなヘキサン分子が取り囲む（溶媒和）。
+//   ・v0.5：ショップで買った演出（setFx）。正しく水和させたときに、判定リングから花びらや星が飛び散る。
 // 色：δ−（O）は朱、δ+（H）は群青。色を見分けにくい人のために、必ず「−」「+」の記号を添える。
 // 軽く保つため、分子は同時に RENDER.maxMolecules 個まで、影は使わない。
 
@@ -134,6 +135,46 @@ function smallHexaneGeometry() {
   smallHexGeo.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3));
   return smallHexGeo;
 }
+
+// ───────────── v0.5：ショップの演出の形 ─────────────
+function fxTexture(kind) {
+  return labelTexture((g, w, h) => {
+    g.clearRect(0, 0, w, h);
+    g.fillStyle = '#ffffff';
+    g.strokeStyle = '#ffffff';
+    if (kind === 'petal') {           // 桜の花びら（先が少し割れた楕円）
+      g.beginPath();
+      g.moveTo(w / 2, h * 0.92);
+      g.bezierCurveTo(w * 0.05, h * 0.6, w * 0.2, h * 0.08, w * 0.45, h * 0.18);
+      g.lineTo(w / 2, h * 0.28);
+      g.lineTo(w * 0.55, h * 0.18);
+      g.bezierCurveTo(w * 0.8, h * 0.08, w * 0.95, h * 0.6, w / 2, h * 0.92);
+      g.fill();
+    } else if (kind === 'ring') {     // 金の輪
+      g.lineWidth = w * 0.09;
+      g.shadowColor = '#fff'; g.shadowBlur = 8;
+      g.beginPath(); g.arc(w / 2, h / 2, w * 0.36, 0, Math.PI * 2); g.stroke();
+    } else if (kind === 'spark') {    // 雷光の火花（ぎざぎざの線）
+      g.lineWidth = w * 0.07; g.lineJoin = 'miter';
+      g.shadowColor = '#fff'; g.shadowBlur = 10;
+      g.beginPath(); g.moveTo(w * 0.5, 0); g.lineTo(w * 0.35, h * 0.42); g.lineTo(w * 0.6, h * 0.5); g.lineTo(w * 0.45, h); g.stroke();
+    } else {                          // 星
+      g.beginPath();
+      for (let i = 0; i < 10; i++) {
+        const a = -Math.PI / 2 + (Math.PI * i) / 5, r = (i % 2 ? 0.2 : 0.48) * w;
+        g[i ? 'lineTo' : 'moveTo'](w / 2 + Math.cos(a) * r, h / 2 + Math.sin(a) * r);
+      }
+      g.closePath(); g.fill();
+    }
+  }, 64, 64);
+}
+// 演出ごとの決まり：形、色、数、飛ぶ速さ、重さ（下に落ちる強さ）、消えるまでの秒数、大きさ
+const FX_DEFS = {
+  sakura: { tex: 'petal', colors: ['#ffc4dc', '#ff9ec7', '#fff0f6'], count: 16, speed: 4.0, gravity: 2.0, life: 1.6, size: 0.85, spin: 3 },
+  kin: { tex: 'ring', colors: ['#F8D25A', '#E6B422', '#fff3c0'], count: 8, speed: 2.6, gravity: -0.6, life: 1.0, size: 1.2, spin: 0, grow: 1.8 },
+  raiko: { tex: 'spark', colors: ['#bfe8ff', '#7cd0ff', '#ffffff'], count: 14, speed: 7.0, gravity: 0, life: 0.5, size: 1.1, spin: 8 },
+  hoshi: { tex: 'star', colors: ['#ff7e7e', '#ffd36e', '#a8ff8a', '#7cd0ff', '#c59bff'], count: 18, speed: 4.8, gravity: 1.2, life: 1.3, size: 0.8, spin: 4 },
+};
 
 // ───────────── 溶質の札（化学式と、補助輪の段階1では種類の文字） ─────────────
 function drawNoteLabel(g, w, h, def, assist, solvent) {
@@ -467,6 +508,50 @@ export function createScene(canvas, { noteDefs }) {
     s.g.visible = true;
   }
 
+  // ── v0.5：ショップの演出（使い回す小さな札の群れ） ──
+  const fxTex = {};
+  const fxPool = Array.from({ length: 48 }, () => {
+    const sp = new THREE.Sprite(new THREE.SpriteMaterial({ transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false }));
+    sp.visible = false;
+    scene.add(sp);
+    return { sp, start: -1, v: new THREE.Vector3(), def: null, rot: 0 };
+  });
+  let fxOn = '';
+  function spawnFx(now) {
+    const def = FX_DEFS[fxOn];
+    if (!def) return;
+    if (!fxTex[def.tex]) fxTex[def.tex] = fxTexture(def.tex);
+    let made = 0;
+    for (const p of fxPool) {
+      if (made >= def.count) break;
+      if (p.start >= 0) continue;
+      const a = Math.random() * Math.PI * 2, up = Math.random() * 0.8 + 0.2;
+      p.v.set(Math.cos(a) * def.speed, up * def.speed * 0.8, Math.sin(a) * def.speed * 0.4 + 0.6);
+      // 押した時刻ではなく、いま描いている時刻から飛ばす（すぐに見えるように）
+      p.start = lastFrame; p.def = def; p.rot = (Math.random() - 0.5) * def.spin;
+      p.sp.material.map = fxTex[def.tex];
+      p.sp.material.color.set(def.colors[made % def.colors.length]);
+      p.sp.material.rotation = Math.random() * Math.PI * 2;
+      p.sp.position.set(0, RING_Y, NOTE.judgeZ);
+      p.sp.scale.setScalar(def.size);
+      p.sp.visible = true;
+      made += 1;
+    }
+  }
+  function stepFx(now, dt) {
+    for (const p of fxPool) {
+      if (p.start < 0) continue;
+      const k = (now - p.start) / p.def.life;
+      if (k >= 1 || k < 0) { p.start = -1; p.sp.visible = false; continue; }
+      p.v.y -= p.def.gravity * dt;
+      p.sp.position.addScaledVector(p.v, dt);
+      p.v.multiplyScalar(Math.pow(0.4, dt));
+      p.sp.material.rotation += p.rot * dt;
+      p.sp.material.opacity = 1 - k * k;
+      p.sp.scale.setScalar(p.def.size * (1 + (p.def.grow || 0) * k));
+    }
+  }
+
   // ── 見送り成功のしるし（通り抜けたときに道の横で光る） ──
   const passMarks = Array.from({ length: 3 }, () => {
     const m = new THREE.Mesh(new THREE.RingGeometry(0.75, 0.8, 6), new THREE.MeshBasicMaterial({ color: 0xc9d1de, transparent: true, opacity: 0, depthWrite: false, side: THREE.DoubleSide, toneMapped: false }));
@@ -524,7 +609,12 @@ export function createScene(canvas, { noteDefs }) {
       b.start = now; b.mesh.visible = true;
       b.mesh.material.color.set(judgement === 'perfect' ? '#ffffff' : frameColor(def, assist, note.solvent));
       if (peel && peeled < peelOrder.length) { crystalInfo[peelOrder[peeled]].leaving = now; peeled += 1; }
+      spawnFx(now);
     },
+    /** v0.5：ショップで選んだ演出（'' でふつう） */
+    setFx(id) { fxOn = FX_DEFS[id] ? id : ''; },
+    /** 演出の見本を1回だけ出す（ショップの画面） */
+    previewFx(id, now) { const keep = fxOn; fxOn = FX_DEFS[id] ? id : ''; spawnFx(now); fxOn = keep; },
     /** 溶媒を切りかえる（'water' / 'hexane'）。プレイヤーの分子と、道の色が変わる */
     setSolvent(sv) {
       solvent = sv;
@@ -552,6 +642,7 @@ export function createScene(canvas, { noteDefs }) {
       shells.forEach((sh) => { sh.start = -1; sh.g.visible = false; giveModel(sh.model); sh.model = null; });
       bursts.forEach((b) => { b.start = -1; b.mesh.visible = false; });
       passMarks.forEach((b) => { b.start = -1; b.mesh.visible = false; });
+      fxPool.forEach((p) => { p.start = -1; p.sp.visible = false; });
       crystalInfo.forEach((c, i) => {
         c.leaving = -1;
         mtx.compose(c.p, new THREE.Quaternion(), new THREE.Vector3(c.r, c.r, c.r));
@@ -620,6 +711,7 @@ export function createScene(canvas, { noteDefs }) {
         sh.holder.rotation.set(drift * 0.8, drift * 1.4, 0);
         sh.g.scale.setScalar(RENDER.noteScale * (k4 > 1.1 ? fade : 1));
       }
+      stepFx(now, dt);
       // 広がる輪
       for (const b of bursts) {
         if (b.start < 0) continue;

@@ -4,13 +4,15 @@
 // v0.2：3章のすべての溶質ノーツ（同時押し・見送り・HCl の電離）、難易度と補助輪の3段階、練習曲。
 // v0.3：ステージ1〜4、水和ゲージとクリア、ステージの解放、タイミング調整の画面。
 // v0.4：ステージ5・6（溶媒の交代：ヘキサンでは中央の「なじむ」ボタン）、結果の画面の間違いの解説、図鑑。
+// v0.5：クリアの報酬（ヒヤマ。所得税と1日の上限つき）、ショップの演出、道具屋の券（ヒント券・苦手問題の練習券・
+//       図鑑の追加ページ）を使えるように。言語の切りかえで、どの画面も描き直すように。
 //
 // 画面：（初めてのときはタイミング調整）→ タイトル → プレイ（一時停止あり）→ 結果。ワールドに入るときは、毎回アバター選択の画面を通る。
 // 時刻の基準は、音の時計（audio.js の heardTime）。
 
-import { VERSION, NOTE, COMBO_LAYERS, CUTIN_EVERY, FLASH, DIFFICULTY, DEFAULT_DIFFICULTY, GAUGE, CALIB, JUDGE } from './config.js';
+import { VERSION, NOTE, COMBO_LAYERS, CUTIN_EVERY, FLASH, DIFFICULTY, DEFAULT_DIFFICULTY, GAUGE, CALIB, JUDGE, SHOP_FX, WEAK } from './config.js';
 import { NOTES } from './notes.js';
-import { CHARTS, CHART_ORDER, STAGE_ORDER, expandChart, chartFormulas } from './charts.js';
+import { CHARTS, CHART_ORDER, STAGE_ORDER, expandChart, chartFormulas, makeWeakChart } from './charts.js';
 import { createJudge } from './judge.js';
 import { unlockAudio, heardTime, heardTimeAt, pauseAudio, resumeAudio, savedOffset, saveOffset, startCalibration } from './audio.js';
 import { isUnlocked, recordOf, prevStageNo, recordResult } from './progress.js';
@@ -19,12 +21,12 @@ import { createScene } from './scene3d.js';
 import { renderResult } from './results.js';
 import { renderZukan, zukanTab, zukanPick, closeZukan } from './zukan.js';
 import { hideModel } from './viewer.js';
-import { saveExplanations } from './progress.js';
+import { saveExplanations, addWeak, weakList, hasWeak, firstClearOf, fxState, addFx, useFx, openPage } from './progress.js';
 import { initI18n, t, onLangChange, applyToDom, getLang, setLang } from '../../shared/i18n.js';
 import { applyTheme } from '../../shared/theme.js';
 import { createTopbar } from '../../shared/topbar.js';
-import { initBackend, getUser, setUserLang, getAvatar, getCostume } from '../../shared/auth.js';
-import { initEconomy, isWorldOpen, onSettingsChange, formatHiyama } from '../../shared/economy.js';
+import { initBackend, getUser, setUserLang, getAvatar, getCostume, itemCount, useItem, addItem } from '../../shared/auth.js';
+import { initEconomy, isWorldOpen, onSettingsChange, formatHiyama, SETTINGS, reward, pay, grant, priceWithTax, canAfford, isInArrears } from '../../shared/economy.js';
 import { initNotices } from '../../shared/notices.js';
 import { openAvatarSelect } from '../../shared/avatar.js';
 import { DEFAULT_AVATAR, standUrl, lineKey, nameKey } from '../../shared/characters.js';
@@ -63,7 +65,7 @@ function toast(msg) {
 
 function show(name) {
   screen = name;
-  for (const id of ['title', 'play', 'result', 'calib', 'zukan']) $(id).hidden = id !== name;
+  for (const id of ['title', 'play', 'result', 'calib', 'zukan', 'shop']) $(id).hidden = id !== name;
   if (name !== 'result' && name !== 'zukan') hideModel();
   document.body.classList.toggle('is-playing', name === 'play');
 }
@@ -102,15 +104,44 @@ function renderTitle() {
     </button>`;
   }).join('');
   $('diff-note').textContent = t(`hb.diff.${pick.diff}Note`);
+  renderTickets();
   const off = savedOffset();
   $('calib-now').textContent = off === null ? t('hb.calib.none') : `${off > 0 ? '+' : ''}${off} ms`;
 }
 
+// ───────────── v0.5：道具屋の券 ─────────────
+let useHint = false;
+function renderTickets() {
+  const esc = (x) => String(x).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const hint = itemCount('hint'), practice = itemCount('practice');
+  if (!hint) useHint = false;
+  const rows = [];
+  if (hint && pick.diff !== 'easy') {
+    rows.push(`<label class="hb-ticket"><input type="checkbox" data-act="use-hint" ${useHint ? 'checked' : ''}><span>${esc(t('hb.ticket.hint'))}　<b>×${hint}</b></span></label>`);
+  }
+  if (practice) {
+    rows.push(`<div class="hb-ticket"><span>${esc(t('hb.ticket.practice'))}　<b>×${practice}</b><br>${esc(t(hasWeak() ? 'hb.ticket.practiceNote' : 'hb.ticket.practiceNone'))}</span>
+      <button type="button" class="btn btn--small" data-act="weak-start"${hasWeak() ? '' : ' disabled'}>${esc(t('hb.ticket.practiceGo'))}</button></div>`);
+  }
+  $('tickets').innerHTML = rows.join('');
+}
+
 // ───────────── プレイ ─────────────
-async function startPlay() {
-  if (!isUnlocked(pick.chart)) { toast(t('hb.lockedToast', { n: prevStageNo(pick.chart) })); return; }
+async function startPlay(opts = {}) {
+  const weak = opts.weak;
+  if (!weak && !isUnlocked(pick.chart)) { toast(t('hb.lockedToast', { n: prevStageNo(pick.chart) })); return; }
+  let chart = CHARTS[pick.chart];
+  if (weak) {
+    // 苦手ノーツの練習曲：券を1枚使う
+    if (!useItem('practice')) { renderTitle(); return; }
+    chart = makeWeakChart({ water: weakList('water', WEAK.maxNotes), hexane: weakList('hexane', WEAK.maxNotes) }, WEAK);
+    toast(t('hb.ticket.practiceUsed'));
+  }
+  // ヒント券：ふつう・むずかしいでも、この曲だけ補助輪1の文字を出す
+  let hinted = false;
+  if (!weak && useHint && pick.diff !== 'easy' && useItem('hint')) { hinted = true; toast(t('hb.ticket.hintUsed')); }
+  useHint = false;
   const ctx = await unlockAudio();
-  const chart = CHARTS[pick.chart];
   const diff = DIFFICULTY[pick.diff];
   const exp = expandChart(chart, diff);
   const notes = exp.notes.map((n) => ({ ...n, state: 'pending', slot: null }));
@@ -121,12 +152,13 @@ async function startPlay() {
   hideModel();
   scene.reset();
   setSolvent('water', false);
-  scene.setPlay({ approachSec: diff.approachSec, assist: diff.assist });
+  scene.setPlay({ approachSec: diff.approachSec, assist: hinted ? 1 : diff.assist });
+  scene.setFx(fxState().on);
   scene.setTiming(0, chart.bpm);
   scene.setComboLevel(0);
   song.start(t0);
   play = {
-    chart, diff, diffId: pick.diff, exp, notes, judge, song, t0, swIdx: 0,
+    chart, diff, diffId: pick.diff, exp, notes, judge, song, t0, swIdx: 0, weak: !!weak, hinted,
     paused: false, finished: false, hits: 0,
     peelEvery: Math.max(1, Math.ceil(notes.length / scene.crystalCount)),
     lastScore: -1, lastCombo: -1,
@@ -252,18 +284,56 @@ function updateHud() {
   }
 }
 
-function finish() {
+/** 難易度ごとの報酬（先生が管理画面で変えられる） */
+const REWARD_KEY = { easy: 'hbRewardEasy', normal: 'hbRewardNormal', hard: 'hbRewardHard' };
+
+let lastResult = null;   // 言語を切りかえたときに、結果の画面を描き直すため
+function showResult() { renderResult($('result'), lastResult); }
+
+async function finish() {
   play.finished = true;
   play.song.stop();
   const clear = play.judge.cleared();
-  const news = recordResult(play.chart.id, play.diffId, play.judge.score(), clear);
-  renderResult($('result'), {
+  const practice = play.weak || !play.chart.stageNo;
+  const first = !practice && clear && firstClearOf(play.chart.id, play.diffId);
+  const news = play.weak ? { newRecord: false, unlocked: null } : recordResult(play.chart.id, play.diffId, play.judge.score(), clear);
+  addWeak(play.notes);
+  const un = news.unlocked ? CHARTS[news.unlocked] : null;
+  // 報酬：ステージをクリアしたときだけ（練習曲は出ない）。初めてクリアしたときは2倍
+  let rw = { state: practice ? 'practice' : clear ? 'pending' : 'none' };
+  if (rw.state === 'pending') {
+    const base = SETTINGS[REWARD_KEY[play.diffId]] || 0;
+    rw.gross = base * (first ? SETTINGS.firstClearMultiplier : 1);
+    rw.first = first;
+  }
+  lastResult = {
     clear, gauge: play.judge.stats.gauge, clearPct: GAUGE.clearPct, news,
-    unlockedLabel: news.unlocked ? { n: CHARTS[news.unlocked].stageNo, title: t(CHARTS[news.unlocked].titleKey) } : null,
-    stageLabel: stageLabel(play.chart), stageTitleKey: play.chart.titleKey, diffId: play.diffId,
-    score: play.judge.score(), stats: play.judge.stats, avatar,
-  });
+    unlocked: un ? { n: un.stageNo, titleKey: un.titleKey } : null,
+    stageNo: play.chart.stageNo, practiceKey: play.weak ? 'hb.weak.label' : 'hb.practiceLabel',
+    stageTitleKey: play.chart.titleKey, diffId: play.diffId, hinted: play.hinted,
+    score: play.judge.score(), stats: play.judge.stats, avatar, reward: rw,
+  };
+  showResult();
   show('result');
+  if (rw.state === 'pending') {
+    const myResult = lastResult;
+    let entry = null;
+    try {
+      entry = await reward({ itemKey: 'ledger.item.hbClear', itemVars: { stage: `i18n:${play.chart.titleKey}`, diff: `i18n:hb.diff.${play.diffId}`, first: first ? 'i18n:hb.reward.firstMark' : '' }, gross: rw.gross });
+    } catch (e) { console.info('[ハイドレーション・ビート] 報酬を受け取れませんでした。', e && e.message); }
+    if (lastResult !== myResult) return;
+    if (entry) {
+      Object.assign(rw, { state: 'done', got: entry.gross, tax: entry.tax, net: entry.amount, capped: entry.gross < rw.gross });
+    } else {
+      rw.state = 'cap';
+    }
+    if (screen === 'result') {
+      const box = $('result');
+      const top = box.scrollTop;
+      showResult();
+      box.scrollTop = top;
+    }
+  }
 }
 
 // ───────────── 一時停止 ─────────────
@@ -286,6 +356,65 @@ async function quitPlay() {
   await resumeAudio();
   play = null;
   document.body.classList.remove('is-hexane');
+}
+
+// ───────────── v0.5：ショップ（演出エフェクト） ─────────────
+const FX_SWATCH = {
+  sakura: 'linear-gradient(135deg, #ffc4dc, #ff7eb0)', kin: 'linear-gradient(135deg, #fff3c0, #E6B422)',
+  raiko: 'linear-gradient(135deg, #ffffff, #36A9FF)', hoshi: 'linear-gradient(135deg, #ff7e7e, #ffd36e, #a8ff8a, #7cd0ff, #c59bff)',
+};
+function renderShop() {
+  const esc = (x) => String(x).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const st = fxState();
+  const row = (id, price) => {
+    const owned = !id || st.owned.includes(id);
+    const on = st.on === id;
+    const btn = on ? `<button type="button" class="btn btn--small" disabled>${esc(t('hb.shop.using'))}</button>`
+      : owned ? `<button type="button" class="btn btn--small" data-act="fx-use" data-id="${id}">${esc(t('hb.shop.use'))}</button>`
+        : `<button type="button" class="btn btn--small btn--primary" data-act="fx-buy" data-id="${id}"${canAfford(price) ? '' : ' disabled'}>${esc(t(pendingBuy === id ? 'hb.shop.confirm' : 'hb.shop.buy'))}</button>`;
+    const price2 = !id ? '' : owned ? esc(t('hb.shop.owned')) : `${esc(t('money', { amount: formatHiyama(priceWithTax(price)) }))} <small>${esc(t('hb.shop.taxIn', { price: formatHiyama(price) }))}</small>`;
+    return `<div class="hb-shop__item${on ? ' is-on' : ''}">
+      <button type="button" class="hb-shop__swatch" data-act="fx-preview" data-id="${id}" aria-label="${esc(t('hb.shop.preview'))}" style="background:${id ? FX_SWATCH[id] : 'rgba(255,255,255,0.12)'};border:0;cursor:pointer"></button>
+      <div><b>${esc(t(`hb.fx.${id || 'none'}`))}</b><p>${esc(t(`hb.fx.${id || 'none'}Desc`))}</p><span class="hb-shop__price">${price2}</span></div>
+      ${btn}
+    </div>`;
+  };
+  $('shop-list').innerHTML = row('', 0) + SHOP_FX.map((f) => row(f.id, f.price)).join('')
+    + (isInArrears() ? `<p class="hb-zukan__empty">${esc(t('hb.shop.arrears'))}</p>` : '');
+}
+/** ショップの見本：六角形から、演出の色の小さなかけらが飛び散る（画面の上だけの軽い動き） */
+const FX_COLORS = { sakura: ['#ffc4dc', '#ff9ec7'], kin: ['#F8D25A', '#fff3c0'], raiko: ['#bfe8ff', '#36A9FF'], hoshi: ['#ff7e7e', '#ffd36e', '#a8ff8a', '#7cd0ff', '#c59bff'] };
+function domBurst(el, id) {
+  const cols = FX_COLORS[id];
+  if (!cols || (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches)) return;
+  const r = el.getBoundingClientRect();
+  for (let i = 0; i < 14; i++) {
+    const p = document.createElement('i');
+    p.className = `hb-burst hb-burst--${id}`;
+    const a = (Math.PI * 2 * i) / 14 + Math.random() * 0.3, d = 40 + Math.random() * 40;
+    p.style.left = `${r.left + r.width / 2}px`;
+    p.style.top = `${r.top + r.height / 2}px`;
+    p.style.background = cols[i % cols.length];
+    p.style.setProperty('--dx', `${Math.cos(a) * d}px`);
+    p.style.setProperty('--dy', `${Math.sin(a) * d + (id === 'sakura' || id === 'hoshi' ? 20 : 0)}px`);
+    document.body.appendChild(p);
+    setTimeout(() => p.remove(), 900);
+  }
+}
+let pendingBuy = '';      // 買うボタンは2回押す（1回目で「もう一度押すと買う」）
+async function buyFx(id) {
+  const f = SHOP_FX.find((x) => x.id === id);
+  if (!f) return;
+  if (pendingBuy !== id) { pendingBuy = id; renderShop(); return; }
+  pendingBuy = '';
+  const r = await pay({ type: 'purchase', itemKey: 'ledger.item.hbFx', itemVars: { name: `i18n:hb.fx.${id}` }, price: f.price });
+  if (r.ok) {
+    addFx(id);
+    toast(t('hb.shop.bought', { name: t(`hb.fx.${id}`) }));
+  } else {
+    toast(t(`hb.shop.fail.${r.reason}`));
+  }
+  renderShop();
 }
 
 // ───────────── タイミング調整（ハイドレーション・ビート仕様書 4章） ─────────────
@@ -455,6 +584,17 @@ function setupInput() {
     if (act === 'solo') startPlay();
     else if (act === 'pick-chart') { pick.chart = b.dataset.chart; savePick(); renderTitle(); }
     else if (act === 'calib') openCalib(false);
+    else if (act === 'use-hint') { useHint = b.checked; }
+    else if (act === 'weak-start') startPlay({ weak: true });
+    else if (act === 'shop') { pendingBuy = ''; renderShop(); show('shop'); }
+    else if (act === 'shop-close') { renderTitle(); show('title'); }
+    else if (act === 'fx-buy') buyFx(b.dataset.id);
+    else if (act === 'fx-use') { useFx(b.dataset.id); renderShop(); }
+    else if (act === 'fx-preview') domBurst(b, b.dataset.id);
+    else if (act === 'page-open') {
+      if (useItem('zukan')) { openPage(b.dataset.id); toast(t('hb.page.opened')); }
+      renderZukan($('zukan'));
+    }
     else if (act === 'zukan') { renderZukan($('zukan')); show('zukan'); }
     else if (act === 'zukan-close') { closeZukan(); renderTitle(); show('title'); }
     else if (act === 'zukan-tab') zukanTab($('zukan'), b.dataset.tab);
@@ -517,6 +657,8 @@ async function start() {
     if (screen === 'title') renderTitle();
     if (screen === 'calib') renderCalib();
     if (screen === 'zukan') renderZukan($('zukan'));
+    if (screen === 'shop') renderShop();
+    if (screen === 'result' && lastResult) { const box = $('result'); const top = box.scrollTop; showResult(); box.scrollTop = top; }
     // プレイ中に言語を切り替えたときは、一時停止する（全体の仕様書 2章）
     if (screen === 'play') pause();
   });
@@ -567,6 +709,8 @@ async function start() {
       start: () => startPlay(),
       get calib() { return calib; },
       heard: () => heardTime(),
+      give: (id, n = 1) => { addItem(id, n); renderTitle(); },
+      grant: (n) => grant({ itemKey: 'ledger.item.founding', amount: n }),
       unlockAll: () => { STAGE_ORDER.forEach((id) => recordResult(id, 'easy', 1, true)); renderTitle(); },
       setOffset: (ms) => { saveOffset(ms); renderTitle(); },
       defs: NOTES,

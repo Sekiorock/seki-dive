@@ -194,6 +194,12 @@ export function setCostume(charId, costume) {
 
 // ── 道具屋で買ったもの ──
 export function itemCount(itemId) { return getUser().items[itemId] || 0; }
+/** 道具屋の品を1つ使う。持っていなければ false */
+export function useItem(itemId) {
+  if (itemCount(itemId) <= 0) return false;
+  addItem(itemId, -1);
+  return true;
+}
 export function addItem(itemId, n = 1) {
   const u = getUser();
   u.items[itemId] = (u.items[itemId] || 0) + n;
