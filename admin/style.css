@@ -116,3 +116,6 @@ a.btn { display: inline-flex; align-items: center; justify-content: center; text
 .adm-en { color: var(--dim); font-size: 13px; }
 .notice .btn--small { margin-top: 8px; }
 .adm .ledger { margin-top: 10px; }
+.adm-class { margin: 10px 0; padding: 10px 12px; clip-path: var(--chamfer-s); background: rgba(255, 255, 255, 0.05); box-shadow: inset 3px 0 0 var(--dim); }
+.adm-class.is-on { background: rgba(124, 155, 255, 0.14); box-shadow: inset 3px 0 0 var(--neon-2); }
+.adm-class p { margin: 0 0 6px; font-size: 13px; }

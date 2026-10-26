@@ -6,6 +6,7 @@
 //       「この解説を図鑑に保存」で、図鑑からいつでも読み返せる。
 // v0.5：クリアの報酬（税引き前・所得税・手取り。初クリアは2倍。1日の上限）。言語を切りかえたら描き直せるように、
 //       r には文字ではなく i18n の鍵を入れる。
+// v0.8：対戦の結果（順位とスコアだけ。誰が何を間違えたかは出さない）と、賞金。
 
 import { t } from '../../shared/i18n.js';
 import { standUrl, nameKey, lineKey } from '../../shared/characters.js';
@@ -21,6 +22,22 @@ const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<
  * @param {HTMLElement} el   結果の画面の入れ物
  * @param {object} r         { stageNo, practiceKey, stageTitleKey, diffId, score, stats, avatar, clear, gauge, clearPct, news, unlocked, reward, hinted }
  */
+/** 対戦の結果の箱（v0.8） */
+function battleBox(b) {
+  if (!b) return '';
+  const rows = (b.ranks || []).map((p) => `<li class="${p.me ? 'is-me' : ''}"><b>${p.dropped ? '—' : esc(p.rank)}</b><span>${esc(p.name)}${p.me ? ` ${esc(t('hb.battle.you'))}` : ''}${p.dropped ? ` ${esc(t('hb.battle.dropped'))}` : ''}</span><em>${formatHiyama(p.score)}</em></li>`).join('');
+  if (b.state !== 'done') {
+    return `<div class="hb-bres"><p class="hb-bres__head">VS<small>${esc(t('hb.battle.waitRival'))}</small></p><ol>${rows}</ol></div>`;
+  }
+  const head = b.draw ? 'DRAW' : b.win ? 'WIN' : 'LOSE';
+  let money = '';
+  if (b.prize) money = `<p>${esc(t('hb.battle.prize', { gross: formatHiyama(b.prize.gross), tax: formatHiyama(b.prize.tax), net: formatHiyama(b.prize.net) }))}</p>`;
+  else if (b.share > 0) money = `<p>${esc(t('hb.reward.pending'))}</p>`;
+  else money = `<p>${esc(t('hb.battle.noPrize', { pot: formatHiyama(b.pot || 0) }))}</p>`;
+  return `<div class="hb-bres${b.win ? ' is-win' : ''}"><p class="hb-bres__head">${head}<small>${esc(t(b.draw ? 'hb.battle.draw' : b.win ? 'hb.battle.win' : 'hb.battle.lose'))}</small></p>
+    <ol>${rows}</ol>${money}<p>${esc(t('hb.battle.privacy'))}</p></div>`;
+}
+
 /** 報酬の箱（v0.5） */
 function rewardBox(rw) {
   if (!rw || rw.state === 'none') return '';
@@ -69,10 +86,11 @@ export function renderResult(el, r) {
         <p class="hb-result__line">${esc(t('quote', { line: t(lineKey('minato', good ? 'hbResultGood' : 'hbResultTry')) }))}</p>
       </div>
     </div>
+    ${battleBox(r.battle)}
     ${rewardBox(r.reward)}
     ${r.unlocked ? `<p class="hb-result__news">${esc(t('hb.result.unlocked', { n: r.unlocked.n, title: t(r.unlocked.titleKey) }))}</p>` : ''}
     ${r.hinted ? `<p class="hb-result__note">${esc(t('hb.ticket.hintNote'))}</p>` : ''}
-    ${r.clear ? '' : `<p class="hb-result__news is-fail">${esc(t('hb.result.failNote', { pct: r.clearPct }))}</p>`}
+    ${r.clear || r.battle ? '' : `<p class="hb-result__news is-fail">${esc(t('hb.result.failNote', { pct: r.clearPct }))}</p>`}
     <ul class="hb-result__grid">
       <li class="is-wide is-gauge"><span>${esc(t('hb.result.gauge'))}</span><b>${Math.floor(r.gauge)}%</b></li>
       ${cells}
@@ -97,8 +115,10 @@ export function renderResult(el, r) {
       </div>` : `<p class="hb-result__note">${esc(t('hb.result.noMistakes'))}</p>`}
     </div>
     <div class="hb-result__actions">
-      <button type="button" class="btn btn--primary" data-act="retry">${esc(t('hb.result.retry'))}</button>
-      <button type="button" class="btn" data-act="to-title">${esc(t('hb.result.toTitle'))}</button>
+      ${r.battle ? `<button type="button" class="btn btn--primary" data-act="battle-again">${esc(t('hb.battle.again'))}</button>
+      <button type="button" class="btn" data-act="battle-done">${esc(t('hb.result.toTitle'))}</button>`
+        : `<button type="button" class="btn btn--primary" data-act="retry">${esc(t('hb.result.retry'))}</button>
+      <button type="button" class="btn" data-act="to-title">${esc(t('hb.result.toTitle'))}</button>`}
     </div>`;
   const view = el.querySelector('#explain-view');
   if (view && topId) showModel(view, topId);

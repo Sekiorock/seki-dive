@@ -206,6 +206,20 @@ function tabs() {
     </nav>`;
 }
 
+// 授業中かどうか（対戦を「授業中のみ」にしているときに使う。settings.classUntil の時刻まで授業中）
+const CLASS_MIN = 70;   // 「授業を始める」を押すと、この分だけ授業中になる（押し忘れても自然に終わる）
+function classBox() {
+  const until = state.settings.classUntil || 0;
+  const on = until > Date.now();
+  const mode = state.settings.battleMode || 'class';
+  const hm = (ms) => new Date(ms).toLocaleTimeString(getLang() === 'ja' ? 'ja-JP' : 'en-US', { hour: '2-digit', minute: '2-digit' });
+  return `<div class="adm-class ${on ? 'is-on' : ''}">
+    <p><b>${esc(t(on ? 'admin.class.on' : 'admin.class.off'))}</b>${on ? ` ${esc(t('admin.class.until', { time: hm(until) }))}` : ''}</p>
+    <p class="shop__note">${esc(t('admin.class.note', { mode: t(`admin.set.battle.${mode}`), min: CLASS_MIN }))}</p>
+    <button type="button" class="btn ${on ? '' : 'btn--primary'} adm-wide" data-act="${on ? 'class-end' : 'class-start'}">${esc(t(on ? 'admin.class.end' : 'admin.class.start', { min: CLASS_MIN }))}</button>
+  </div>`;
+}
+
 function overview() {
   const ss = students();
   const sum = ss.reduce((a, s) => a + s.balance, 0);
@@ -217,6 +231,7 @@ function overview() {
       <div class="adm-card"><span>${esc(t('admin.ov.circulation'))}</span><b>${formatHiyama(sum)}</b></div>
       <div class="adm-card ${alerts.length ? 'adm-card--warn' : ''}"><span>${esc(t('admin.ov.alerts'))}</span><b>${esc(t('admin.ov.people', { n: alerts.length }))}</b></div>
     </div>
+    ${classBox()}
     <button type="button" class="btn btn--primary adm-wide" data-act="quick-lesson">${esc(t('admin.ov.quickGrant', { amount: formatHiyama(cur('lessonGrant')) }))}</button>
     <h2 class="shop__sub">${esc(t('admin.ov.alerts'))}</h2>
     ${alerts.length ? `<ul class="adm-list">${alerts.map((s) => `
@@ -451,6 +466,8 @@ async function onClick(e) {
       state.detail = null;
       render();
     }
+    else if (act === 'class-start') await F().update(ref('settings'), { classUntil: Date.now() + CLASS_MIN * 60 * 1000 });
+    else if (act === 'class-end') await F().update(ref('settings'), { classUntil: 0 });
     else if (act === 'quick-lesson') {
       state.tab = 'money';
       state.money = { kind: 'lesson', target: 'all', amount: cur('lessonGrant'), reason: '', picked: new Set() };

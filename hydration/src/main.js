@@ -6,6 +6,7 @@
 // v0.4：ステージ5・6（溶媒の交代：ヘキサンでは中央の「なじむ」ボタン）、結果の画面の間違いの解説、図鑑。
 // v0.5：クリアの報酬（ヒヤマ。所得税と1日の上限つき）、ショップの演出、道具屋の券（ヒント券・苦手問題の練習券・
 //       図鑑の追加ページ）を使えるように。言語の切りかえで、どの画面も描き直すように。
+// v0.8：対戦（タイマン）。2人で同じ曲を同時に演奏し、10コンボごとに妨害を送り合う（battle.js）。
 //
 // 画面：（初めてのときはタイミング調整）→ タイトル → プレイ（一時停止あり）→ 結果。ワールドに入るときは、毎回アバター選択の画面を通る。
 // 時刻の基準は、音の時計（audio.js の heardTime）。
@@ -21,6 +22,9 @@ import { createScene } from './scene3d.js';
 import { renderResult } from './results.js';
 import { renderZukan, zukanTab, zukanPick, closeZukan } from './zukan.js';
 import { hideModel } from './viewer.js';
+import * as battle from './battle.js';
+import { BATTLE } from './battle.js';
+import { serverNow } from './net.js';
 import { saveExplanations, addWeak, weakList, hasWeak, firstClearOf, fxState, addFx, useFx, openPage } from './progress.js';
 import { initI18n, t, onLangChange, applyToDom, getLang, setLang } from '../../shared/i18n.js';
 import { applyTheme } from '../../shared/theme.js';
@@ -65,7 +69,7 @@ function toast(msg) {
 
 function show(name) {
   screen = name;
-  for (const id of ['title', 'play', 'result', 'calib', 'zukan', 'shop']) $(id).hidden = id !== name;
+  for (const id of ['title', 'play', 'result', 'calib', 'zukan', 'shop', 'battle']) $(id).hidden = id !== name;
   if (name !== 'result' && name !== 'zukan') hideModel();
   document.body.classList.toggle('is-playing', name === 'play');
 }
@@ -129,8 +133,9 @@ function renderTickets() {
 // ───────────── プレイ ─────────────
 async function startPlay(opts = {}) {
   const weak = opts.weak;
-  if (!weak && !isUnlocked(pick.chart)) { toast(t('hb.lockedToast', { n: prevStageNo(pick.chart) })); return; }
-  let chart = CHARTS[pick.chart];
+  const bt = opts.battle;     // 対戦：{ code, chart, diff, startAt }
+  if (!weak && !bt && !isUnlocked(pick.chart)) { toast(t('hb.lockedToast', { n: prevStageNo(pick.chart) })); return; }
+  let chart = CHARTS[bt ? bt.chart : pick.chart];
   if (weak) {
     // 苦手ノーツの練習曲：券を1枚使う
     if (!useItem('practice')) { renderTitle(); return; }
@@ -139,16 +144,20 @@ async function startPlay(opts = {}) {
   }
   // ヒント券：ふつう・むずかしいでも、この曲だけ補助輪1の文字を出す
   let hinted = false;
-  if (!weak && useHint && pick.diff !== 'easy' && useItem('hint')) { hinted = true; toast(t('hb.ticket.hintUsed')); }
+  if (!weak && !bt && useHint && pick.diff !== 'easy' && useItem('hint')) { hinted = true; toast(t('hb.ticket.hintUsed')); }
   useHint = false;
   const ctx = await unlockAudio();
-  const diff = DIFFICULTY[pick.diff];
+  const diffId = bt ? bt.diff : pick.diff;
+  const diff = DIFFICULTY[diffId];
   const exp = expandChart(chart, diff);
+  // 確かめるとき用（?debug=1&short）：曲を14秒に縮める
+  if (params.has('debug') && params.has('short')) { exp.notes = exp.notes.filter((n) => n.t < 12); exp.lengthSec = 14; exp.totalBars = Math.ceil(14 / exp.barSec); }
   const notes = exp.notes.map((n) => ({ ...n, state: 'pending', slot: null }));
   const off = savedOffset();
   const judge = createJudge(notes, NOTES, { offsetMs: off === null ? JUDGE.inputOffsetMs : off });
   const song = createSong(chart, exp);
-  const t0 = ctx.currentTime + NOTE.leadInSec;
+  // 対戦では、2人の端末で同じ時刻に始まるように、サーバーの時計で決めた開始の時刻に合わせる
+  const t0 = bt ? ctx.currentTime + Math.max(0.5, (bt.startAt - serverNow()) / 1000) : ctx.currentTime + NOTE.leadInSec;
   hideModel();
   scene.reset();
   setSolvent('water', false);
@@ -158,7 +167,7 @@ async function startPlay(opts = {}) {
   scene.setComboLevel(0);
   song.start(t0);
   play = {
-    chart, diff, diffId: pick.diff, exp, notes, judge, song, t0, swIdx: 0, weak: !!weak, hinted,
+    chart, diff, diffId, exp, notes, judge, song, t0, swIdx: 0, weak: !!weak, hinted, battle: bt || null,
     paused: false, finished: false, hits: 0,
     peelEvery: Math.max(1, Math.ceil(notes.length / scene.crystalCount)),
     lastScore: -1, lastCombo: -1,
@@ -231,6 +240,11 @@ function applyEvents(events, now) {
       shown = ev;
       if (ev.result === 'perfect') flashPerfect();
       if (st.combo > 0 && st.combo % CUTIN_EVERY === 0) cutin(st.combo);
+      // 対戦：10コンボごとに、相手へ妨害を送る
+      if (play.battle) {
+        const sent = battle.onCombo(st.combo);
+        if (sent) attackBanner(t('hb.attack.sent', { kind: t(`hb.attack.${sent.kind}`), name: sent.to }), true);
+      }
     }
   }
   if (shown) showJudge(judgeLabel(shown));
@@ -257,6 +271,7 @@ function handleInput(input, time) {
   // ヘキサンのときは「なじむ」だけ、水のときは O と H だけ
   if ((scene.solvent === 'hexane') !== (input === 'M')) return null;
   play.lastPress = { input, time };
+  if (play.battle) battle.touched();
   scene.press(input, time);
   const events = play.judge.press(input, time);
   applyEvents(events, time);
@@ -293,6 +308,7 @@ function showResult() { renderResult($('result'), lastResult); }
 async function finish() {
   play.finished = true;
   play.song.stop();
+  if (play.battle) { finishBattle(); return; }
   const clear = play.judge.cleared();
   const practice = play.weak || !play.chart.stageNo;
   const first = !practice && clear && firstClearOf(play.chart.id, play.diffId);
@@ -336,9 +352,96 @@ async function finish() {
   }
 }
 
+// ───────────── v0.8：対戦 ─────────────
+function attackBanner(text, sent = false) {
+  const el = $('hud-attack');
+  el.className = `hb-attack${sent ? ' is-sent' : ''}`;
+  void el.offsetWidth;
+  el.textContent = text;
+  el.classList.add('is-shown');
+}
+
+/** 相手から妨害が届いたとき */
+function applyAttack(kind, from) {
+  if (!play || play.finished) return;
+  const now = heardTime() - play.t0;
+  const approach = play.diff.approachSec;
+  attackBanner(t('hb.attack.got', { kind: t(`hb.attack.${kind}`), name: from }));
+  if (kind === 'mono') {
+    // 色消し：まだ見えていない次の8ノーツを、補助輪の段階3に
+    let n = 0;
+    for (let i = play.judge.cursor; i < play.notes.length && n < BATTLE.monoNotes; i++) {
+      const nt = play.notes[i];
+      if (nt.state !== 'pending' || nt.slot || nt.t - approach < now) continue;
+      nt.assist = 3; n += 1;
+    }
+  } else if (kind === 'fog') {
+    scene.setFog(now + BATTLE.fogSec);
+  } else if (kind === 'swarm') {
+    // 無極性の群れ：見送るノーツを、ノーツどうしの間に割り込ませる（まだ見えていない所に）
+    const from0 = now + approach + 0.4;
+    const gaps = [];
+    for (let i = play.judge.cursor; i < play.notes.length - 1 && gaps.length < BATTLE.swarmNotes; i++) {
+      const a = play.notes[i], b = play.notes[i + 1];
+      if (a.t < from0 || b.t - a.t < 0.6) continue;
+      gaps.push((a.t + b.t) / 2);
+    }
+    const sw = play.exp.switches;
+    for (const tt of gaps) {
+      const solvent = [...sw].reverse().find((x) => x.t <= tt)?.solvent || 'water';
+      const ids = solvent === 'hexane' ? ['Na', 'Cl', 'K', 'Glc'] : ['Hex', 'Bz', 'CCl4', 'I2', 'Nap'];
+      const noteId = ids[Math.floor(Math.random() * ids.length)];
+      const nt = { t: tt, noteId, solvent, answer: 'PASS', state: 'pending', slot: null, swarm: true };
+      const at = play.notes.findIndex((x, k) => k >= play.judge.cursor && x.t > tt);
+      play.notes.splice(at < 0 ? play.notes.length : at, 0, nt);
+      play.judge.stats.total += 1;
+    }
+  }
+}
+
+/** 相手の小さな表示（左の上） */
+function updateRival(v) {
+  const el = $('hud-rival');
+  if (!v) { el.hidden = true; return; }
+  el.hidden = false;
+  const img = el.querySelector('img');
+  if (img.getAttribute('src') !== v.face) img.setAttribute('src', v.face);
+  el.querySelector('.hb-rival__name').textContent = v.name;
+  el.querySelector('.hb-rival__score').textContent = formatHiyama(v.score);
+  el.querySelector('.hb-rival__gauge i').style.width = `${Math.max(0, Math.min(100, v.gauge))}%`;
+  el.querySelector('.hb-rival__combo').textContent = v.dropped ? t('hb.battle.dropped') : v.done ? t('hb.battle.finished') : (v.combo >= 2 ? t('hb.battle.combo', { n: v.combo }) : '');
+  el.classList.toggle('is-dropped', v.dropped);
+}
+
+/** 対戦の曲が終わったとき：自分の結果の画面（順位とスコア）を出し、相手を待つ */
+async function finishBattle() {
+  addWeak(play.notes);
+  lastResult = {
+    clear: play.judge.cleared(), gauge: play.judge.stats.gauge, clearPct: GAUGE.clearPct, news: { newRecord: false },
+    unlocked: null, stageNo: play.chart.stageNo, practiceKey: 'hb.practiceLabel',
+    stageTitleKey: play.chart.titleKey, diffId: play.diffId, score: play.judge.score(), stats: play.judge.stats, avatar,
+    reward: { state: 'none' }, battle: { state: 'waiting', ranks: [] },
+  };
+  showResult();
+  show('result');
+  const v = await battle.finished(play.judge.score());
+  if (v) updateBattleResult(v);
+}
+function updateBattleResult(v) {
+  if (!lastResult || !lastResult.battle) return;
+  lastResult.battle = v;
+  if (screen === 'result') { const box = $('result'); const top = box.scrollTop; showResult(); box.scrollTop = top; }
+}
+
 // ───────────── 一時停止 ─────────────
 async function pause() {
   if (screen !== 'play' || !play || play.paused || play.finished) return;
+  // 対戦中は止められない（相手は演奏を続けている）。やめるかどうかだけ聞く
+  if (play.battle) {
+    $('bpause-note').textContent = t('hb.battle.pauseNote', { amount: formatHiyama(SETTINGS.quitFine) });
+    $('bpause').hidden = false;
+    return;
+  }
   play.paused = true;
   await pauseAudio();
   $('pause').hidden = false;
@@ -352,6 +455,7 @@ async function resume() {
 }
 async function quitPlay() {
   $('pause').hidden = true;
+  $('bpause').hidden = true;
   if (play) { play.finished = true; play.song.stop(); }
   await resumeAudio();
   play = null;
@@ -614,6 +718,16 @@ function setupInput() {
     else if (act === 'pause') pause();
     else if (act === 'resume') resume();
     else if (act === 'retry') { await quitPlay(); startPlay(); }
+    else if (act === 'battle') battle.openBattle();
+    else if (act === 'battle-create') battle.createRoom();
+    else if (act === 'battle-join') battle.joinRoom();
+    else if (act === 'battle-start') battle.startRoom();
+    else if (act === 'battle-leave') battle.leaveLobby();
+    else if (act === 'battle-close') { battle.leave(); renderTitle(); show('title'); }
+    else if (act === 'bpause-close') { $('bpause').hidden = true; }
+    else if (act === 'battle-forfeit') { $('bpause').hidden = true; battle.forfeit('quit'); }
+    else if (act === 'battle-again') { battle.leave(); await quitPlay(); battle.openBattle(); }
+    else if (act === 'battle-done') { battle.leave(); await quitPlay(); renderTitle(); show('title'); }
     else if (act === 'to-title') { await quitPlay(); show('title'); }
     else if (act === 'home') { await quitPlay(); goHome(); }
   });
@@ -661,6 +775,7 @@ async function start() {
     if (screen === 'result' && lastResult) { const box = $('result'); const top = box.scrollTop; showResult(); box.scrollTop = top; }
     // プレイ中に言語を切り替えたときは、一時停止する（全体の仕様書 2章）
     if (screen === 'play') pause();
+    if (screen === 'battle') battle.redraw();
   });
 
   createTopbar({
@@ -692,6 +807,15 @@ async function start() {
   setupInput();
   $('hud-gauge').querySelector('.hb-gauge__mark').style.left = `${GAUGE.clearPct}%`;
   setupCalibPad();
+  battle.initBattle({
+    $, toast, show,
+    pick: () => ({ chart: pick.chart, diff: pick.diff }),
+    chartTitleKey: (id) => (CHARTS[id] ? CHARTS[id].titleKey : 'hb.title'),
+    startPlay: (o) => startPlay(o),
+    applyAttack, updateRival, updateBattleResult,
+    playStats: () => (play ? { score: play.judge.score(), gauge: play.judge.stats.gauge, combo: play.judge.stats.combo } : { score: 0, gauge: 0, combo: 0 }),
+    quitToTitle: async () => { await quitPlay(); renderTitle(); show('title'); },
+  });
   renderTitle();
   // 初めてこの端末で遊ぶときは、タイミング調整から（スキップもできる）
   if (savedOffset() === null && !params.has('nocalib')) openCalib(true);

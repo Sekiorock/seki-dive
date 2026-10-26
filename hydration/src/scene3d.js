@@ -372,9 +372,9 @@ export function createScene(canvas, { noteDefs }) {
 
   // ── 札（化学式など） ──
   const labelCache = {};
-  function labelFor(id, solvent = 'water') {
-    const keyL = `${id}|${assist}|${solvent}`;
-    if (!labelCache[keyL]) labelCache[keyL] = labelTexture((g, w, h) => drawNoteLabel(g, w, h, noteDefs[id], assist, solvent), 256, 128);
+  function labelFor(id, solvent = 'water', as = assist) {
+    const keyL = `${id}|${as}|${solvent}`;
+    if (!labelCache[keyL]) labelCache[keyL] = labelTexture((g, w, h) => drawNoteLabel(g, w, h, noteDefs[id], as, solvent), 256, 128);
     return labelCache[keyL];
   }
 
@@ -397,14 +397,17 @@ export function createScene(canvas, { noteDefs }) {
     slot.note = note;
     note.slot = slot;
     slot.model = takeModel(def.id);
+    // v0.8：妨害「色消し」を受けたノーツは、補助輪の段階3（色・記号・文字なし）
+    const a = note.assist || assist;
+    if (a !== assist) slot.model.userData.setAssist(a);
     slot.holder.add(slot.model);
     slot.holder.rotation.set(0, 0, 0);
     const big = def.model === 'glucose' || def.model === 'sucrose' || def.model === 'hexane' || def.model === 'naphthalene';
-    slot.glow.material.color.set(frameColor(def, assist, note.solvent));
+    slot.glow.material.color.set(frameColor(def, a, note.solvent));
     slot.glow.material.opacity = (note.answer || def.answer) === 'PASS' ? 0.35 : 0.8;
     slot.glow.scale.setScalar((big ? 2.4 : 1.7) * def.r * 1.6);
-    slot.label.material.map = labelFor(def.id, note.solvent);
-    const lw = (assist <= 1 ? 1.35 : 1.1) * RENDER.labelScale / RENDER.noteScale;
+    slot.label.material.map = labelFor(def.id, note.solvent, a);
+    const lw = (a <= 1 ? 1.35 : 1.1) * RENDER.labelScale / RENDER.noteScale;
     slot.label.scale.set(lw, lw * 0.5, 1);
     slot.label.position.set(0, def.r + lw * 0.32, 0);
     // 糖の2つ目からの -OH は札を出さない（連続していると分かれば十分）
@@ -517,6 +520,9 @@ export function createScene(canvas, { noteDefs }) {
     return { sp, start: -1, v: new THREE.Vector3(), def: null, rot: 0 };
   });
   let fxOn = '';
+  // v0.8：妨害「濃霧」。この時刻まで、ノーツは FOG_Z より手前に来るまで見えにくい
+  let fogUntil = -1;
+  const FOG_Z = NOTE.judgeZ - 9;
   function spawnFx(now) {
     const def = FX_DEFS[fxOn];
     if (!def) return;
@@ -589,7 +595,7 @@ export function createScene(canvas, { noteDefs }) {
     },
     redrawLabels() {
       for (const k2 of Object.keys(labelCache)) { labelCache[k2].dispose(); delete labelCache[k2]; }
-      slots.forEach((s) => { if (s.note) s.label.material.map = labelFor(s.note.noteId, s.note.solvent); });
+      slots.forEach((s) => { if (s.note) s.label.material.map = labelFor(s.note.noteId, s.note.solvent, s.note.assist || assist); });
     },
 
     /** 左右のボタンを押したとき：水分子をその向きに回す。左右がほぼ同時なら横に寝かせる */
@@ -613,6 +619,12 @@ export function createScene(canvas, { noteDefs }) {
     },
     /** v0.5：ショップで選んだ演出（'' でふつう） */
     setFx(id) { fxOn = FX_DEFS[id] ? id : ''; },
+    /** v0.8：妨害「濃霧」を、この時刻まで */
+    setFog(until) {
+      fogUntil = until;
+      scene.fog.near = until > 0 ? 30 : RENDER.fogNear;
+      scene.fog.far = until > 0 ? 42 : RENDER.fogFar;
+    },
     /** 演出の見本を1回だけ出す（ショップの画面） */
     previewFx(id, now) { const keep = fxOn; fxOn = FX_DEFS[id] ? id : ''; spawnFx(now); fxOn = keep; },
     /** 溶媒を切りかえる（'water' / 'hexane'）。プレイヤーの分子と、道の色が変わる */
@@ -638,6 +650,7 @@ export function createScene(canvas, { noteDefs }) {
     /** 新しく曲を始めるとき：ノーツ・演出・結晶を元に戻す */
     reset() {
       this.setSolvent('water');
+      this.setFog(-1);
       slots.forEach(release);
       shells.forEach((sh) => { sh.start = -1; sh.g.visible = false; giveModel(sh.model); sh.model = null; });
       bursts.forEach((b) => { b.start = -1; b.mesh.visible = false; });
@@ -689,6 +702,19 @@ export function createScene(canvas, { noteDefs }) {
         s.holder.rotation.x = Math.sin(now * 0.9 + nt.t) * 0.25;
         // 判定リングを過ぎたノーツの札は消す（手前で大きく写って、ボタンにかぶらないように）
         if (z > NOTE.judgeZ + 0.3) s.label.visible = false;
+        // v0.8：妨害「濃霧」：判定リングの直前まで、ノーツが見えにくい
+        if (now < fogUntil && !flying) {
+          const near = THREE.MathUtils.clamp((z - FOG_Z) / 3, 0, 1);
+          s.g.visible = near > 0.02;
+          s.g.scale.setScalar(RENDER.noteScale * (0.4 + 0.6 * near));
+          s.fogged = true;
+          s.label.visible = near > 0.6 && noteDefs[nt.noteId].group !== 'sugarOH';
+        } else if (s.fogged) {
+          s.fogged = false;
+          s.g.visible = true;
+          s.g.scale.setScalar(RENDER.noteScale);
+          s.label.visible = noteDefs[nt.noteId].group !== 'sugarOH' && z <= NOTE.judgeZ + 0.3;
+        }
         if (flying) {
           const kf = Math.max(0, z / NOTE.passZ);
           s.g.scale.setScalar(RENDER.noteScale * Math.max(0.25, 1 - kf * 0.7));
@@ -712,6 +738,8 @@ export function createScene(canvas, { noteDefs }) {
         sh.g.scale.setScalar(RENDER.noteScale * (k4 > 1.1 ? fade : 1));
       }
       stepFx(now, dt);
+      // 濃霧が晴れたら、霧の深さを元に戻す
+      if (fogUntil > 0 && now >= fogUntil) this.setFog(-1);
       // 広がる輪
       for (const b of bursts) {
         if (b.start < 0) continue;

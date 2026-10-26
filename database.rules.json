@@ -118,7 +118,25 @@
     "rooms": {
       ".read": "auth != null",
       "$room": {
-        ".write": "auth != null"
+        ".write": "auth != null && $room.matches(/^[0-9]{4}$/) && (!data.exists() || data.child('host').val() === auth.uid || data.child('state').val() === 'done' || now - data.child('createdAt').val() > 7200000)",
+        "players": {
+          "$uid": {
+            ".write": "auth != null && auth.uid === $uid",
+            ".validate": "auth.uid === $uid"
+          }
+        },
+        "attacks": {
+          "$a": {
+            ".write": "auth != null && !data.exists() && newData.child('from').val() === auth.uid && root.child('rooms').child($room).child('players').child(auth.uid).exists()",
+            ".validate": "newData.child('from').val() === auth.uid && (!data.exists())"
+          }
+        },
+        "claims": {
+          "$uid": {
+            ".write": "auth != null && auth.uid === $uid && !data.exists()",
+            ".validate": "newData.val() === true && auth.uid === $uid"
+          }
+        }
       }
     },
     "public": {

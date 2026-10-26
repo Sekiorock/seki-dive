@@ -326,6 +326,23 @@ export async function pay({ type = 'purchase', itemKey, itemVars, price }) {
   }
 }
 
+/**
+ * 対戦の参加料を払う（税はかからない。集まった参加料が賞金になる）。
+ * @returns 記録。残高が足りない・滞納中のときは null
+ */
+export async function payFee({ itemKey, itemVars, amount }) {
+  if (isInArrears() || getBalance() < amount) return null;
+  return commit(() => ({ type: 'fee', itemKey, itemVars, partnerKey: 'party.prizePool', gross: amount, tax: 0, amount: -amount }), (w) => w.balance >= amount);
+}
+
+/** 対戦の賞金を受け取る（勝負税を引き、税は国庫へ） */
+export async function prize({ itemKey, itemVars, gross }) {
+  const tax = Math.floor(gross * SETTINGS.betTaxRate);
+  const entry = await commit(() => ({ type: 'prize', itemKey, itemVars, partnerKey: 'party.prizePool', gross, tax, amount: gross - tax }), () => true);
+  if (entry) await moveTreasury(tax, { type: 'tax', itemKey });
+  return entry;
+}
+
 /** 罰金（残高が足りなければマイナス＝滞納になる）。国庫へ。対戦の版と管理画面で使う。 */
 export async function fine({ itemKey, itemVars, amount }) {
   const entry = await commit(() => ({ type: 'fine', itemKey, itemVars, partnerKey: 'party.treasury', gross: amount, amount: -amount }), () => true);

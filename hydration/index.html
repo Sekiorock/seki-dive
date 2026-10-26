@@ -52,14 +52,14 @@
     <div class="hb-tickets" id="tickets"></div>
     <div class="hb-title__actions">
       <button type="button" class="btn btn--primary hb-title__solo" data-act="solo" data-i18n="hb.solo"></button>
-      <button type="button" class="btn hb-title__battle" disabled data-i18n="hb.battle"></button>
+      <button type="button" class="btn hb-title__battle" data-act="battle" data-i18n="hb.battle"></button>
     </div>
     <div class="hb-title__sub2">
       <button type="button" class="btn hb-title__zukan" data-act="zukan" data-i18n="hb.zukan.open"></button>
       <button type="button" class="btn hb-title__shop" data-act="shop" data-i18n="hb.shop.open"></button>
     </div>
     <button type="button" class="btn hb-title__calib" data-act="calib"><span data-i18n="hb.calib.open"></span><b id="calib-now"></b></button>
-    <p class="hb-title__note" data-i18n="hb.battleSoon"></p>
+    <p class="hb-title__note" data-i18n="hb.battleNote"></p>
     <p class="hb-title__note hb-title__keys" data-i18n="hb.howto.keys"></p>
     <p class="hb-title__note" data-i18n="hiyama.disclaimer"></p>
   </section>
@@ -109,6 +109,9 @@
     <button type="button" class="btn hb-zukan__back" data-act="shop-close" data-i18n="hb.zukan.back"></button>
   </section>
 
+  <!-- 対戦（v0.8：タイマン）。中身は battle.js が描く -->
+  <section id="battle" class="hb-screen hb-zukan hb-battle" hidden></section>
+
   <!-- プレイ -->
   <section id="play" class="hb-screen hb-play" hidden>
     <div class="hb-hud">
@@ -138,6 +141,13 @@
       </button>
     </div>
     <p class="hb-solvent" id="hud-solvent" aria-live="polite"></p>
+    <!-- v0.8：対戦の相手（左の上）と、妨害の知らせ -->
+    <div class="hb-rival" id="hud-rival" hidden>
+      <img alt="" width="36" height="36">
+      <div><b class="hb-rival__name"></b><span class="hb-rival__score"></span>
+        <i class="hb-rival__gauge"><i></i></i><span class="hb-rival__combo"></span></div>
+    </div>
+    <p class="hb-attack" id="hud-attack" aria-live="polite"></p>
   </section>
 
   <!-- 一時停止 -->
@@ -148,6 +158,15 @@
       <button type="button" class="btn" data-act="retry" data-i18n="hb.pause.retry"></button>
       <button type="button" class="btn" data-act="to-title" data-i18n="hb.pause.toTitle"></button>
       <button type="button" class="btn" data-act="home" data-i18n="hb.pause.home"></button>
+    </div>
+  </div>
+  <!-- 対戦中は止められないので、やめるかどうかだけ聞く -->
+  <div id="bpause" class="hb-overlay" role="dialog" aria-modal="true" hidden>
+    <div class="hb-overlay__box">
+      <h2 class="hb-overlay__title" data-i18n="hb.battle.pauseTitle"></h2>
+      <p class="hb-zukan__empty" id="bpause-note"></p>
+      <button type="button" class="btn btn--primary" data-act="bpause-close" data-i18n="hb.battle.keep"></button>
+      <button type="button" class="btn" data-act="battle-forfeit" data-i18n="hb.battle.forfeit"></button>
     </div>
   </div>
 

@@ -446,3 +446,57 @@ body.is-hexane .hb-pad--m { display: flex; }
 .hb-burst--raiko { width: 3px; height: 14px; }
 .hb-burst--hoshi { clip-path: polygon(50% 0, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%); width: 14px; height: 14px; }
 @keyframes hb-burst { from { opacity: 1; transform: translate(0, 0) scale(1); } to { opacity: 0; transform: translate(var(--dx), var(--dy)) scale(0.6) rotate(180deg); } }
+
+/* ── v0.8：対戦 ── */
+.hb-battle__rules { margin: 0; padding: 10px 12px 10px 28px; font-size: 12px; line-height: 1.7; clip-path: var(--chamfer-s); background: rgba(255, 255, 255, 0.05); }
+.hb-battle__song { display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; clip-path: var(--chamfer-s); background: rgba(124, 155, 255, 0.12); box-shadow: inset 3px 0 0 var(--neon-2); }
+.hb-battle__song span { font-size: 11px; color: var(--dim); }
+.hb-battle__song b { font-size: 15px; }
+.hb-battle__song small { font-size: 11px; color: var(--dim); }
+.hb-battle__wide { width: 100%; min-height: 52px; font-size: 16px; }
+.hb-battle__join { display: grid; grid-template-columns: 1fr auto; gap: 8px; }
+.hb-battle__join input {
+  font: inherit; font-family: var(--font-en); font-size: 28px; letter-spacing: 0.4em; text-align: center; color: #fff;
+  background: rgba(255, 255, 255, 0.06); border: 0; box-shadow: inset 0 0 0 1px var(--stroke-strong); clip-path: var(--chamfer-s); padding: 8px; min-width: 0;
+}
+.hb-battle__join .btn { min-height: 52px; }
+.hb-battle__code { margin: 0; text-align: center; }
+.hb-battle__code span { display: block; font-size: 12px; color: var(--dim); }
+.hb-battle__code b { font-family: var(--font-en); font-size: 54px; letter-spacing: 0.24em; color: #fff; text-shadow: 0 0 14px var(--neon-2), 0 0 28px var(--neon-1); }
+.hb-battle__players { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.hb-battle__p { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 12px 6px; clip-path: var(--chamfer); background: var(--scan), var(--seigaiha), rgba(9, 15, 40, 0.92); box-shadow: inset 0 0 0 1px var(--stroke-strong); font-size: 13px; text-align: center; }
+.hb-battle__p img { width: 48px; height: 48px; clip-path: polygon(25% 0, 75% 0, 100% 50%, 75% 100%, 25% 100%, 0 50%); background: #fff; }
+.hb-battle__p span { font-size: 10px; color: var(--hiyama); }
+.hb-battle__p.is-empty { color: var(--dim); justify-content: center; min-height: 96px; }
+.hb-battle__wait { margin: 0; text-align: center; font-size: 13px; color: var(--dim); }
+.hb-rival {
+  position: absolute; left: 10px; top: calc(var(--topbar-h) + 62px + env(safe-area-inset-top)); width: 150px;
+  display: flex; gap: 6px; align-items: center; padding: 6px 8px; pointer-events: none !important;
+  clip-path: var(--chamfer-s); background: rgba(5, 8, 26, 0.72); box-shadow: inset 0 0 0 1px rgba(215, 0, 58, 0.6);
+}
+.hb-rival[hidden] { display: none; }
+.hb-rival img { width: 36px; height: 36px; flex: none; clip-path: polygon(25% 0, 75% 0, 100% 50%, 75% 100%, 25% 100%, 0 50%); background: #fff; }
+.hb-rival > div { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 1px; }
+.hb-rival__name { font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hb-rival__score { font-family: var(--font-en); font-size: 13px; }
+.hb-rival__gauge { display: block; height: 5px; background: rgba(255, 255, 255, 0.12); }
+.hb-rival__gauge i { display: block; height: 100%; width: 0%; background: linear-gradient(90deg, #FF8D9A, #D7003A); transition: width .3s; }
+.hb-rival__combo { font-family: var(--font-en); font-size: 10px; color: var(--dim); }
+.hb-rival.is-dropped { filter: grayscale(1); opacity: 0.6; }
+.hb-attack {
+  position: absolute; left: 0; right: 0; top: 30%; margin: 0; text-align: center; pointer-events: none !important;
+  font-size: 18px; font-weight: 800; opacity: 0; color: #fff; text-shadow: 0 0 12px #D7003A, 0 0 22px #D7003A;
+}
+.hb-attack.is-sent { text-shadow: 0 0 12px var(--hiyama), 0 0 22px var(--hiyama); font-size: 14px; top: 25%; }
+.hb-attack.is-shown { animation: solvent-pop 2.2s ease-out forwards; }
+.hb-bres { margin-top: 6px; padding: 10px 12px; clip-path: var(--chamfer); background: var(--scan), linear-gradient(120deg, rgba(215, 0, 58, 0.25), rgba(9, 15, 40, 0.92)); box-shadow: inset 0 0 0 1px rgba(255, 141, 154, 0.6); }
+.hb-bres.is-win { background: var(--scan), linear-gradient(120deg, rgba(230, 180, 34, 0.35), rgba(9, 15, 40, 0.92)); box-shadow: inset 0 0 0 2px var(--hiyama); }
+.hb-bres__head { margin: 0 0 6px; text-align: center; font-family: var(--font-en); font-size: 26px; font-weight: 700; letter-spacing: 0.2em; }
+html[lang="ja"] .hb-bres__head small { font-family: var(--font-ja); }
+.hb-bres__head small { display: block; font-size: 12px; letter-spacing: 0; color: var(--dim); font-weight: 400; }
+.hb-bres ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.hb-bres li { display: grid; grid-template-columns: 28px 1fr auto; gap: 8px; align-items: baseline; padding: 6px 10px; background: rgba(255, 255, 255, 0.05); font-size: 13px; }
+.hb-bres li.is-me { box-shadow: inset 3px 0 0 var(--neon-2); }
+.hb-bres li b { font-family: var(--font-en); }
+.hb-bres li em { font-style: normal; font-family: var(--font-en); }
+.hb-bres p { margin: 6px 0 0; font-size: 12px; line-height: 1.6; color: var(--dim); }
