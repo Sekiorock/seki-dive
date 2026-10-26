@@ -8,13 +8,13 @@
 // apiKey と databaseURL が空のままなら、セキオダイブは「この端末だけ」で動きます（v0.3 と同じ）。
 
 export const FIREBASE_CONFIG = {
-  apiKey: '',
-  authDomain: '',
-  databaseURL: '',        // 例 https://seki-dive-default-rtdb.asia-southeast1.firebasedatabase.app
-  projectId: '',
-  storageBucket: '',
-  messagingSenderId: '',
-  appId: '',
+  apiKey: "AIzaSyDCWMytXdOqe7z7caWnofHhgJCcA1HzHYA",
+  authDomain: "seki-dive.firebaseapp.com",
+  databaseURL: "https://seki-dive-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "seki-dive",
+  storageBucket: "seki-dive.firebasestorage.app",
+  messagingSenderId: "460451797083",
+  appId: "1:460451797083:web:a3e5aa260fb94e8541877e"
 };
 
 // Firebase の部品の版（www.gstatic.com から読み込む。全ワールドで同じ版を使う）
