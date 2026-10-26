@@ -12,7 +12,7 @@ import { AUDIO } from './config.js';
 const mtof = (m) => 440 * Math.pow(2, (m - 69) / 12);
 
 // 4小節で1周する和音。曲ごとに charts.js の music.chords で選び、music.transpose（半音）で高さを変える
-//   a：Dm → B♭ → C → Am（ステージ1）  b：Dm → Gm → B♭ → C  c：Dm → C → B♭ → A
+//   a：Dm → B♭ → C → Am（ステージ1）  b：Dm → Gm → B♭ → C  c：Dm → C → B♭ → A  d：Dm → F → Am → B♭
 function triad(root, minor) {
   const third = minor ? 3 : 4;
   const p = [root + 24, root + 24 + third, root + 31];
@@ -23,6 +23,7 @@ const CHORD_SETS = {
   a: [triad(38, true), triad(34, false), triad(36, false), triad(33, true)],
   b: [triad(38, true), triad(31, true), triad(34, false), triad(36, false)],
   c: [triad(38, true), triad(36, false), triad(34, false), triad(33, false)],
+  d: [triad(38, true), triad(41, false), triad(33, true), triad(34, false)],   // ステージ5「ヘキサンの夜」：Dm → F → Am → B♭
 };
 const shift = (c, n) => ({ root: c.root + n, pad: c.pad.map((m) => m + n), arp: c.arp.map((m) => m + n) });
 // 笛の旋律（4小節。1小節＝16分音符16個。null は休み）

@@ -3,6 +3,7 @@
 // v0.1：3D空間、水分子、飛んでくる Na⁺ と Cl⁻、左右のボタン、タイミング判定。ステージ1の曲だけ。
 // v0.2：3章のすべての溶質ノーツ（同時押し・見送り・HCl の電離）、難易度と補助輪の3段階、練習曲。
 // v0.3：ステージ1〜4、水和ゲージとクリア、ステージの解放、タイミング調整の画面。
+// v0.4：ステージ5・6（溶媒の交代：ヘキサンでは中央の「なじむ」ボタン）、結果の画面の間違いの解説、図鑑。
 //
 // 画面：（初めてのときはタイミング調整）→ タイトル → プレイ（一時停止あり）→ 結果。ワールドに入るときは、毎回アバター選択の画面を通る。
 // 時刻の基準は、音の時計（audio.js の heardTime）。
@@ -16,6 +17,9 @@ import { isUnlocked, recordOf, prevStageNo, recordResult } from './progress.js';
 import { createSong, playHit, playWrong } from './music.js';
 import { createScene } from './scene3d.js';
 import { renderResult } from './results.js';
+import { renderZukan, zukanTab, zukanPick, closeZukan } from './zukan.js';
+import { hideModel } from './viewer.js';
+import { saveExplanations } from './progress.js';
 import { initI18n, t, onLangChange, applyToDom, getLang, setLang } from '../../shared/i18n.js';
 import { applyTheme } from '../../shared/theme.js';
 import { createTopbar } from '../../shared/topbar.js';
@@ -59,7 +63,8 @@ function toast(msg) {
 
 function show(name) {
   screen = name;
-  for (const id of ['title', 'play', 'result', 'calib']) $(id).hidden = id !== name;
+  for (const id of ['title', 'play', 'result', 'calib', 'zukan']) $(id).hidden = id !== name;
+  if (name !== 'result' && name !== 'zukan') hideModel();
   document.body.classList.toggle('is-playing', name === 'play');
 }
 
@@ -80,7 +85,7 @@ function renderTitle() {
       return `<i class="${r && r.clear ? 'is-clear' : ''}" title="${esc(t(`hb.diff.${d}`))}">${esc(t(`hb.diffShort.${d}`))}</i>`;
     }).join('');
     const mine = recordOf(id, pick.diff);
-    const notesLine = c.newIds ? t('hb.chartNew', { list: chartFormulas(c).join(' ') }) : t('hb.chartAll');
+    const notesLine = c.newKey ? t(c.newKey) : c.newIds ? t('hb.chartNew', { list: chartFormulas(c).join(' ') }) : t('hb.chartAll');
     return `<button type="button" class="hb-chart${on ? ' is-on' : ''}${c.stageNo ? '' : ' hb-chart--parade'}" data-act="pick-chart" data-chart="${id}" aria-pressed="${on}"${open ? '' : ' disabled'}>
       <span class="hb-chart__no">${esc(stageLabel(c))}</span>
       <span class="hb-chart__name">${esc(t(c.titleKey))}</span>
@@ -113,13 +118,15 @@ async function startPlay() {
   const judge = createJudge(notes, NOTES, { offsetMs: off === null ? JUDGE.inputOffsetMs : off });
   const song = createSong(chart, exp);
   const t0 = ctx.currentTime + NOTE.leadInSec;
+  hideModel();
   scene.reset();
+  setSolvent('water', false);
   scene.setPlay({ approachSec: diff.approachSec, assist: diff.assist });
   scene.setTiming(0, chart.bpm);
   scene.setComboLevel(0);
   song.start(t0);
   play = {
-    chart, diff, diffId: pick.diff, exp, notes, judge, song, t0,
+    chart, diff, diffId: pick.diff, exp, notes, judge, song, t0, swIdx: 0,
     paused: false, finished: false, hits: 0,
     peelEvery: Math.max(1, Math.ceil(notes.length / scene.crystalCount)),
     lastScore: -1, lastCombo: -1,
@@ -201,8 +208,22 @@ function applyEvents(events, now) {
 }
 
 /** ボタンを押したときの処理。time は、押した瞬間の「曲の始まりからの秒」 */
+/** 溶媒を切りかえる（ボタン・3D・知らせの文字） */
+function setSolvent(sv, announce = true) {
+  scene.setSolvent(sv);
+  document.body.classList.toggle('is-hexane', sv === 'hexane');
+  if (!announce) return;
+  const el = $('hud-solvent');
+  el.className = `hb-solvent is-${sv}`;
+  void el.offsetWidth;
+  el.innerHTML = `${t(`hb.solvent.${sv}`)}<small>${t(`hb.solvent.${sv}Sub`)}</small>`;
+  el.classList.add('is-shown');
+}
+
 function handleInput(input, time) {
   if (screen !== 'play' || !play || play.paused || play.finished) return null;
+  // ヘキサンのときは「なじむ」だけ、水のときは O と H だけ
+  if ((scene.solvent === 'hexane') !== (input === 'M')) return null;
   play.lastPress = { input, time };
   scene.press(input, time);
   const events = play.judge.press(input, time);
@@ -264,6 +285,7 @@ async function quitPlay() {
   if (play) { play.finished = true; play.song.stop(); }
   await resumeAudio();
   play = null;
+  document.body.classList.remove('is-hexane');
 }
 
 // ───────────── タイミング調整（ハイドレーション・ビート仕様書 4章） ─────────────
@@ -379,6 +401,11 @@ function loop(nowMs) {
     updateHud();
     const ready = $('hud-ready');
     ready.textContent = now < -0.6 ? t('hb.ready') : now < 0.4 ? t('hb.go') : '';
+    // 溶媒が入れかわる時刻になったら、切りかえる
+    while (play.swIdx < play.exp.switches.length && now >= play.exp.switches[play.swIdx].t) {
+      setSolvent(play.exp.switches[play.swIdx].solvent);
+      play.swIdx += 1;
+    }
     scene.frame(play.notes, play.judge.cursor, now);
     if (now > play.exp.lengthSec + 0.3) finish();
     return;
@@ -411,7 +438,8 @@ function setupInput() {
   const KEYS = { ArrowLeft: 'O', KeyF: 'O', ArrowRight: 'H', KeyJ: 'H' };
   window.addEventListener('keydown', (e) => {
     if (e.key === 'Escape' && screen === 'play') { if (play && play.paused) resume(); else pause(); return; }
-    const input = KEYS[e.code];
+    // ヘキサンのときは、どのキーでも「なじむ」
+    const input = scene && scene.solvent === 'hexane' ? ((KEYS[e.code] || e.code === 'Space') ? 'M' : null) : KEYS[e.code];
     if (!input || e.repeat || screen !== 'play' || !play) return;
     e.preventDefault();
     const pad = document.querySelector(`.hb-pad[data-input="${input}"]`);
@@ -427,6 +455,16 @@ function setupInput() {
     if (act === 'solo') startPlay();
     else if (act === 'pick-chart') { pick.chart = b.dataset.chart; savePick(); renderTitle(); }
     else if (act === 'calib') openCalib(false);
+    else if (act === 'zukan') { renderZukan($('zukan')); show('zukan'); }
+    else if (act === 'zukan-close') { closeZukan(); renderTitle(); show('title'); }
+    else if (act === 'zukan-tab') zukanTab($('zukan'), b.dataset.tab);
+    else if (act === 'zukan-pick') zukanPick($('zukan'), b.dataset.id);
+    else if (act === 'save-explain') {
+      const n = saveExplanations(b.dataset.kinds.split(','));
+      b.disabled = true;
+      b.textContent = t('hb.explain.savedAll');
+      if (n) toast(t('hb.explain.savedToast', { n }));
+    }
     else if (act === 'calib-start') runCalib();
     else if (act === 'calib-save') saveCalib();
     else if (act === 'calib-skip') closeCalib();
@@ -478,6 +516,7 @@ async function start() {
     if (scene) scene.redrawLabels();
     if (screen === 'title') renderTitle();
     if (screen === 'calib') renderCalib();
+    if (screen === 'zukan') renderZukan($('zukan'));
     // プレイ中に言語を切り替えたときは、一時停止する（全体の仕様書 2章）
     if (screen === 'play') pause();
   });

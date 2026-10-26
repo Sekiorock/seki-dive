@@ -45,12 +45,14 @@
         <li class="is-oh" data-i18n="hb.howto.5"></li>
         <li class="is-pass" data-i18n="hb.howto.6"></li>
         <li data-i18n="hb.howto.7"></li>
+        <li class="is-mix" data-i18n="hb.howto.8"></li>
       </ol>
     </details>
     <div class="hb-title__actions">
       <button type="button" class="btn btn--primary hb-title__solo" data-act="solo" data-i18n="hb.solo"></button>
       <button type="button" class="btn hb-title__battle" disabled data-i18n="hb.battle"></button>
     </div>
+    <button type="button" class="btn hb-title__zukan" data-act="zukan" data-i18n="hb.zukan.open"></button>
     <button type="button" class="btn hb-title__calib" data-act="calib"><span data-i18n="hb.calib.open"></span><b id="calib-now"></b></button>
     <p class="hb-title__note" data-i18n="hb.battleSoon"></p>
     <p class="hb-title__note hb-title__keys" data-i18n="hb.howto.keys"></p>
@@ -80,6 +82,17 @@
     <button type="button" class="btn btn--small hb-calib__skip" data-act="calib-skip" data-i18n="hb.calib.skip"></button>
   </section>
 
+  <!-- 図鑑（ハイドレーション・ビート仕様書 5章・8章）：保存した解説と、溶質の3D模型 -->
+  <section id="zukan" class="hb-screen hb-zukan" hidden>
+    <h2 class="hb-zukan__title" data-i18n="hb.zukan.title"></h2>
+    <div class="hb-zukan__tabs" role="tablist">
+      <button type="button" class="hb-zukan__tab" role="tab" data-act="zukan-tab" data-tab="models" data-i18n="hb.zukan.models"></button>
+      <button type="button" class="hb-zukan__tab" role="tab" data-act="zukan-tab" data-tab="notes" data-i18n="hb.zukan.notes"></button>
+    </div>
+    <div class="hb-zukan__body" id="zukan-body"></div>
+    <button type="button" class="btn hb-zukan__back" data-act="zukan-close" data-i18n="hb.zukan.back"></button>
+  </section>
+
   <!-- プレイ -->
   <section id="play" class="hb-screen hb-play" hidden>
     <div class="hb-hud">
@@ -103,7 +116,12 @@
       <button type="button" class="hb-pad hb-pad--h" data-input="H" data-i18n-aria="hb.btn.Haria">
         <span class="hb-pad__atom">H</span><span class="hb-pad__sign">+</span><span class="hb-pad__sub" data-i18n="hb.btn.Hsub"></span>
       </button>
+      <!-- 溶媒がヘキサンのとき（ステージ5・6）は、左右のボタンが中央の「なじむ」1つにまとまる -->
+      <button type="button" class="hb-pad hb-pad--m" data-input="M" data-i18n-aria="hb.btn.Maria">
+        <span class="hb-pad__atom" data-i18n="hb.btn.M"></span><span class="hb-pad__sub" data-i18n="hb.btn.Msub"></span>
+      </button>
     </div>
+    <p class="hb-solvent" id="hud-solvent" aria-live="polite"></p>
   </section>
 
   <!-- 一時停止 -->

@@ -185,50 +185,178 @@ function startScene() {
   window.addEventListener('resize', resize);
   resize();
 
-  // ── 指でなぞる・タップ ──
+  // ── 指の操作（v0.5.4）──
+  //   1本の指でなぞる：回る・見下ろす角度を変える（離すと少し滑ってから止まる）
+  //   2本の指を広げる・つまむ：近づく・離れる。2本の指をそろえて動かす：見る場所をずらす
+  //   何もない所を2回すばやくタップ：はじめの視点に戻る
+  //   しばらく触らないと、広場のまわりをゆっくり回り続ける（動きを減らす設定の端末では回らない）
   const raycaster = new THREE.Raycaster();
   const pointer = new THREE.Vector2();
-  let drag = null;
+  const pointers = new Map();          // 画面に触れている指 { x, y }
+  let drag = null;                     // 1本の指のとき { id, sx, sy, moved }
+  let pinch = null;                    // 2本の指のとき { dist, cx, cy, distance }
+  let spin = { az: 0, pitch: 0 };      // 指を離したあとの勢い
+  let lastInput = performance.now();
+  let idleStart = -1;
+  let lastTapAt = 0;
+  const reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const deg = THREE.MathUtils.degToRad;
+  const homeView = () => ({ azimuth: deg(CAMERA.startAzimuthDeg), pitch: deg(CAMERA.pitchDeg) });
+  let reset = null;                    // はじめの視点へ戻る動き { from, to, start }
+
+  function touched() { lastInput = performance.now(); idleStart = -1; reset = null; requestRender(); }
+  function clampView() {
+    view.pitch = THREE.MathUtils.clamp(view.pitch, deg(CAMERA.minPitchDeg), deg(CAMERA.maxPitchDeg));
+    view.distance = THREE.MathUtils.clamp(view.distance, CAMERA.minDistance, CAMERA.maxDistance);
+    const r = Math.hypot(target.x, target.z);
+    if (r > CAMERA.panLimit) { target.x *= CAMERA.panLimit / r; target.z *= CAMERA.panLimit / r; }
+  }
+  function twoFinger() {
+    const [a, b] = [...pointers.values()];
+    return { dist: Math.hypot(a.x - b.x, a.y - b.y), cx: (a.x + b.x) / 2, cy: (a.y + b.y) / 2 };
+  }
 
   canvas.addEventListener('pointerdown', (e) => {
-    drag = { id: e.pointerId, x: e.clientX, y: e.clientY, sx: e.clientX, sy: e.clientY, moved: false };
-    canvas.setPointerCapture(e.pointerId);
+    try { canvas.setPointerCapture(e.pointerId); } catch (err) { /* 取れない端末でも動くように */ }
+    pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    spin = { az: 0, pitch: 0 };
+    touched();
+    if (pointers.size === 1) {
+      drag = { id: e.pointerId, sx: e.clientX, sy: e.clientY, moved: false, t: performance.now() };
+    } else if (pointers.size === 2) {
+      drag = null;                     // 2本目の指が来たら、タップや回転ではなく、ズームとずらし
+      pinch = { ...twoFinger(), distance: view.distance };
+    }
   });
   canvas.addEventListener('pointermove', (e) => {
+    const p = pointers.get(e.pointerId);
+    if (!p) return;
+    const dx = e.clientX - p.x, dy = e.clientY - p.y;
+    p.x = e.clientX; p.y = e.clientY;
+    if (pointers.size >= 2 && pinch) {
+      const now2 = twoFinger();
+      // 広げる・つまむ：はじめの指の間かくとの比で、距離を変える
+      view.distance = pinch.distance * (pinch.dist / Math.max(20, now2.dist));
+      // そろえて動かす：画面の上での動きを、地面の上の動きに直す（カメラの向きに合わせる）
+      const mx = now2.cx - pinch.cx, my = now2.cy - pinch.cy;
+      pinch.cx = now2.cx; pinch.cy = now2.cy;
+      const k = (view.distance / window.innerHeight) * CAMERA.panSpeed;
+      const sa = Math.sin(view.azimuth), ca = Math.cos(view.azimuth);
+      target.x += (-mx * ca - my * sa) * k;
+      target.z += (mx * sa - my * ca) * k;
+      clampView();
+      placeCamera();
+      touched();
+      return;
+    }
     if (!drag || drag.id !== e.pointerId) return;
-    const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
-    drag.x = e.clientX; drag.y = e.clientY;
     if (Math.hypot(e.clientX - drag.sx, e.clientY - drag.sy) > CAMERA.tapMovePx) drag.moved = true;
     if (!drag.moved) return;
     view.azimuth -= dx * CAMERA.dragSpeed;
-    view.pitch = THREE.MathUtils.clamp(view.pitch + dy * CAMERA.dragSpeed,
-      THREE.MathUtils.degToRad(CAMERA.minPitchDeg), THREE.MathUtils.degToRad(CAMERA.maxPitchDeg));
+    view.pitch += dy * CAMERA.dragSpeed;
+    // 離したときに滑らせるため、直前の動きを覚えておく
+    spin = { az: -dx * CAMERA.dragSpeed, pitch: dy * CAMERA.dragSpeed };
+    clampView();
     placeCamera();
-    requestRender();
+    touched();
   });
-  const endDrag = (e) => {
-    if (!drag || drag.id !== e.pointerId) return;
+  const endPointer = (e) => {
+    if (!pointers.has(e.pointerId)) return;
+    pointers.delete(e.pointerId);
+    touched();
+    if (pointers.size < 2) pinch = null;
+    if (pointers.size === 1) {
+      // 2本から1本に戻ったら、残った指で続けて回せるように（ただしタップにはしない）
+      const [id, p] = [...pointers.entries()][0];
+      drag = { id, sx: p.x, sy: p.y, moved: true };
+      spin = { az: 0, pitch: 0 };
+      return;
+    }
+    if (!drag || drag.id !== e.pointerId) { drag = null; return; }
     const wasTap = !drag.moved && e.type === 'pointerup';
     drag = null;
-    if (wasTap) handleTap(e.clientX, e.clientY);
+    if (!wasTap) return;
+    const nowMs = performance.now();
+    if (nowMs - lastTapAt < CAMERA.doubleTapMs) {
+      lastTapAt = 0;
+      // 2回タップ：はじめの視点に、なめらかに戻る
+      reset = { from: { ...view, tx: target.x, tz: target.z }, to: { ...homeView(), distance: fittedDistance() }, start: nowMs };
+      requestRender();
+      return;
+    }
+    // 何もない所をタップしたときだけ、2回目のタップを待つ（門や建物は1回で開く）
+    lastTapAt = handleTap(e.clientX, e.clientY) ? 0 : nowMs;
   };
-  canvas.addEventListener('pointerup', endDrag);
-  canvas.addEventListener('pointercancel', endDrag);
+  canvas.addEventListener('pointerup', endPointer);
+  canvas.addEventListener('pointercancel', endPointer);
 
   // パソコンで確かめるとき用：ホイールで近づく・離れる
   canvas.addEventListener('wheel', (e) => {
     e.preventDefault();
-    view.distance = THREE.MathUtils.clamp(view.distance + e.deltaY * 0.02, CAMERA.minDistance, CAMERA.maxDistance);
+    view.distance += e.deltaY * 0.02;
+    clampView();
     placeCamera();
-    requestRender();
+    touched();
   }, { passive: false });
+
+  /** 毎回の描き直しの前：慣性・はじめの視点に戻る動き・何もしていないときの回転。動いていれば true */
+  function updateCamera(now, dt) {
+    let moving = false;
+    if (reset) {
+      const k = Math.min(1, (now - reset.start) / 700);
+      const e = 1 - Math.pow(1 - k, 3);
+      // 回る向きは、近いほうへ
+      let da = reset.to.azimuth - reset.from.azimuth;
+      da = Math.atan2(Math.sin(da), Math.cos(da));
+      view.azimuth = reset.from.azimuth + da * e;
+      view.pitch = reset.from.pitch + (reset.to.pitch - reset.from.pitch) * e;
+      view.distance = reset.from.distance + (reset.to.distance - reset.from.distance) * e;
+      target.x = reset.from.tx * (1 - e);
+      target.z = reset.from.tz * (1 - e);
+      if (k >= 1) { reset = null; lastInput = now; }
+      placeCamera();
+      return true;
+    }
+    if (pointers.size === 0 && (Math.abs(spin.az) > 1e-4 || Math.abs(spin.pitch) > 1e-4)) {
+      const f = Math.pow(CAMERA.inertia, dt / 16.7);
+      view.azimuth += spin.az * (dt / 16.7);
+      view.pitch += spin.pitch * (dt / 16.7);
+      spin.az *= f; spin.pitch *= f;
+      clampView();
+      placeCamera();
+      moving = true;
+      lastInput = now;
+    }
+    // しばらく触らなければ、ゆっくり回る（エモい演出）
+    if (!reduceMotion && pointers.size === 0 && !document.hidden && now - lastInput > CAMERA.idleDelaySec * 1000) {
+      if (idleStart < 0) idleStart = now;
+      const ease = Math.min(1, (now - idleStart) / (CAMERA.idleEaseSec * 1000));
+      const sec = (now - idleStart) / 1000;
+      view.azimuth += deg(CAMERA.idleSpinDegPerSec) * (dt / 1000) * ease * ease;
+      // 見下ろす角度と距離が、呼吸のようにゆっくり揺れる
+      const b = CAMERA.idleBreath * ease;
+      view.pitch += Math.sin(sec * 0.25) * b * 0.002 * dt / 16.7;
+      view.distance *= 1 + Math.sin(sec * 0.18 + 1) * b * 0.0015 * dt / 16.7;
+      clampView();
+      placeCamera();
+      moving = true;
+    }
+    return moving;
+  }
+  function fittedDistance() {
+    const keep = view.distance;
+    fitDistance();
+    const d = view.distance;
+    view.distance = keep;
+    return d;
+  }
 
   function handleTap(x, y) {
     const rect = canvas.getBoundingClientRect();
     pointer.set(((x - rect.left) / rect.width) * 2 - 1, -((y - rect.top) / rect.height) * 2 + 1);
     raycaster.setFromCamera(pointer, camera);
     const hits = raycaster.intersectObjects(plaza.hitTargets, false);
-    if (!hits.length) return;
+    if (!hits.length) return false;
     const data = hits[0].object.userData;
     if (data.talkId) {
       // キタローのセリフを順番に
@@ -238,7 +366,10 @@ function startScene() {
       enterGate(data.gateId);
     } else if (data.facilityId) {
       openShop(data.facilityId);
+    } else {
+      return false;
     }
+    return true;
   }
   let talkCount = 0;
 
@@ -271,7 +402,11 @@ function startScene() {
   // 描き直し：触っているときは毎回、何もしていないときは少なめに（電池のため）
   let last = 0;
   const idleGap = 1000 / RENDER.idleFps;
+  let lastLoop = performance.now();
   function loop(now) {
+    const dt = Math.min(100, now - lastLoop);
+    lastLoop = now;
+    if (updateCamera(now, dt)) needsRender = true;
     if (needsRender || now - last >= idleGap) {
       plaza.animate(now);
       renderer.render(scene, camera);

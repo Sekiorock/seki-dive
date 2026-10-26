@@ -29,10 +29,14 @@ export function createJudge(notes, defs, { offsetMs = JUDGE.inputOffsetMs } = {}
     perfect: 0, great: 0, good: 0, miss: 0, wrong: 0,
     passed: 0,               // 見送り成功（perfect にも数える）
     combo: 0, maxCombo: 0, rateSum: 0,
-    mistakes: {},            // 間違いの種類ごとの回数（v0.4 の解説で使う）
+    mistakes: {},            // 間違いの種類ごとの回数（結果の画面の解説で使う）
+    mistakeNotes: {},        // 間違いの種類ごとに、どの溶質で間違えたか { cationH: { Na: 3 } }（解説の模型に使う）
     offsets: [],             // 当たったときのずれ（ミリ秒）。タイミング調整の参考
     gauge: GAUGE.startPct,   // 水和ゲージ（0〜100 %）
   };
+
+  // ノーツの正解（溶媒で変わる。charts.js が n.answer に入れておく）
+  const answerOf = (n) => n.answer || defs[n.noteId].answer;
 
   function grade(absMs) {
     if (absMs <= JUDGE.perfect) return 'perfect';
@@ -45,7 +49,11 @@ export function createJudge(notes, defs, { offsetMs = JUDGE.inputOffsetMs } = {}
     note.result = result;
     stats[result] += 1;
     stats.rateSum += SCORE.rate[result] || 0;
-    if (extra.kind) stats.mistakes[extra.kind] = (stats.mistakes[extra.kind] || 0) + 1;
+    if (extra.kind) {
+      stats.mistakes[extra.kind] = (stats.mistakes[extra.kind] || 0) + 1;
+      const per = stats.mistakeNotes[extra.kind] = stats.mistakeNotes[extra.kind] || {};
+      per[note.noteId] = (per[note.noteId] || 0) + 1;
+    }
     if (extra.pass) stats.passed += 1;
     stats.gauge = Math.max(0, Math.min(100, stats.gauge + (GAUGE.gain[result] || 0) * gaugeUnit));
     if (result === 'miss' || result === 'wrong') stats.combo = 0;
@@ -60,7 +68,7 @@ export function createJudge(notes, defs, { offsetMs = JUDGE.inputOffsetMs } = {}
     if (!half) return;
     const n = half.note;
     half = null;
-    if (n.state === 'pending') events.push(record(n, 'wrong', { kind: mistakeKind(defs[n.noteId], 'none'), ms: 0 }));
+    if (n.state === 'pending') events.push(record(n, 'wrong', { kind: mistakeKind(defs[n.noteId], 'none', n.solvent), ms: 0 }));
   }
 
   return {
@@ -97,16 +105,17 @@ export function createJudge(notes, defs, { offsetMs = JUDGE.inputOffsetMs } = {}
       }
       if (!best) { advance(); return events; }
       const def = defs[best.noteId];
+      const ans = answerOf(best);
       const ms = Math.round((tt - best.t) * 1000);
-      if (def.answer === 'OH') {
+      if (ans === 'OH') {
         // 同時押し：もう片方を少しだけ待つ
         half = { note: best, input, tt, ms };
         return events;
       }
-      if (def.answer === 'PASS') {
-        events.push(record(best, 'wrong', { kind: mistakeKind(def, input), ms }));
-      } else if (def.answer !== input) {
-        events.push(record(best, 'wrong', { kind: mistakeKind(def, input), ms }));
+      if (ans === 'PASS') {
+        events.push(record(best, 'wrong', { kind: mistakeKind(def, input, best.solvent), ms }));
+      } else if (ans !== input) {
+        events.push(record(best, 'wrong', { kind: mistakeKind(def, input, best.solvent), ms }));
       } else {
         stats.offsets.push(ms);
         events.push(record(best, grade(Math.abs(ms)), { ms }));
@@ -130,7 +139,7 @@ export function createJudge(notes, defs, { offsetMs = JUDGE.inputOffsetMs } = {}
         const n = notes[i];
         if (n.t + goodSec >= limit) break;
         if (n.state !== 'pending' || (half && half.note === n)) continue;
-        if (defs[n.noteId].answer === 'PASS') events.push(record(n, 'perfect', { pass: true }));
+        if (answerOf(n) === 'PASS') events.push(record(n, 'perfect', { pass: true }));
         else events.push(record(n, 'miss'));
       }
       advance();

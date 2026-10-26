@@ -1,6 +1,8 @@
 // hydration/src/notes.js
 // 溶質ノーツの一覧（ハイドレーション・ビート仕様書 3章、溶媒が水のとき）。譜面はこの一覧から選んで並べる。
-// 溶媒がヘキサンのとき（ステージ5以降）は v0.4 で足す。
+// v0.4：溶媒がヘキサンのとき（ステージ5・6）の正解は answerIn(def, 'hexane')。
+//   無極性分子（ヨウ素、ナフタレン、ベンゼン、四塩化炭素、ヘキサン）：'M' = 中央の「なじむ」ボタン
+//   それ以外（イオン、糖など極性の大きい分子）：'PASS'（ヘキサンには溶けにくいので見送る）
 //
 //   formula   化学式（どちらの言語でも同じ表記）
 //   answer    正解の入力
@@ -8,6 +10,7 @@
 //               'H'    = 右ボタン（水の H を向ける）
 //               'OH'   = 左右の同時押し（-OH などで、水と水素結合する）
 //               'PASS' = 押さない（見送る。水和しない）
+//               'M'    = 中央の「なじむ」ボタン（溶媒がヘキサンのときだけ）
 //   group     種類（補助輪の文字、間違いの種類、色分けに使う）
 //               cation 陽イオン / anion 陰イオン / hydroxy -OH をもつ分子 / sugar 糖（-OH がたくさん）
 //               polar 極性分子（一部だけ電離する弱電解質）/ hcl HCl（電離ノーツ）/ nonpolar 無極性分子
@@ -48,7 +51,28 @@ export const NOTES = {
   BaSO4: { formula: 'BaSO₄', answer: 'PASS', group: 'insoluble', model: 'crystal', r: 0.5 },
   CaCO3: { formula: 'CaCO₃', answer: 'PASS', group: 'insoluble', model: 'crystal', r: 0.5 },
 };
-for (const [id, d] of Object.entries(NOTES)) d.id = id;
+for (const [id, d] of Object.entries(NOTES)) {
+  d.id = id;
+  d.nameKey = d.nameKey || `hb.name.${id}`;
+}
+
+/** 図鑑に並べる溶質（糖の2つ目からの -OH と、HCl から分かれた Cl⁻ は除く） */
+export const ZUKAN_ORDER = ['Na', 'K', 'Cu', 'Cl', 'I', 'OH', 'SO4', 'EtOH', 'Glc', 'Suc', 'NH3', 'AcOH', 'HCl',
+  'Hex', 'Bz', 'CCl4', 'I2', 'Nap', 'AgCl', 'BaSO4', 'CaCO3'];
+
+/** 溶媒ごとの正解の入力 */
+export function answerIn(def, solvent) {
+  if (solvent !== 'hexane') return def.answer;
+  return def.group === 'nonpolar' ? 'M' : 'PASS';
+}
+
+/** 補助輪の文字の鍵（溶媒がヘキサンのときは、ヘキサンでの見分け方） */
+export function kindKeyIn(def, solvent) {
+  if (solvent !== 'hexane') return `hb.kind.${def.group}`;
+  if (def.group === 'nonpolar') return 'hb.kindHex.nonpolar';
+  if (def.group === 'cation' || def.group === 'anion' || def.group === 'hclCl') return 'hb.kindHex.ion';
+  return 'hb.kindHex.polar';
+}
 
 /** 補助輪の段階1で出す文字の i18n の鍵 */
 export function kindKey(def) { return `hb.kind.${def.group}`; }
@@ -57,7 +81,12 @@ export function kindKey(def) { return `hb.kind.${def.group}`; }
  * 間違いの種類（v0.4 の結果画面で、種類ごとに解説を出す。ハイドレーション・ビート仕様書 5章）
  *   input：押したボタン。'none' は「同時押しのノーツで片方しか押さなかった」
  */
-export function mistakeKind(def, input) {
+export function mistakeKind(def, input, solvent = 'water') {
+  if (solvent === 'hexane') {
+    if (def.group === 'nonpolar') return 'timing';
+    if (def.group === 'cation' || def.group === 'anion' || def.group === 'hclCl') return 'ionInHexane';
+    return 'polarInHexane';
+  }
   switch (def.group) {
     case 'cation': return input === 'H' ? 'cationH' : 'timing';
     case 'anion': case 'hclCl': return input === 'O' ? 'anionO' : 'timing';

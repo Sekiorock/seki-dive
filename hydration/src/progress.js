@@ -3,7 +3,8 @@
 //   ・前のステージを、どれかの難易度でクリアすると、次のステージが開く。STAGE 1 と練習曲はいつでも遊べる。
 //   ・記録は、難易度ごとの最高点とクリアしたかどうか。本人の情報（shared/auth.js）に入れるので、
 //     Firebase につながっていれば、ほかの端末で遊んでも続きから。
-//   形：{ clears: { stage1: { easy: { best: 912345, clear: true }, ... }, ... } }
+//   形：{ clears: { stage1: { easy: { best: 912345, clear: true }, ... }, ... }, saved: { cationH: 1700000000000, ... } }
+//   v0.4：saved は図鑑に保存した解説（間違いの種類と、保存した時刻）
 
 import { STAGE_ORDER } from './charts.js';
 import { getWorldData, setWorldData } from '../../shared/auth.js';
@@ -60,4 +61,21 @@ export function recordResult(chartId, diffId, score, clear) {
     firstClear: clear && !wasCleared,
     unlocked: next && !nextWasOpen && clear ? next : null,
   };
+}
+
+// ───────────── 図鑑に保存した解説（v0.4） ─────────────
+/** 間違いの種類（図鑑に並べる順） */
+export const MISTAKE_ORDER = ['cationH', 'anionO', 'ohOneSide', 'hclOrder', 'nonpolarHydrated', 'insolubleDissolved',
+  'ionInHexane', 'polarInHexane', 'timing'];
+
+export function isSaved(kind) { return !!(data().saved || {})[kind]; }
+export function savedKinds() { return MISTAKE_ORDER.filter(isSaved); }
+/** 解説を図鑑に保存する。新しく保存した数を返す */
+export function saveExplanations(kinds) {
+  const d = data();
+  d.saved = d.saved || {};
+  let n = 0;
+  for (const k of kinds) if (MISTAKE_ORDER.includes(k) && !d.saved[k]) { d.saved[k] = Date.now(); n += 1; }
+  if (n) setWorldData(WORLD, d);
+  return n;
 }

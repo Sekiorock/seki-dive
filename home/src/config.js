@@ -1,7 +1,7 @@
 // home/src/config.js
 // ホームワールドの数値の設定。数値はここに集め、プログラムの中に直接書かない。
 
-export const VERSION = 'home v0.5.3';
+export const VERSION = 'home v0.5.4';
 
 // QRコードで配る公開URL。
 // 空のままなら、いま開いているページのURL（例 https://ユーザー名.github.io/seki-dive/）を自動で使う。
@@ -30,15 +30,25 @@ export const PLAZA = {
 export const CAMERA = {
   startAzimuthDeg: 45,  // 最初の向き（0 で南から北を見る。45 で南東から見て4つの門がすべて入る）
   pitchDeg: 54,         // 見下ろす角度
-  minPitchDeg: 20,
+  minPitchDeg: 10,      // v0.5.4：低い目線（地面すれすれ）まで下げられる
+  maxPitchDeg: 82,      // 真上に近い見下ろしまで
   fitRadius: 13.2,      // 画面の幅にこの半径の円がほぼ収まる距離にする
-  maxPitchDeg: 70,
   distance: 30,         // 広場の中心からの距離（画面の幅に合わせて自動で調整）
-  minDistance: 18,
+  minDistance: 7,       // v0.5.4：2本の指で広げると、ここまで近づける
+  maxDistance: 64,
   screenShiftY: 0.03,   // 広場を画面の下へずらす割合（上の帯と題名の分）
-  maxDistance: 60,
   dragSpeed: 0.006,     // なぞったときの回る速さ
   tapMovePx: 8,         // これより指が動かなければ「タップ」とみなす
+  // ── v0.5.4：2本の指の操作 ──
+  panLimit: 10,         // 2本の指でずらせる、広場の中心からの距離の上限（m）
+  panSpeed: 1.0,        // 2本の指でずらす速さ
+  // ── v0.5.4：指を離したあとの慣性と、何もしていないときのゆっくりした回転 ──
+  inertia: 0.92,        // なぞった勢いが1回の描き直しごとに残る割合（0 で止まる、1 に近いほど長く滑る）
+  idleDelaySec: 5,      // 触らなくなってから、ゆっくり回り始めるまでの秒数
+  idleSpinDegPerSec: 3, // ゆっくり回る速さ（度／秒）
+  idleBreath: 0.04,     // 回っているときの、見下ろす角度と距離のゆるやかな揺れ（割合）
+  idleEaseSec: 2.5,     // 回り始めるときに、少しずつ速くなる時間
+  doubleTapMs: 320,     // 2回すばやくタップすると、はじめの視点に戻る
 };
 
 // 4つの門。東西南北に1つずつ（angleDeg：北が0、東が90）

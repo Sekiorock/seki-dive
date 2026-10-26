@@ -341,3 +341,69 @@ body.is-playing .version { opacity: 0.6; }
 .hb-result__new { display: block; font-style: normal; font-family: var(--font-en); font-weight: 700; font-size: 13px; letter-spacing: 0.16em; color: var(--hiyama); text-shadow: 0 0 10px var(--hiyama); }
 .hb-result__news.is-fail { background: rgba(255, 255, 255, 0.06); box-shadow: inset 3px 0 0 var(--dim); font-weight: 400; }
 .hb-result__grid .is-gauge span { font-family: var(--font-ja); }
+
+/* ── v0.4：溶媒がヘキサンのとき ── */
+.hb-pad--m {
+  display: none; grid-column: 1 / -1;
+  background: var(--scan), var(--seigaiha), linear-gradient(180deg, rgba(197, 155, 255, 0.55), rgba(50, 20, 90, 0.75));
+  box-shadow: inset 0 0 0 2px #C59BFF, inset 0 0 26px rgba(197, 155, 255, 0.5);
+}
+.hb-pad--m .hb-pad__atom { font-family: var(--font-ja); font-size: 38px; font-weight: 800; }
+html[lang="en"] .hb-pad--m .hb-pad__atom { font-family: var(--font-en); font-size: 34px; letter-spacing: 0.1em; }
+body.is-hexane .hb-pad--o, body.is-hexane .hb-pad--h { display: none; }
+body.is-hexane .hb-pad--m { display: flex; }
+.hb-solvent {
+  position: absolute; left: 0; right: 0; top: 40%; margin: 0; text-align: center; pointer-events: none !important;
+  font-size: 22px; font-weight: 800; letter-spacing: 0.08em; opacity: 0; color: #fff;
+  text-shadow: 0 0 12px #C59BFF, 0 0 24px #C59BFF;
+}
+.hb-solvent.is-water { text-shadow: 0 0 12px var(--neon-2), 0 0 24px var(--neon-1); }
+.hb-solvent.is-shown { animation: solvent-pop 2.6s ease-out forwards; }
+.hb-solvent small { display: block; font-size: 13px; font-weight: 700; margin-top: 4px; }
+@keyframes solvent-pop { 0% { opacity: 0; transform: scale(1.4); } 10% { opacity: 1; transform: none; } 80% { opacity: 1; } 100% { opacity: 0; } }
+
+/* ── v0.4：結果の画面の解説 ── */
+.hb-explain { margin-top: 10px; display: grid; gap: 6px; }
+.hb-explain__top { display: grid; grid-template-columns: 120px 1fr; gap: 10px; align-items: center; padding: 10px; clip-path: var(--chamfer); background: var(--scan), linear-gradient(120deg, rgba(215, 0, 58, 0.18), rgba(9, 15, 40, 0.9)); box-shadow: inset 0 0 0 1px rgba(255, 141, 154, 0.5); }
+.hb-explain__view { width: 120px; height: 120px; display: block; touch-action: none; cursor: grab; background: radial-gradient(circle, rgba(124, 155, 255, 0.18), transparent 70%); }
+.hb-explain__name { margin: 0; font-size: 14px; font-weight: 800; }
+.hb-explain__count { font-family: var(--font-en); color: #FF8D9A; margin-left: 6px; }
+.hb-explain__formula { margin: 2px 0 0; font-family: var(--font-en); font-size: 12px; color: var(--dim); }
+.hb-explain__text { margin: 6px 0 0; font-size: 13px; line-height: 1.6; }
+.hb-explain__item { padding: 8px 12px; clip-path: var(--chamfer-s); background: rgba(215, 0, 58, 0.1); box-shadow: inset 3px 0 0 #FF8D9A; }
+.hb-explain__item p { margin: 0; font-size: 12px; line-height: 1.6; }
+.hb-explain__item b { font-size: 13px; }
+.hb-explain__save { width: 100%; min-height: 44px; }
+.hb-explain__save:disabled { opacity: 0.6; }
+
+/* ── v0.4：図鑑 ── */
+.hb-title__zukan { width: 100%; max-width: 420px; min-height: 40px; font-size: 13px; }
+.hb-zukan {
+  top: calc(var(--topbar-h) + 8px + env(safe-area-inset-top)); left: 0; right: 0; bottom: calc(22px + env(safe-area-inset-bottom));
+  overflow-y: auto; padding: 12px 16px 16px; display: flex; flex-direction: column; align-items: center; gap: 10px;
+  background: rgba(3, 6, 20, 0.9);
+}
+.hb-zukan > * { width: 100%; max-width: 420px; }
+.hb-zukan__title { margin: 4px 0 0; font-size: 20px; font-weight: 800; text-align: center; }
+.hb-zukan__tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.hb-zukan__tab { appearance: none; border: 0; font: inherit; color: #fff; padding: 10px; cursor: pointer; clip-path: var(--chamfer-s); background: rgba(255, 255, 255, 0.06); box-shadow: inset 0 0 0 1px var(--stroke-strong); }
+.hb-zukan__tab[aria-selected="true"] { background: linear-gradient(180deg, rgba(124, 155, 255, 0.35), rgba(255, 126, 46, 0.18)); box-shadow: inset 0 0 0 2px var(--neon-2); }
+.hb-zukan__body { display: flex; flex-direction: column; gap: 8px; }
+.hb-zukan__stage { display: grid; grid-template-columns: 150px 1fr; gap: 10px; align-items: center; padding: 10px; clip-path: var(--chamfer); background: var(--scan), var(--seigaiha), rgba(9, 15, 40, 0.9); box-shadow: inset 0 0 0 1px var(--stroke-strong); }
+.hb-zukan__view { width: 150px; height: 150px; display: block; touch-action: none; cursor: grab; }
+.hb-zukan__info p { margin: 0; }
+.hb-zukan__formula { font-family: var(--font-en); font-size: 22px; font-weight: 700; }
+.hb-zukan__name { font-size: 14px; font-weight: 800; }
+.hb-zukan__kind { font-size: 12px; color: var(--dim); margin-top: 2px !important; }
+.hb-zukan__ans { font-size: 12px; line-height: 1.6; margin-top: 6px !important; }
+.hb-zukan__ans b { color: var(--neon-2); }
+.hb-zukan__grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.hb-zukan__chip { appearance: none; border: 0; font: inherit; color: #fff; cursor: pointer; padding: 8px 2px; min-height: 44px; font-family: var(--font-en); font-size: 12px; font-weight: 700; clip-path: var(--chamfer-s); background: rgba(255, 255, 255, 0.06); box-shadow: inset 0 0 0 1px var(--stroke-strong); }
+.hb-zukan__chip.is-on { background: rgba(124, 155, 255, 0.3); box-shadow: inset 0 0 0 2px var(--neon-2); }
+.hb-zukan__note { padding: 10px 12px; clip-path: var(--chamfer-s); background: rgba(255, 255, 255, 0.05); box-shadow: inset 3px 0 0 var(--neon-2); }
+.hb-zukan__note b { display: block; font-size: 13px; }
+.hb-zukan__note p { margin: 4px 0 0; font-size: 12px; line-height: 1.6; }
+.hb-zukan__note.is-locked { box-shadow: inset 3px 0 0 var(--dim); color: var(--dim); }
+.hb-zukan__empty { margin: 0; font-size: 12px; color: var(--dim); line-height: 1.6; }
+.hb-zukan__back { min-height: 44px; }
+.hb-howto li.is-mix { box-shadow: inset 3px 0 0 #C59BFF; }

@@ -1,7 +1,7 @@
 // hydration/src/config.js
 // ① ハイドレーション・ビートの数値の設定。数値はここに集め、プログラムの中に直接書かない。
 
-export const VERSION = 'hydration v0.3.0';
+export const VERSION = 'hydration v0.4.0';
 
 // ── 判定の幅（ミリ秒。ノーツが判定リングに来た瞬間からのずれ） ──
 export const JUDGE = {

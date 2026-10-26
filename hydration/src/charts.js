@@ -5,7 +5,13 @@
 //   ステージ3「ハイドロキシ・グルーヴ」：エタノール、グルコース、スクロース（105 BPM） ← v0.3
 //   ステージ4「電離のブレイク」：HCl、NH₃、酢酸、無極性分子（115 BPM）         ← v0.3
 //   練習曲「ノーツ・パレード」：3章のすべての溶質ノーツを順番に試せる曲（いつでも遊べる）
-//   （ステージ5・6は v0.4 で足す）
+//   ステージ5「ヘキサンの夜」：溶媒がヘキサンに交代（110 BPM）                ← v0.4
+//   ステージ6「溶解性マトリクス」：全種類＋溶けにくい結晶。溶媒が何度も入れかわる（125 BPM） ← v0.4
+//
+// 溶媒：chart.solvents に、小節の範囲ごとの溶媒（'water' / 'hexane'）を書く。書いていない小節は水。
+//   ヘキサンのときの正解は notes.js の answerIn（無極性分子は「なじむ」、それ以外は見送る）。
+//   溶媒が入れかわるところには、ノーツのない2小節を置き、その頭で入れかわる
+//   （ボタンが変わってから、新しい溶媒のノーツが判定リングに来るまで2小節ある）。
 // 前のステージをどの難易度でもクリアすると、次のステージが開く（4章）。
 //
 // 1小節は8分音符8つ分。1文字が8分音符1つ（. は何もない）：
@@ -17,7 +23,7 @@
 //   X ヘキサン  B ベンゼン  T 四塩化炭素  J ヨウ素  P ナフタレン（見送る）
 //   Y AgCl  W BaSO₄  Q CaCO₃（溶けにくい結晶。見送る）
 
-import { NOTES } from './notes.js';
+import { NOTES, answerIn } from './notes.js';
 
 export const SYMBOLS = {
   N: 'Na', K: 'K', U: 'Cu', C: 'Cl', I: 'I', O: 'OH', S: 'SO4',
@@ -108,6 +114,41 @@ const STAGE4_BARS = [
   'H...C...', 'A.......',
 ];
 
+const STAGE5_BARS = [
+  '........', '........',
+  // 水（ふだんどおり）
+  'N...C...', 'K...I...', 'N.C.U.S.', 'K...O...', 'N.C.K.I.', 'U...S...',
+  // 溶媒交代 → ヘキサン（2小節あける）
+  '........', '........',
+  // ヘキサン A：無極性分子は「なじむ」、イオンや糖は見送る
+  'J...P...', 'B...T...', 'J...N...', 'P...C...', 'B.J.T.P.', 'G...J...', 'T...K...', 'P.B.J...',
+  '........', 'J.......',
+  // ヘキサン B
+  'J.P.B.T.', 'N.J.C.P.', 'B.B.Z...', 'T.J.P.U.', 'J.PJ..B.', 'I.T.BP..', 'G...J.T.', 'P.J.B...',
+  // ヘキサン C：いちばん盛り上がる
+  'JP..BT..', 'NJ..PC..', 'TB..JP..', 'G...JB..', 'PJ..TK..', 'BT..JP..',
+  'J...P...', 'B.......',
+];
+
+const STAGE6_BARS = [
+  '........', '........',
+  // 水 1：イオンと -OH
+  'N...C...', 'K.I.E...', 'U.S.N.O.', 'E...A...', 'N.C.V.I.', 'H...K...', 'E.E.N.C.', 'H...U...',
+  '........', '........',
+  // ヘキサン 1
+  'J...N...', 'P.B.C...', 'T...G...', 'J.P.K.B.', 'I...T.J.', 'P...B...',
+  '........', '........',
+  // 水 2：見送る分子と、溶けにくい結晶
+  'X...N...', 'Y...C...', 'B.E.W...', 'N.C.Q.K.', 'H...J...', 'T.A.Y.V.', 'NC..EE..', 'W...H...',
+  '........', '........',
+  // ヘキサン 2
+  'JP..NB..', 'T.J.C.P.', 'G...JT..', 'BP..KJ..', 'N.T.B.P.', 'J...T...',
+  '........', '........',
+  // 水 3：まとめ
+  'N.C.E.X.', 'H...Y...', 'K.I.A.B.', 'U.S.V.Q.', 'NC..EE..', 'H...N...',
+  'C...E...', 'N.......',
+];
+
 export const CHARTS = {
   stage1: {
     id: 'stage1', stageNo: 1, titleKey: 'hb.stage1.title', bpm: 90, stepsPerBar: 8, bars: STAGE1_BARS,
@@ -165,6 +206,41 @@ export const CHARTS = {
     ],
     tailBars: 1,
   },
+  stage5: {
+    id: 'stage5', stageNo: 5, titleKey: 'hb.stage5.title', bpm: 110, stepsPerBar: 8, bars: STAGE5_BARS,
+    newIds: ['Hex'], newKey: 'hb.chartNewHex', music: { transpose: -2, chords: 'd' },
+    solvents: [{ from: 8, to: 35, solvent: 'hexane' }],   // 溶媒は、ノーツのない2小節の頭で入れかわる
+    sections: [
+      { from: 0, to: 1, name: 'intro', energy: 0 },
+      { from: 2, to: 7, name: 'A', energy: 1 },
+      { from: 8, to: 9, name: 'break', energy: 0 },
+      { from: 10, to: 17, name: 'B', energy: 1 },
+      { from: 18, to: 19, name: 'break', energy: 0 },
+      { from: 20, to: 27, name: 'C', energy: 2 },
+      { from: 28, to: 33, name: 'D', energy: 3 },
+      { from: 34, to: 35, name: 'outro', energy: 1 },
+    ],
+    tailBars: 1,
+  },
+  stage6: {
+    id: 'stage6', stageNo: 6, titleKey: 'hb.stage6.title', bpm: 125, stepsPerBar: 8, bars: STAGE6_BARS,
+    newIds: ['AgCl', 'BaSO4', 'CaCO3'], newKey: 'hb.chartNewAll', music: { transpose: 3, chords: 'c' },
+    solvents: [{ from: 10, to: 17, solvent: 'hexane' }, { from: 28, to: 35, solvent: 'hexane' }],
+    sections: [
+      { from: 0, to: 1, name: 'intro', energy: 0 },
+      { from: 2, to: 9, name: 'A', energy: 2 },
+      { from: 10, to: 11, name: 'break', energy: 0 },
+      { from: 12, to: 17, name: 'B', energy: 2 },
+      { from: 18, to: 19, name: 'break', energy: 0 },
+      { from: 20, to: 27, name: 'C', energy: 3 },
+      { from: 28, to: 29, name: 'break', energy: 0 },
+      { from: 30, to: 35, name: 'B', energy: 2 },
+      { from: 36, to: 37, name: 'break', energy: 0 },
+      { from: 38, to: 43, name: 'D', energy: 3 },
+      { from: 44, to: 45, name: 'outro', energy: 1 },
+    ],
+    tailBars: 1,
+  },
   parade: {
     id: 'parade', stageNo: 0, titleKey: 'hb.parade.title', bpm: 96, stepsPerBar: 8, bars: PARADE_BARS,
     newIds: null, music: { transpose: 0, chords: 'a' },
@@ -180,7 +256,7 @@ export const CHARTS = {
   },
 };
 /** タイトルの画面に並べる順。ステージは STAGE_ORDER の順に開いていく */
-export const STAGE_ORDER = ['stage1', 'stage2', 'stage3', 'stage4'];
+export const STAGE_ORDER = ['stage1', 'stage2', 'stage3', 'stage4', 'stage5', 'stage6'];
 export const CHART_ORDER = [...STAGE_ORDER, 'parade'];
 
 /**
@@ -201,22 +277,38 @@ export function expandChart(chart, diff) {
       if (!id) return;
       const t = bar * barSec + i * stepSec;
       const def = NOTES[id];
+      const solvent = solventAt(chart, bar);
       // やさしい：裏拍（8分音符の奇数番目）のノーツは抜く
       if (diff.thin && i % 2 === 1) return;
+      // ヘキサンの中の糖は、水和しないので1つのノーツ（見送る）
+      if (def.chain && solvent === 'hexane') { notes.push({ t, noteId: id, solvent, answer: 'PASS' }); return; }
       if (def.chain) {
         chainNo += 1;
         for (let k = 0; k < def.chain; k++) {
-          notes.push({ t: t + k * diff.chainStep * beat, noteId: k === 0 ? id : 'OHb', chain: chainNo, chainIdx: k, chainLen: def.chain });
+          notes.push({ t: t + k * diff.chainStep * beat, noteId: k === 0 ? id : 'OHb', chain: chainNo, chainIdx: k, chainLen: def.chain, solvent, answer: 'OH' });
         }
         return;
       }
-      notes.push({ t, noteId: id });
-      if (id === 'HCl') notes.push({ t: t + diff.hclGap * beat, noteId: 'HClCl', parentT: t });
+      notes.push({ t, noteId: id, solvent, answer: answerIn(def, solvent) });
+      if (id === 'HCl' && solvent === 'water') notes.push({ t: t + diff.hclGap * beat, noteId: 'HClCl', parentT: t, solvent, answer: 'H' });
     });
   });
   notes.sort((a, b) => a.t - b.t);
   const totalBars = chart.bars.length + (chart.tailBars || 0);
-  return { notes, barSec, totalBars, lengthSec: totalBars * barSec };
+  // 溶媒が入れかわる時刻（main.js がボタンと3Dの見た目を切りかえる）
+  const switches = [];
+  let prev = 'water';
+  for (let bar = 0; bar < chart.bars.length; bar++) {
+    const sv = solventAt(chart, bar);
+    if (sv !== prev) { switches.push({ t: bar * barSec, solvent: sv }); prev = sv; }
+  }
+  return { notes, barSec, totalBars, lengthSec: totalBars * barSec, switches };
+}
+
+/** その小節の溶媒 */
+export function solventAt(chart, bar) {
+  const r = (chart.solvents || []).find((x) => bar >= x.from && bar <= x.to);
+  return r ? r.solvent : 'water';
 }
 
 /** その小節の場面 */

@@ -246,8 +246,10 @@ export function createModel(def, assist) {
 }
 
 /** 札の枠の色（溶質の種類） */
-export function frameColor(def, assist) {
+export const MIX = '#C59BFF';   // 溶媒がヘキサンのときの「なじむ」の色（藤色）
+export function frameColor(def, assist, solvent = 'water') {
   if (assist >= 3) return '#e6e9f2';
+  if (solvent === 'hexane') return def.group === 'nonpolar' ? MIX : '#9aa0ae';
   switch (def.group) {
     case 'cation': return PLUS.neon;
     case 'anion': case 'hclCl': return MINUS.neon;

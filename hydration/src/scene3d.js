@@ -10,6 +10,8 @@
 //       HCl：H に水分子が付き「H₃O⁺ + Cl⁻」の文字が浮かぶ
 //   ・見送るノーツ（無極性分子・溶けにくい結晶）は、押さなければ判定リングを通り抜けて手前へ消える。
 //   ・背景の奥に NaCl の結晶。正しく水和させるたびにイオンが1個ずつはがれる。
+//   ・v0.4：溶媒がヘキサンのとき（setSolvent）は、プレイヤーがヘキサン分子に変わり、道は藤色に。
+//     無極性分子を「なじむ」で取りこむと、小さなヘキサン分子が取り囲む（溶媒和）。
 // 色：δ−（O）は朱、δ+（H）は群青。色を見分けにくい人のために、必ず「−」「+」の記号を添える。
 // 軽く保つため、分子は同時に RENDER.maxMolecules 個まで、影は使わない。
 
@@ -17,7 +19,8 @@ import { NOTE, RENDER, CRYSTAL } from './config.js';
 import { ACCENTS, hexToInt } from '../../shared/theme.js';
 import { laneTexture, labelTexture } from '../../shared/patterns.js';
 import { t } from '../../shared/i18n.js';
-import { createModel, frameColor, MINUS, PLUS } from './models.js';
+import { createModel, frameColor, MINUS, PLUS, MIX } from './models.js';
+import { kindKeyIn } from './notes.js';
 
 const RING_Y = 0.95;    // ノーツが飛ぶ高さ
 const WATER_POS = new THREE.Vector3(0, 0.45, 0.95);
@@ -116,9 +119,25 @@ function smallWaterGeometry() {
   return smallWaterGeo;
 }
 
+/** 溶媒和に使う小さなヘキサン分子（炭素6つのジグザグを1つの形に） */
+let smallHexGeo = null;
+function smallHexaneGeometry() {
+  if (smallHexGeo) return smallHexGeo;
+  const pos = [], nor = [];
+  for (let i = 0; i < 6; i++) {
+    const geo = new THREE.SphereGeometry(0.1, 10, 6).toNonIndexed();
+    geo.translate(-0.4 + i * 0.16, i % 2 ? 0.07 : -0.07, 0);
+    pos.push(...geo.attributes.position.array); nor.push(...geo.attributes.normal.array);
+  }
+  smallHexGeo = new THREE.BufferGeometry();
+  smallHexGeo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  smallHexGeo.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3));
+  return smallHexGeo;
+}
+
 // ───────────── 溶質の札（化学式と、補助輪の段階1では種類の文字） ─────────────
-function drawNoteLabel(g, w, h, def, assist) {
-  const hex = frameColor(def, assist);
+function drawNoteLabel(g, w, h, def, assist, solvent) {
+  const hex = frameColor(def, assist, solvent);
   const twoSide = assist < 3 && hex === '#ffffff';
   const showKind = assist <= 1;
   g.clearRect(0, 0, w, h);
@@ -145,7 +164,7 @@ function drawNoteLabel(g, w, h, def, assist) {
   if (showKind) {
     fitText(g, def.formula, w / 2, top + bh * 0.36, w - 28, Math.round(h * 0.42), 700, FONT_EN);
     g.fillStyle = twoSide ? '#ffffff' : hex;
-    const kind = def.nameKey ? `${t(def.nameKey)}・${t(`hb.kind.${def.group}`)}` : t(`hb.kind.${def.group}`);
+    const kind = def.group === 'nonpolar' ? `${t(def.nameKey)}・${t(kindKeyIn(def, solvent))}` : t(kindKeyIn(def, solvent));
     fitText(g, kind, w / 2, top + bh * 0.77, w - 24, Math.round(h * 0.22), 700, FONT_JA);
   } else {
     fitText(g, def.formula, w / 2, h / 2 + 1, w - 28, Math.round(h * 0.44), 700, FONT_EN);
@@ -235,6 +254,13 @@ export function createScene(canvas, { noteDefs }) {
   const waterPivot = new THREE.Group();
   waterPivot.position.copy(WATER_POS);
   waterPivot.add(water);
+  // 溶媒がヘキサンのときのプレイヤー（ヘキサン分子。ジグザグの炭素の鎖）
+  const hexPlayer = createModel(noteDefs.Hex, 1);
+  hexPlayer.scale.setScalar(1.25);
+  hexPlayer.visible = false;
+  hexPlayer.add(glowSprite(MIX, 2.4));
+  waterPivot.add(hexPlayer);
+  let solvent = 'water', hexPulse = 0;
   scene.add(waterPivot);
   // 向き：idle では H を上に開いて O を下。O を向ける＝O を奥（−z）に、H を向ける＝H を奥に
   // 同時押し（OH）では横に寝かせて、O と H の両方を奥へ向ける
@@ -305,9 +331,9 @@ export function createScene(canvas, { noteDefs }) {
 
   // ── 札（化学式など） ──
   const labelCache = {};
-  function labelFor(id) {
-    const keyL = `${id}|${assist}`;
-    if (!labelCache[keyL]) labelCache[keyL] = labelTexture((g, w, h) => drawNoteLabel(g, w, h, noteDefs[id], assist), 256, 128);
+  function labelFor(id, solvent = 'water') {
+    const keyL = `${id}|${assist}|${solvent}`;
+    if (!labelCache[keyL]) labelCache[keyL] = labelTexture((g, w, h) => drawNoteLabel(g, w, h, noteDefs[id], assist, solvent), 256, 128);
     return labelCache[keyL];
   }
 
@@ -333,10 +359,10 @@ export function createScene(canvas, { noteDefs }) {
     slot.holder.add(slot.model);
     slot.holder.rotation.set(0, 0, 0);
     const big = def.model === 'glucose' || def.model === 'sucrose' || def.model === 'hexane' || def.model === 'naphthalene';
-    slot.glow.material.color.set(frameColor(def, assist));
-    slot.glow.material.opacity = def.answer === 'PASS' ? 0.35 : 0.8;
+    slot.glow.material.color.set(frameColor(def, assist, note.solvent));
+    slot.glow.material.opacity = (note.answer || def.answer) === 'PASS' ? 0.35 : 0.8;
     slot.glow.scale.setScalar((big ? 2.4 : 1.7) * def.r * 1.6);
-    slot.label.material.map = labelFor(def.id);
+    slot.label.material.map = labelFor(def.id, note.solvent);
     const lw = (assist <= 1 ? 1.35 : 1.1) * RENDER.labelScale / RENDER.noteScale;
     slot.label.scale.set(lw, lw * 0.5, 1);
     slot.label.position.set(0, def.r + lw * 0.32, 0);
@@ -357,6 +383,7 @@ export function createScene(canvas, { noteDefs }) {
   }
 
   // ── 水和の演出 ──
+  const hexMat = new THREE.MeshStandardMaterial({ color: 0xb9b3cc, roughness: 0.45, metalness: 0.1, emissive: hexToInt(MIX), emissiveIntensity: 0.35 });
   const waterMat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.35, metalness: 0.1, emissive: 0x222244, emissiveIntensity: 0.5, transparent: true });
   const up = new THREE.Vector3(0, 1, 0);
   const SIX = [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]].map((d) => new THREE.Vector3(...d));
@@ -378,6 +405,7 @@ export function createScene(canvas, { noteDefs }) {
     const holder = new THREE.Group();
     g.add(holder);
     const ws = SIX.map(() => { const m = new THREE.Mesh(smallWaterGeometry(), waterMat); m.visible = false; g.add(m); return m; });
+    const hx = SIX.map(() => { const m = new THREE.Mesh(smallHexaneGeometry(), hexMat); m.visible = false; g.add(m); return m; });
     const text = new THREE.Sprite(new THREE.SpriteMaterial({ map: hclTex, transparent: true, depthTest: false, toneMapped: false }));
     text.scale.set(3.4, 0.85, 1);
     text.position.set(0, 1.2, 0);
@@ -386,7 +414,7 @@ export function createScene(canvas, { noteDefs }) {
     g.add(text);
     g.visible = false;
     scene.add(g);
-    return { g, holder, ws, text, model: null, start: -1, drift: new THREE.Vector3() };
+    return { g, holder, ws, hx, text, model: null, start: -1, drift: new THREE.Vector3() };
   });
   let shellNext = 0;
 
@@ -400,17 +428,27 @@ export function createScene(canvas, { noteDefs }) {
     m.quaternion.setFromUnitVectors(up, outward);
   }
 
-  function startShell(def, now) {
+  function startShell(def, now, sv = 'water') {
     const s = shells[shellNext]; shellNext = (shellNext + 1) % shells.length;
     giveModel(s.model);
     s.model = takeModel(def.id);
     s.holder.add(s.model);
     s.holder.scale.setScalar(1);
     s.ws.forEach((m) => { m.visible = false; });
+    s.hx.forEach((m) => { m.visible = false; });
     s.text.visible = false;
     const site = s.model.userData.site;
     const g = def.group;
-    if (g === 'cation' || g === 'anion' || g === 'hclCl') {
+    if (sv === 'hexane') {
+      // ヘキサンの中：小さなヘキサン分子が、無極性分子のまわりに集まる（向きはばらばら）
+      s.hx.forEach((m, i) => {
+        const d = SIX[i].clone().add(new THREE.Vector3(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).multiplyScalar(0.5)).normalize();
+        m.visible = true;
+        m.position.copy(d).multiplyScalar(def.r + 1.6);
+        m.userData.target = d.clone().multiplyScalar(def.r + 0.45);
+        m.rotation.set(Math.random() * 3, Math.random() * 3, Math.random() * 3);
+      });
+    } else if (g === 'cation' || g === 'anion' || g === 'hclCl') {
       const dist = def.r + 0.4;
       s.ws.forEach((m, i) => placeWater(m, new THREE.Vector3(), SIX[i], dist, g === 'cation' ? 'O' : 'H'));
     } else if (g === 'hcl') {
@@ -466,11 +504,12 @@ export function createScene(canvas, { noteDefs }) {
     },
     redrawLabels() {
       for (const k2 of Object.keys(labelCache)) { labelCache[k2].dispose(); delete labelCache[k2]; }
-      slots.forEach((s) => { if (s.note) s.label.material.map = labelFor(s.note.noteId); });
+      slots.forEach((s) => { if (s.note) s.label.material.map = labelFor(s.note.noteId, s.note.solvent); });
     },
 
     /** 左右のボタンを押したとき：水分子をその向きに回す。左右がほぼ同時なら横に寝かせる */
     press(input, now = 0) {
+      if (input === 'M') { hexPulse = 0.25; lastPress = { input, at: now }; return; }
       const both = lastPress.input && lastPress.input !== input && now - lastPress.at < 0.12;
       waterTarget = both ? ROT.OH : (ROT[input] || ROT.idle);
       waterHold = both ? 0.26 : 0.18;
@@ -480,12 +519,24 @@ export function createScene(canvas, { noteDefs }) {
     hit(note, judgement, now, peel = true) {
       const def = noteDefs[note.noteId];
       if (note.slot) release(note.slot);
-      startShell(def, now);
+      startShell(def, now, note.solvent);
       const b = bursts.find((x) => x.start < 0) || bursts[0];
       b.start = now; b.mesh.visible = true;
-      b.mesh.material.color.set(judgement === 'perfect' ? '#ffffff' : frameColor(def, assist));
+      b.mesh.material.color.set(judgement === 'perfect' ? '#ffffff' : frameColor(def, assist, note.solvent));
       if (peel && peeled < peelOrder.length) { crystalInfo[peelOrder[peeled]].leaving = now; peeled += 1; }
     },
+    /** 溶媒を切りかえる（'water' / 'hexane'）。プレイヤーの分子と、道の色が変わる */
+    setSolvent(sv) {
+      solvent = sv;
+      const hx = sv === 'hexane';
+      water.visible = !hx;
+      hexPlayer.visible = hx;
+      laneMat.color.set(hx ? 0xc4b0ff : 0x9aa6ff);
+      railMat[0].color.set(hx ? MIX : MINUS.neon);
+      railMat[1].color.set(hx ? MIX : PLUS.neon);
+      scene.fog.color.set(hx ? 0x140a26 : 0x070b26);
+    },
+    get solvent() { return solvent; },
     /** 見送り成功：模型はそのまま手前へ通り抜ける */
     pass(note, now) {
       const p = passMarks.find((x) => x.start < 0) || passMarks[0];
@@ -496,6 +547,7 @@ export function createScene(canvas, { noteDefs }) {
     crystalCount: count,
     /** 新しく曲を始めるとき：ノーツ・演出・結晶を元に戻す */
     reset() {
+      this.setSolvent('water');
       slots.forEach(release);
       shells.forEach((sh) => { sh.start = -1; sh.g.visible = false; giveModel(sh.model); sh.model = null; });
       bursts.forEach((b) => { b.start = -1; b.mesh.visible = false; });
@@ -538,7 +590,7 @@ export function createScene(canvas, { noteDefs }) {
           s.g.scale.setScalar(RENDER.noteScale * (1 - kb * 0.6));
           continue;
         }
-        const flying = nt.state === 'miss' || (nt.state === 'hit' && def.answer === 'PASS');
+        const flying = nt.state === 'miss' || (nt.state === 'hit' && (nt.answer || def.answer) === 'PASS');
         if (nt.state === 'hit' && !flying) { release(s); continue; }
         if (flying && z > NOTE.passZ) { release(s); continue; }
         s.g.position.set(0, RING_Y + Math.sin((nt.t - now) * 3) * 0.04, z);
@@ -560,6 +612,7 @@ export function createScene(canvas, { noteDefs }) {
         const gather = Math.min(1, k4 / 0.18);
         const fade = Math.max(0, 1 - Math.max(0, k4 - 1.1) / 0.6);
         sh.ws.forEach((m) => { if (m.visible) m.position.lerp(m.userData.target, gather); });
+        sh.hx.forEach((m) => { if (m.visible) m.position.lerp(m.userData.target, gather); });
         waterMat.opacity = 1;
         sh.text.material.opacity = fade;
         const drift = Math.max(0, k4 - 0.25);
@@ -631,6 +684,10 @@ export function createScene(canvas, { noteDefs }) {
       qTmp.setFromEuler(waterTarget);
       water.quaternion.slerp(qTmp, Math.min(1, dt * 22));
       shake = Math.max(0, shake - dt);
+      // ヘキサンのプレイヤー：ゆっくり回り、「なじむ」を押すとふくらむ
+      hexPulse = Math.max(0, hexPulse - dt);
+      hexPlayer.rotation.set(0.3, now * 0.8, Math.sin(now * 1.3) * 0.2);
+      hexPlayer.scale.setScalar(1.25 * (1 + hexPulse * 1.2));
       waterPivot.position.set(WATER_POS.x + Math.sin(now * 80) * shake * 0.25, WATER_POS.y + Math.sin(now * 2) * 0.05, WATER_POS.z);
       renderer.render(scene, camera);
     },
