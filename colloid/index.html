@@ -42,6 +42,8 @@
     <h2 class="cl-sec" data-i18n="cl.toolsHead"></h2>
     <div class="cl-toolrow" id="tools"></div>
     <button type="button" class="btn cl-box-btn" data-act="box" id="box-btn"></button>
+    <h2 class="cl-sec" data-i18n="cl.r.head"></h2>
+    <button type="button" class="btn cl-race-btn" data-act="race"><b data-i18n="cl.r.title"></b><small data-i18n="cl.r.sub"></small></button>
     <button type="button" class="btn btn--primary cl-start" data-act="start" id="start-btn"></button>
     <p class="cl-note" data-i18n="hiyama.disclaimer"></p>
   </section>
@@ -52,6 +54,9 @@
       <div class="cl-panel" id="panel"></div>
     </div>
   </section>
+
+  <!-- 対戦「チーム対抗レース」（入口・部屋・結果）。中身は race.js で作る -->
+  <section id="race" class="cl-screen cl-title cl-race" hidden></section>
 
   <!-- しくみ・エリアを抜けたとき。中身は main.js で作る -->
   <div class="cl-tut" id="tut" role="dialog" hidden></div>

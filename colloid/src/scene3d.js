@@ -269,6 +269,7 @@ export function createScene(canvas) {
   const orbSp = new THREE.Sprite(new THREE.SpriteMaterial({ map: puffTex, color: 0xFFE7A0, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, opacity: 0, fog: false }));
   orbSp.scale.set(1.2, 1.2, 1); scene.add(orbSp);
   let orbT = -1;
+  let fogWall = 0, fogNow = 0;
   let prop = 'pool';
   let fogDone = 0, fogGoal = 0, stoneN = 0, doorOpen = 0, doorGoal = 0;
   const bagState = { inWater: 0, goal: 0, clean: 0, cloud: 0 };
@@ -403,6 +404,8 @@ export function createScene(canvas) {
     setAltar(n, done) { altar.lit = n; altar.done = done ? 1 : 0; },
     /** 標本を見つけた：光の玉が、ふわっと浮かんで消える */
     orb() { orbT = 0; },
+    /** 対戦の霧の壁：霧をぐっと濃くする */
+    setFogWall(v) { fogWall = v ? 1 : 0; },
     /** 映え：エリアの番号（1〜8）で、景色の豪華さが変わる */
     setAmbience(n) { decor.setLevel(n); document.body.dataset.amb = String(n); },
     resetView() { user.az = 0; user.el = 0.32; user.zoom = 1; user.lift = 0; fit(); },
@@ -464,6 +467,8 @@ export function createScene(canvas) {
         doorL.position.x = -0.73 - doorOpen * 1.2; doorR.position.x = 0.73 + doorOpen * 1.2;
       }
       decor.step(now, dt);
+      fogNow += (fogWall - fogNow) * ease(3);
+      scene.fog.density = 0.03 + fogNow * 0.16;
       if (orbT >= 0) {
         orbT += dt;
         const k = orbT / 1.8;

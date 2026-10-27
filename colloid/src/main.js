@@ -13,6 +13,7 @@ import { createScope } from './scope.js';
 import { cheer } from './cheer.js';
 import { initBox, openBox, closeBox, onClick as boxClick, redraw as boxRedraw, specimenOf, syncFound, find as findSpecimen, filled, newCount } from './box.js';
 import { sfx } from '../../shared/sfx.js';
+import * as race from './race.js';
 import { pictureSvg, rulerHtml } from './explain.js';
 import { initI18n, t, onLangChange, applyToDom, getLang, setLang } from '../../shared/i18n.js';
 import { applyTheme, fx } from '../../shared/theme.js';
@@ -52,7 +53,7 @@ function toast(msg, ms = 3600) {
 }
 function show(name) {
   screen = name;
-  for (const id of ['title', 'play']) $(id).hidden = id !== name;
+  for (const id of ['title', 'play', 'race']) $(id).hidden = id !== name;
   if (scene) scene.showLabels(name === 'play');
   updateViewport();
 }
@@ -124,6 +125,7 @@ function startPuzzle() {
 }
 /** 3D と のぞき窓 を、いまの謎に合わせる */
 function updateProp() {
+  if (race.inRace()) return;
   const p = P();
   const id = pid();
   if (p.prop === 'pool' || p.prop === 'cup') {
@@ -184,6 +186,7 @@ function guideBox(line, f = face) {
 
 // ───────────── 正解・おしいの演出（光・動き・音） ─────────────
 let combo = 0;
+let race3dKey = '';
 function okFx() {
   combo += 1;
   sfx.correct(combo);
@@ -199,6 +202,7 @@ function ngFx() {
 }
 
 function renderPanel() {
+  if (race.inRace()) return;
   const box = $('panel');
   const p = P();
   const id = pid();
@@ -449,6 +453,7 @@ const LITE_MS = params.has('lite') ? 400 : 0;
 let lastDraw = 0;
 function loop(nowMs) {
   requestAnimationFrame(loop);
+  race.frame();
   if (scene && (!LITE_MS || nowMs - lastDraw >= LITE_MS)) { lastDraw = nowMs; scene.frame(nowMs); scope.frame(nowMs); }
 }
 
@@ -456,6 +461,8 @@ function setupInput() {
   document.body.addEventListener('click', (e) => {
     const b = e.target.closest('[data-act]');
     if (!b || b.disabled) return;
+    if (race.onClick(b.dataset.act, b)) { sfx.tap(); return; }
+    if (b.dataset.act === 'race') { race.openRace(); return; }
     if (boxClick(b.dataset.act, b)) { if (b.dataset.act === 'box') sfx.tap(); return; }
     if (b.dataset.act === 'snd') { sfx.setOn(!sfx.on); if (sfx.on) sfx.tap(); renderPanel(); return; }
     const act = b.dataset.act;
@@ -547,6 +554,7 @@ async function start() {
     setUserLang(lang);
     applyToDom();
     boxRedraw();
+    race.redraw();
     if (screen === 'title') renderTitle();
     if (screen === 'play') { updateProp(); renderPanel(); if (!$('tut').hidden && $('tut').querySelector('.cl-clear') === null) renderTut(); }
   });
@@ -579,6 +587,34 @@ async function start() {
     refresh: () => { if (screen === 'title') renderTitle(); else if (ps) renderPanel(); },
   });
   syncFound(rec().solved);
+  race.initRace({
+    $, t, toast, show, updateViewport, screen: () => screen,
+    enterRace: () => { closeTut(); closeBox(); combo = 0; race3dKey = ''; show('play'); $('scope-box').hidden = true; },
+    toTitle: () => { scene.setFogWall(false); renderTitle(); show('title'); },
+    correct: () => okFx(), wrong: () => { combo = 0; sfx.wrong(); cheer.ng({ text: t('cl.cheer.ng') }); },
+    called: () => { sfx.find(); if (navigator.vibrate) { try { navigator.vibrate([60, 40, 60]); } catch (e) { /* 何もしない */ } } },
+    big: () => { fx.celebrate(); sfx.clear(); cheer.big({ text: t('cl.r.bigWin'), sub: 'GOAL' }); },
+    end: () => { sfx.wrong(); },
+    getBest: (n) => (getWorldData(WORLD).raceBest || {})[n] || 0,
+    setBest: (n, ms) => { const d = getWorldData(WORLD); save({ raceBest: { ...(d.raceBest || {}), [n]: ms } }); },
+    scene3d: (tool, i, N, fogged) => {
+      const lvl = Math.min(8, 1 + Math.floor((i * 8) / N));
+      const key = `${tool}|${lvl}`;
+      if (key !== race3dKey) {
+        race3dKey = key;
+        scene.setAmbience(lvl);
+        const prop = { bell: 'fog', glasses: 'shoal', bag: 'gate', pole: 'trough', vial: 'cup', nigari: 'cup', shield: 'cup' }[tool] || 'altar';
+        const cup = { vial: [null, 'clay', null], nigari: ['tonyu', 'tofu', 'koya'], shield: [null, 'sumi', null] }[tool];
+        scene.setProp(prop, cup ? cup.map((l) => (l ? { liquid: l, label: t(`cl.liq.${l}`) } : null)) : []);
+        if (prop === 'fog') scene.setFog(true, false);
+        if (prop === 'trough') scene.setTrough({ L: '-', R: '+', on: true, sign: 1, pile: false });
+        if (prop === 'altar') scene.setAltar(7, true);
+        if (prop === 'shoal') scene.setStones(6);
+        if (prop === 'gate') scene.setGate({ inWater: true, clean: 0.5, cloud: 0, open: false });
+      }
+      scene.setFogWall(fogged);
+    },
+  });
   setupInput();
   for (let a = AREAS.length - 1; a >= 0; a--) if (areaOpen(a)) { ai = a; break; }
   renderTitle();
@@ -593,6 +629,7 @@ async function start() {
       closeTut: () => closeTut(),
       solveAll: () => { const sv = {}; const ar = {}; AREAS.forEach((A) => { ar[A.id] = Date.now(); A.puzzles.forEach((x) => { sv[x] = Date.now(); }); }); save({ solved: sv, areas: ar }); syncFound(sv); renderTitle(); },
       box: () => getWorldData(WORLD),
+      race: race.raceDebug,
       unlock: (n) => { const a = {}; AREAS.slice(0, n).forEach((A) => { a[A.id] = Date.now(); }); save({ areas: a }); renderTitle(); },
       grant: (n) => grant({ itemKey: 'ledger.item.founding', amount: n }),
     };

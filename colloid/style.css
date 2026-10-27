@@ -358,3 +358,68 @@ html[lang="en"] .cl-fuda { writing-mode: horizontal-tb; font-size: 9px; letter-s
 .cl-cheer__stamp b { white-space: nowrap; }
 .cl-cheer__stamp.is-big b { font-size: clamp(44px, 15vw, 72px); }
 .cl-head > b { font-size: 12px; }
+
+/* ── v0.4：対戦「チーム対抗レース」 ── */
+.cl-race-btn { min-height: 56px; display: flex; flex-direction: column; gap: 2px; align-items: center; justify-content: center;
+  background: linear-gradient(135deg, color-mix(in srgb, #ff5e70 28%, #0a1420), color-mix(in srgb, var(--amb-b) 30%, #0a1420)); }
+.cl-race-btn b { font-size: 15px; }
+.cl-race-btn small { font-size: 10px; color: var(--dim); font-weight: 400; }
+.cl-race { gap: 8px; }
+.cl-rtitle { margin: 6px 0 0; text-align: center; font-size: 22px; font-weight: 800; color: #fff; text-shadow: 0 0 10px var(--amb-a), 0 0 22px var(--amb-b); }
+.cl-rules { margin: 0; padding: 8px 10px 8px 26px; font-size: 12px; line-height: 1.6; clip-path: var(--chamfer-s); background: rgba(255, 255, 255, 0.05); }
+.cl-wide { width: 100%; min-height: 48px; }
+.cl-join { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px; }
+.cl-join input { min-width: 0; height: 48px; border: 0; font: 700 22px var(--font-en); letter-spacing: 0.3em; text-align: center; color: #fff; clip-path: var(--chamfer-s); background: rgba(255, 255, 255, 0.08); box-shadow: inset 0 0 0 1px var(--stroke-strong); }
+.cl-join .btn { white-space: nowrap; }
+.cl-code { margin: 0; text-align: center; }
+.cl-code span { display: block; font-size: 11px; color: var(--dim); }
+.cl-code b { font: 700 40px var(--font-en); letter-spacing: 0.2em; color: var(--hiyama); }
+.cl-note--hot { color: var(--hiyama); }
+.cl-bplayers { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.cl-bp { display: flex; align-items: center; gap: 6px; padding: 4px 8px; font-size: 12px; clip-path: var(--chamfer-s); background: rgba(255, 255, 255, 0.05); }
+.cl-bp img { width: 30px; height: 30px; object-fit: cover; clip-path: var(--chamfer-s); }
+.cl-bp span { margin-left: auto; font-size: 10px; color: var(--hiyama); }
+.cl-bp.is-me { box-shadow: inset 3px 0 0 var(--hiyama); }
+.cl-teams { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.cl-teams.is-one { grid-template-columns: 1fr; }
+.cl-team { padding: 6px; clip-path: var(--chamfer-s); background: rgba(255, 255, 255, 0.04); display: flex; flex-direction: column; gap: 4px; }
+.cl-team p { margin: 0; display: flex; align-items: center; gap: 6px; }
+.cl-team p b { font-size: 13px; }
+.cl-team p .cl-mini, .cl-team p em { margin-left: auto; }
+.cl-team p em { font: 700 13px var(--font-en); font-style: normal; color: var(--hiyama); }
+.cl-team.is-A { box-shadow: inset 0 3px 0 var(--neon-1); } .cl-team.is-B { box-shadow: inset 0 3px 0 var(--neon-2); }
+.cl-team.is-win { background: rgba(230, 180, 34, 0.12); }
+.cl-bcount { margin: 0; text-align: center; font-size: 15px; }
+.cl-bcount b { font: 700 34px var(--font-en); color: var(--hiyama); margin-left: 8px; }
+.cl-brank { margin: 0; text-align: center; font-size: 22px; font-weight: 800; color: var(--hiyama); }
+.cl-rtime { margin-left: auto; font: 700 16px var(--font-en); color: var(--hiyama); }
+.cl-mini--fog { color: #05081A; background: linear-gradient(90deg, #dff8ef, var(--neon-2)); box-shadow: none; }
+.cl-banner { padding: 8px 10px; text-align: center; font-size: 15px; font-weight: 800; color: #05081A; background: linear-gradient(90deg, #FFD86B, #ff9ac8, #FFD86B); background-size: 200% 100%;
+  clip-path: var(--chamfer-s); animation: cl-pop .3s ease-out, cl-shimmer 1.2s linear infinite, cl-shake .4s .3s; }
+.cl-fogbar { padding: 4px 10px; font-size: 12px; font-weight: 700; text-align: center; color: #05081A; background: linear-gradient(90deg, #dff8ef, #b8c4d8); clip-path: var(--chamfer-s); animation: cl-glow 1s ease-in-out infinite alternate; }
+.cl-tracks { display: grid; gap: 4px; }
+.cl-track { display: grid; grid-template-columns: 4.6em 1fr auto; align-items: center; gap: 6px; font-size: 11px; }
+.cl-track b { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cl-track.is-A b { color: var(--neon-1); } .cl-track.is-B b { color: #c8b0ff; }
+.cl-track.is-mine b::before { content: "▶"; margin-right: 2px; }
+.cl-track__bar { display: grid; grid-template-columns: repeat(10, 1fr); gap: 2px; }
+.cl-track__bar i { font-style: normal; height: 22px; display: grid; place-items: center; font-size: 11px; background: rgba(255, 255, 255, 0.05); clip-path: var(--chamfer-s); filter: grayscale(1); opacity: 0.45; }
+.cl-track__bar i.is-done { filter: none; opacity: 1; background: color-mix(in srgb, var(--amb-a) 30%, transparent); }
+.cl-track__bar i.is-now { filter: none; opacity: 1; box-shadow: inset 0 0 0 1px #FFD86B; animation: cl-glow 1s ease-in-out infinite alternate; }
+.cl-track em { font: 700 12px var(--font-en); font-style: normal; color: var(--hiyama); }
+.cl-mytools { display: flex; flex-wrap: wrap; gap: 4px; font-size: 12px; }
+.cl-mytool { padding: 3px 8px; clip-path: var(--chamfer-s); background: rgba(255, 255, 255, 0.07); }
+.cl-mytool.is-now { color: #05081A; background: linear-gradient(90deg, #FFD86B, #fff3c0); font-weight: 800; animation: cl-glow 1s ease-in-out infinite alternate; }
+.cl-gate { margin: 0; display: flex; flex-direction: column; gap: 2px; padding: 6px 8px; clip-path: var(--chamfer-s); background: rgba(255, 255, 255, 0.05); box-shadow: inset 3px 0 0 var(--amb-a); }
+.cl-gate b { font-size: 14px; }
+.cl-gate span { font-size: 12px; color: var(--neon-1); }
+.cl-rq { position: relative; display: flex; flex-direction: column; gap: 6px; }
+.cl-rq > p { margin: 0; font-size: 14px; font-weight: 700; line-height: 1.5; }
+.cl-rq.is-fog > p, .cl-rq.is-fog .cl-opts { filter: blur(7px); }
+.cl-rq__fog { position: absolute; inset: 0; display: grid; place-items: center; padding: 10px; text-align: center; font-size: 13px; font-weight: 800; color: #05081A;
+  background: radial-gradient(circle, rgba(223, 248, 239, 0.92), rgba(184, 196, 216, 0.85)); clip-path: var(--chamfer-s); }
+.cl-rq.is-peek { padding: 8px; clip-path: var(--chamfer-s); background: rgba(255, 216, 107, 0.1); box-shadow: inset 3px 0 0 #FFD86B; }
+.cl-rq.is-peek > p:first-child { font-size: 11px; color: #FFD86B; }
+.cl-wait { display: flex; flex-direction: column; gap: 6px; }
+.cl-wait p { margin: 0; font-size: 13px; line-height: 1.5; }
+.cl-wait .btn { min-height: 50px; font-size: 15px; }
