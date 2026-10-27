@@ -615,3 +615,32 @@ html[lang="ja"] .buy__price { font-family: var(--font-ja); }
   .toast, .btn, .fx-announce, .fx-announce__box { transition: none; }
   .avatar-screen, .shop, .confirm__box, .btn--primary { animation: none; }
 }
+
+/* ── 小窓の電卓（shared/calc.js） ── */
+.calc {
+  position: fixed; z-index: 70; right: 8px; top: calc(var(--topbar-h) + 52px + env(safe-area-inset-top)); width: 232px;
+  padding: 6px; display: flex; flex-direction: column; gap: 5px; clip-path: var(--chamfer);
+  background: var(--scan), linear-gradient(180deg, rgba(12, 18, 46, 0.97), rgba(5, 8, 26, 0.98));
+  box-shadow: inset 0 0 0 1px var(--stroke-strong), inset 0 2px 0 var(--neon-1), 0 8px 30px rgba(0, 0, 0, 0.6);
+  touch-action: none; user-select: none; -webkit-user-select: none;
+}
+.calc[hidden] { display: none; }
+.calc__bar { display: flex; align-items: center; gap: 6px; cursor: move; padding: 0 2px; }
+.calc__bar b { flex: 1; font-size: 12px; letter-spacing: 0.1em; color: var(--neon-2); }
+.calc__ins, .calc__x {
+  appearance: none; border: 0; font: inherit; color: #fff; cursor: pointer; min-height: 28px; padding: 2px 8px; font-size: 11px; font-weight: 700;
+  clip-path: var(--chamfer-s); background: rgba(255, 255, 255, 0.1);
+}
+.calc__x { min-width: 30px; font-size: 16px; }
+.calc__disp { padding: 4px 8px; text-align: right; clip-path: var(--chamfer-s); background: rgba(0, 0, 0, 0.45); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1); }
+.calc__expr { display: block; min-height: 1.2em; font: 500 12px var(--font-en); color: var(--dim); word-break: break-all; }
+.calc__val { display: block; font: 700 22px var(--font-en); color: #fff; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.calc__keys { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; }
+.calc__k {
+  appearance: none; border: 0; font: 700 17px var(--font-en); color: #fff; cursor: pointer; min-height: 40px;
+  clip-path: var(--chamfer-s); background: rgba(255, 255, 255, 0.08); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+}
+.calc__k:active { filter: brightness(1.5); }
+.calc__k--op { background: rgba(76, 134, 255, 0.22); color: #cfe0ff; }
+.calc__k--eq { grid-column: span 3; background: linear-gradient(90deg, var(--neon-1), var(--neon-2)); color: #05081A; }
+.calc-btn { font-family: var(--font-en); }

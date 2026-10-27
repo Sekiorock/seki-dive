@@ -60,7 +60,7 @@ export function createModes(ctx) {
         return `<button type="button" class="cr-mcard cr-mcard--wide${open ? '' : ' is-locked'}${rec[i + 1] ? ' is-done' : ''}" data-act="refine-open" data-i="${i}" ${open ? '' : 'disabled'}>`
           + `<b>${esc(t('cr.refine.level', { n: i + 1 }))}</b>`
           + `<span>${esc(t('cr.refine.mix', { k: L.kno3, c: L.cuh }))}<br>${esc(t('cr.refine.target', { m: L.mass, p: L.purity }))}</span>`
-          + `<em>${rec[i + 1] ? esc(t('cr.refine.cleared')) : open ? '' : '🔒'}</em></button>`;
+          + `<em>${rec[i + 1] ? esc(t((rec[i + 1].grade ?? 0) === 0 ? 'cr.refine.cleared' : 'cr.refine.nearDone')) : open ? '' : '🔒'}</em></button>`;
       }).join('');
     }
     $('menu-list').dataset.kind = which;
@@ -127,7 +127,7 @@ export function createModes(ctx) {
     $('order-panel').innerHTML = `<div class="cr-mpanel__head"><b>${esc(t('cr.order.no', { n: pad2(oi + 1) }))}</b>`
       + `<span class="cr-tag cr-tag--${o.type}">${esc(t(`cr.order.type.${o.type}`))}</span>`
       + `${rec ? `<em>${esc(t('cr.order.stars', { s: stars(rec.rank) }))}</em>` : ''}`
-      + `<button type="button" class="cr-fold" data-act="order-list">${esc(t('cr.order.list'))}</button></div>`
+      + `<button type="button" class="cr-fold calc-btn" data-act="calc">${esc(t('calc.open'))}</button><button type="button" class="cr-fold" data-act="order-list">${esc(t('cr.order.list'))}</button></div>`
       + `<div class="cr-order"><img src="${faceUrl(guide)}" alt="" width="44" height="44"><p>${esc(q)}</p></div>${body}`;
     ctx.updateViewport();
   }
@@ -241,17 +241,19 @@ export function createModes(ctx) {
     } else {
       const r = rf.res;
       const okM = r.kno3 >= L.mass - 1e-9, okP = r.purity >= L.purity - 1e-9;
+      const g = gradeOf(L, r);
       read = `${cellG(t('cr.refine.r.kno3'), r.kno3.toFixed(1), 'g', !okM)}${cellG(t('cr.refine.r.imp'), r.imp.toFixed(2))}${cellG(t('cr.refine.r.purity'), r.purity.toFixed(2), '%', !okP)}${cellG(t('cr.refine.r.lost'), rf.cake.lost.toFixed(1))}`;
-      ctl = `<div class="cr-result is-r${okM && okP ? 0 : 2}"><p class="cr-result__rank">${esc(t(okM && okP ? 'cr.refine.ok' : 'cr.refine.ng'))}</p>`
-        + (okM && okP ? `<p class="cr-result__reward">${esc(rf.rewardText)}</p>` : `<p class="cr-note">${esc(t(!okP ? 'cr.refine.ngPurity' : 'cr.refine.ngMass'))}</p>`)
+      ctl = `<div class="cr-result is-r${g}"><p class="cr-result__rank">${esc(t(['cr.refine.ok', 'cr.refine.near', 'cr.refine.ng'][g]))}</p>`
+        + (g < 2 && rf.rewardText ? `<p class="cr-result__reward">${esc(rf.rewardText)}</p>` : '')
+        + (g > 0 ? `<p class="cr-note">${esc(t(!okP ? 'cr.refine.ngPurity' : 'cr.refine.ngMass'))}</p>` : '')
         + `</div><div class="cr-mpanel__foot"><button type="button" class="btn btn--small" data-act="rf-retry">${esc(t('cr.refine.retry'))}</button>`
-        + (okM && okP && li < REFINE.levels.length - 1 ? `<button type="button" class="btn btn--small btn--primary" data-act="rf-next">${esc(t('cr.refine.next'))}</button>` : '')
+        + (g < 2 && li < REFINE.levels.length - 1 ? `<button type="button" class="btn btn--small btn--primary" data-act="rf-next">${esc(t('cr.refine.next'))}</button>` : '')
         + '</div>';
     }
     $('readout').innerHTML = `<div class="cr-readout__row"><dl class="cr-rf">${read}</dl></div>${warn}`;
     $('refine-panel').innerHTML = `<div class="cr-mpanel__head"><b>${esc(t('cr.refine.level', { n: li + 1 }))}</b>`
       + `<span class="cr-mpanel__goal">${esc(t('cr.refine.mix', { k: L.kno3, c: L.cuh }))}<br>${esc(t('cr.refine.target', { m: L.mass, p: L.purity }))}</span>`
-      + `<button type="button" class="cr-fold" data-act="rf-list">${esc(t('cr.refine.list'))}</button></div>${bar}${ctl}`;
+      + `<button type="button" class="cr-fold calc-btn" data-act="calc">${esc(t('calc.open'))}</button><button type="button" class="cr-fold" data-act="rf-list">${esc(t('cr.refine.list'))}</button></div>${bar}${ctl}`;
     ctx.updateViewport();
   }
 
@@ -276,25 +278,34 @@ export function createModes(ctx) {
     });
   }
 
+  /** 0：達成、1：おしい（目標まで 質量 REFINE.near.mass g・純度 REFINE.near.purity % 以内）、2：届かない */
+  function gradeOf(L, r) {
+    if (r.kno3 >= L.mass - 1e-9 && r.purity >= L.purity - 1e-9) return 0;
+    if (r.kno3 >= L.mass - REFINE.near.mass - 1e-9 && r.purity >= L.purity - REFINE.near.purity - 1e-9) return 1;
+    return 2;
+  }
+
   async function dryNow() {
     rf.res = dry(rf.cake);
     rf.step = 'result';
     const L = level();
-    const ok = rf.res.kno3 >= L.mass - 1e-9 && rf.res.purity >= L.purity - 1e-9;
+    const g = gradeOf(L, rf.res);
     rf.rewardText = '';
-    if (ok) {
-      ctx.celebrate();
+    if (g < 2) {
+      if (g === 0) ctx.celebrate();
       const d = data();
       const rec = { ...(d.refine || {}) };
-      const first = !rec[li + 1];
-      rec[li + 1] = { at: Date.now(), purity: rf.res.purity, kno3: rf.res.kno3 };
+      const prev = rec[li + 1];
+      const paid = prev ? (prev.paid ?? REFINE.reward) : 0;   // v0.3 の記録（paid なし）は達成ずみとみなす
+      const worth = g === 0 ? REFINE.reward : REFINE.near.reward;
+      rec[li + 1] = { at: Date.now(), purity: rf.res.purity, kno3: rf.res.kno3, grade: Math.min(prev ? (prev.grade ?? 0) : 2, g), paid: Math.max(paid, worth) };
       ctx.setData({ ...d, refine: rec });
-      if (first) {
+      if (worth > paid) {
         rf.rewardText = t('cr.discover.pending');
         renderRefine();
-        const entry = await ctx.pay('ledger.item.crRefine', { n: li + 1 }, REFINE.reward);
-        rf.rewardText = entry ? t('cr.refine.reward', { gross: ctx.money(entry.gross), net: ctx.money(entry.amount) }) : t('cr.order.cap');
-      } else rf.rewardText = t('cr.refine.cleared');
+        const entry = await ctx.pay('ledger.item.crRefine', { n: li + 1 }, worth - paid);
+        rf.rewardText = entry ? t(g === 0 ? 'cr.refine.reward' : 'cr.refine.nearReward', { gross: ctx.money(entry.gross), net: ctx.money(entry.amount) }) : t('cr.order.cap');
+      } else rf.rewardText = t(prev && (prev.grade ?? 0) === 0 ? 'cr.refine.cleared' : 'cr.refine.nearDone');
     }
     if (kind === 'refine') renderRefine();
   }

@@ -1,7 +1,7 @@
 // crystal/src/config.js
 // ② クリスタル・ラボの数値の設定。数値はここに集め、プログラムの中に直接書かない。
 
-export const VERSION = 'crystal v0.4.0';
+export const VERSION = 'crystal v0.4.1';
 
 // 実験台の並び
 export const BENCHES = ['solid', 'gas', 'conc'];
@@ -121,7 +121,7 @@ export const CAMERA = {
 
 // ── 注文モード（全体の仕様書 8章：予想を数値で入れてから実験し、予想と結果の差で報酬が決まる） ──
 export const ORDER = {
-  rewards: [150, 80, 20],     // 差が tol[0] 以内／tol[1] 以内／それ以外（g の問題は 0.5 g と 2 g）
+  rewards: [150, 80, 20],     // 差が tol[0] 以内／tol[1] 以内／それ以外（g の問題は 2 g と 10 g。orders.js）
   durMs: 2800,                // 実験の動き（温度を下げる、水を蒸発させる など）の長さ
 };
 
@@ -134,12 +134,13 @@ export const REFINE = {
   washMax: 3,                 // 洗える回数
   wash: { min: 0, max: 50, step: 5, start: 20 },   // 1回に使う冷水（g）
   // 段階：混合物の中身（g）と、目標（取り出す KNO₃ の質量 g 以上、純度 % 以上）
+  near: { mass: 10, purity: 1.0, reward: 40 },   // 目標まで 質量 10 g・純度 1% 以内なら「おしい」（はじめてのとき 40 ヒヤマ。次の段階も開く）
   levels: [
-    { kno3: 90, cuh: 10, mass: 50, purity: 99.0 },
-    { kno3: 80, cuh: 20, mass: 45, purity: 99.0 },
-    { kno3: 70, cuh: 30, mass: 38, purity: 99.5 },
-    { kno3: 60, cuh: 40, mass: 28, purity: 99.5 },
-    { kno3: 100, cuh: 20, mass: 70, purity: 99.8 },
+    { kno3: 90, cuh: 10, mass: 45, purity: 98.0 },
+    { kno3: 80, cuh: 20, mass: 40, purity: 98.0 },
+    { kno3: 70, cuh: 30, mass: 33, purity: 98.5 },
+    { kno3: 60, cuh: 40, mass: 24, purity: 98.5 },
+    { kno3: 100, cuh: 20, mass: 65, purity: 99.0 },
   ],
 };
 
@@ -154,7 +155,10 @@ export const NEARPIN = {
   startTemp: 80,              // 冷やしはじめる温度（℃）
   water: { min: 50, max: 300, step: 1, start: 100 },
   temp: { min: 0, max: 80, step: 1, start: 20 },
-  idleRounds: 2,              // 続けてこの回数、何も操作しなかったら「放置」（途中退出と同じ罰金）
+  idleRounds: 2,
+  // 1回の判定：差が good 以内「ぴったり」、near 以内「おしい」、それより大きいと「はなれている」。
+  // 合計の誤差は、1回あたり cap g で打ち切る（グラフの読みちがい1回で、勝負が決まりすぎないように）
+  judge: { good: 2, near: 10, cap: 10 },              // 続けてこの回数、何も操作しなかったら「放置」（途中退出と同じ罰金）
   // お題：溶質と、使う質量（g）の候補、ねらう析出量（g）の範囲（その溶質で届く範囲から、0.5 g きざみで選ぶ）
   tasks: [
     { solute: 'KNO3', mass: [60, 80, 100, 120] },

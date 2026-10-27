@@ -198,9 +198,12 @@ function pickOf(p, r) {
 function errOf(p, r) {
   const task = B.tasks[r];
   const pk = pickOf(p, r);
-  if (!pk) return task.target;
-  return Math.abs(crystalOf(task, pk.w, pk.T) - task.target);
+  if (!pk) return NEARPIN.judge.cap;
+  return Math.min(NEARPIN.judge.cap, Math.abs(crystalOf(task, pk.w, pk.T) - task.target));
 }
+/** 1回の判定：0 ぴったり、1 おしい、2 はなれている */
+export function judgeOf(err) { return err <= NEARPIN.judge.good + 1e-9 ? 0 : err <= NEARPIN.judge.near + 1e-9 ? 1 : 2; }
+const judgeText = (err) => t(`cr.order.rank${judgeOf(err)}`);
 function totals(upTo) {
   return players().map((p) => {
     let sum = 0;
@@ -277,7 +280,7 @@ function showArena(s) {
     return {
       name: p.name || t('topbar.guest'), me, water: eq.water, crystal: eq.crystal, temp: T, solute: task.solute,
       blue: cu ? (cu.dissolved / Math.max(1, eq.water)) * 100 / 40 : 0,
-      text: `${f1(eq.crystal)} g`, sub: fin ? t('cr.b.diff', { d: f1(err) }) : `${Math.round(T)}℃`, err, uid: p.uid,
+      text: `${f1(eq.crystal)} g`, sub: fin ? `${judgeText(err)} ${t('cr.b.diff', { d: f1(err) })}` : `${Math.round(T)}℃`, err, uid: p.uid,
     };
   });
   if (k >= 1) {
@@ -303,7 +306,7 @@ function renderPanel(s) {
   const task = B.tasks[s.r];
   const head = `<div class="cr-mpanel__head"><b>${esc(t('cr.b.round', { r: s.r + 1, n: NEARPIN.rounds }))}</b>`
     + `<span class="cr-mpanel__goal">${esc(t('cr.b.myTotal', { e: f1(totals(s.stage === 'reveal' ? s.r : s.r).find((p) => p.uid === backend.uid)?.total || 0) }))}</span>`
-    + `${s.stage === 'decide' ? `<b class="cr-btimer" id="b-timer">${Math.ceil(s.left)}</b>` : ''}</div>`;
+    + `<button type="button" class="cr-fold calc-btn" data-act="calc">${esc(t('calc.open'))}</button>${s.stage === 'decide' ? `<b class="cr-btimer" id="b-timer">${Math.ceil(s.left)}</b>` : ''}</div>`;
   const tk = `<div class="cr-order"><img src="${faceUrl(H.guide)}" alt="" width="44" height="44"><p>${esc(taskText(task))}</p></div>`;
   if (s.stage === 'decide') {
     const dis = B.locked ? 'disabled' : '';
@@ -317,14 +320,14 @@ function renderPanel(s) {
     const rows = players().filter((p) => !p.left || pickOf(p, s.r)).map((p) => {
       const pk = pickOf(p, s.r);
       const c = pk ? crystalOf(task, pk.w, pk.T) : 0;
-      return { p, pk, c, err: pk ? Math.abs(c - task.target) : task.target };
+      return { p, pk, c, err: pk ? Math.abs(c - task.target) : NEARPIN.judge.cap };
     }).sort((a, b) => a.err - b.err);
     const r10 = (e) => Math.round(e * 10);
     rows.forEach((x) => { x.rank = 1 + rows.filter((y) => r10(y.err) < r10(x.err)).length; });
     box.innerHTML = head + tk + `<ol class="cr-brows">${rows.map((x) => `<li class="${x.p.uid === backend.uid ? 'is-me' : ''}">`
       + `<span>${fin ? x.rank : '·'}</span><b>${esc(x.p.name || t('topbar.guest'))}</b>`
       + `<small>${x.pk ? esc(t('cr.b.pick', { w: x.pk.w, T: x.pk.T })) : esc(t('cr.b.noPick'))}</small>`
-      + `<em>${fin ? esc(t('cr.b.result', { c: f1(x.c), d: f1(x.err) })) : '…'}</em></li>`).join('')}</ol>`;
+      + `<em class="is-j${judgeOf(x.err)}">${fin ? `${esc(judgeText(x.err))}<br>${esc(t('cr.b.result', { c: f1(x.c), d: f1(x.err) }))}` : '…'}</em></li>`).join('')}</ol>`;
   }
   H.updateViewport();
 }

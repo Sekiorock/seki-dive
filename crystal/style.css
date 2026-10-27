@@ -293,3 +293,9 @@ html[lang="en"] .cr-logo__name { font-family: var(--font-en); font-weight: 700; 
 .cr-brows--final { max-height: none; }
 .cr-brows--final li { padding: 8px 10px; font-size: 14px; }
 .cr-brank { margin: 0; text-align: center; font-size: 22px; font-weight: 800; color: var(--hiyama); }
+.cr-brows li em.is-j0 { color: var(--hiyama); }
+.cr-brows li em.is-j1 { color: #8FF3FA; }
+.cr-brows li em.is-j2 { color: var(--dim); }
+.cr-mpanel__head .calc-btn { margin-left: auto; }
+.cr-mpanel__head .calc-btn + .cr-fold { margin-left: 0; }
+.cr-panel__head .calc-btn { min-width: 48px; }

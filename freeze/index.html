@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+  <meta name="theme-color" content="#05081A">
+  <title>セキオダイブ</title>
+  <!-- 文字：日本語は M PLUS 1p、英語と数字はゲームらしい Chakra Petch -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=M+PLUS+1p:wght@400;700;800&family=Chakra+Petch:wght@500;700&display=swap">
+  <link rel="stylesheet" href="../shared/base.css">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body data-title-key="fz.title">
+  <header id="topbar"></header>
+
+  <!-- 3Dの峠道 -->
+  <canvas id="scene" aria-hidden="true"></canvas>
+  <div class="fz-frame" aria-hidden="true"></div>
+
+  <!-- タイトル -->
+  <section id="title" class="fz-screen fz-title" hidden>
+    <div class="fz-logo">
+      <p class="fz-logo__layer" data-i18n="fz.layer"></p>
+      <h1 class="fz-logo__name" data-i18n="fz.title"></h1>
+      <p class="fz-logo__tag" data-i18n="fz.tagline"></p>
+    </div>
+    <div class="fz-guide">
+      <img class="fz-guide__stand" alt="" width="1024" height="1536">
+      <p class="fz-guide__line"></p>
+    </div>
+    <h2 class="fz-sec" data-i18n="fz.stages"></h2>
+    <div class="fz-stages" id="stages"></div>
+    <h2 class="fz-sec" id="nights-title"></h2>
+    <div class="fz-nights" id="nights"></div>
+    <button type="button" class="btn btn--primary fz-start" data-act="start" id="start-btn"></button>
+    <p class="fz-note" data-i18n="hiyama.disclaimer"></p>
+  </section>
+
+  <!-- 1夜（準備・夜・朝）。操作盤の中身は main.js で作る -->
+  <section id="play" class="fz-screen fz-play" hidden>
+    <div class="fz-bottom" id="bottom">
+      <div class="fz-panel" id="panel"></div>
+    </div>
+  </section>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <p id="loading" class="fz-loading" role="status" hidden></p>
+  <div id="version" class="version"></div>
+
+  <!-- 3Dの描画（Three.js r128、ほかのワールドと同じ版）。cdnjs から -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script type="module" src="src/main.js"></script>
+</body>
+</html>

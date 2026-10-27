@@ -19,6 +19,9 @@ import { createConcLab } from './conc.js';
 import { createScene } from './scene3d.js';
 import { createModes } from './modes.js';
 import * as battle from './battle.js';
+import { createCalc } from '../../shared/calc.js';
+
+let calc = null;
 import { initI18n, t, onLangChange, applyToDom, getLang, setLang } from '../../shared/i18n.js';
 import { applyTheme, fx } from '../../shared/theme.js';
 import { createTopbar } from '../../shared/topbar.js';
@@ -348,6 +351,7 @@ function setupInput() {
     if (modes && modes.onClick(act, b)) return;
     if (battle.onClick(act)) return;
     if (act === 'battle') { battle.openBattle(); return; }
+    if (act === 'calc') { calc.toggle(); return; }
     if (act === 'free') openLab();
     else if (act === 'pick-mode') { mode = b.dataset.mode; renderTitle(); }
     else if (act === 'start') { if (mode === 'free') openLab(); else openMenu(mode); }
@@ -412,6 +416,7 @@ async function start() {
     if (screen === 'lab') { if (modes && modes.kind) modes.rerender(); else renderBench(); }
     if (screen === 'menu') modes.renderMenu(menuKind);
     battle.redraw();
+    if (calc) calc.redraw();
     if (scene) scene.redraw('arena');
     if (screen === 'found') renderFound();
     renderFoundButtons();
@@ -419,6 +424,7 @@ async function start() {
   });
 
   createTopbar({ mount: $('topbar'), showQR: false, onHome: () => goHome() });
+  calc = createCalc({ t, toast });
   applyToDom();
   initNotices(toast);
 
