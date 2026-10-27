@@ -8,14 +8,15 @@
 // v0.5：管理画面、和柄とゲームの演出、先生が閉じた門
 // hydration v0.1 から：① の門から、ハイドレーション・ビートのページへ移る
 
-import { VERSION, RENDER, PLAZA, CAMERA, UI, STANDEE, GATES, READY_WORLDS } from './config.js';
+import { VERSION, RENDER, PLAZA, CAMERA, UI, STANDEE, GATES, READY_WORLDS, GLOW, GLOW_PROGRESS } from './config.js';
+import { createGlow } from '../../shared/glow.js';
 import { initI18n, t, onLangChange, applyToDom, getLang, setLang } from '../../shared/i18n.js';
 import { applyTheme, ACCENTS, hexToInt } from '../../shared/theme.js';
 import { createTopbar } from '../../shared/topbar.js';
 import { buildPlaza } from './plaza.js';
 import { createQrOverlay } from './qr-overlay.js';
 import { runOnboarding } from './onboarding.js';
-import { getUser, initBackend, backend, setUserLang } from '../../shared/auth.js';
+import { getUser, initBackend, backend, setUserLang, getWorldData } from '../../shared/auth.js';
 import { openAvatarSelect } from '../../shared/avatar.js';
 import { nameKey, lineKey } from '../../shared/characters.js';
 import { initEconomy, grantFounding, foundingGranted, onTreasuryChange, onSettingsChange, isWorldOpen, SETTINGS, formatHiyama } from '../../shared/economy.js';
@@ -104,6 +105,21 @@ async function start() {
   document.body.classList.add('is-home');
 }
 
+/** v1.0：映えの段階。4つのワールドの「すんだ割合」の平均で決める */
+function glowLevel() {
+  const W = (id) => getWorldData(id);
+  const h = W('hydration').clears || {};
+  const done = {
+    hydration: Object.values(h).filter((c) => Object.values(c || {}).some((r) => r && r.clear)).length,
+    crystal: Object.keys(W('crystal').orders || {}).length,
+    freeze: Object.values(W('freeze').nights || {}).filter((r) => r && r.cleared).length,
+    colloid: Object.keys(W('colloid').areas || {}).length,
+  };
+  const ids = Object.keys(GLOW_PROGRESS);
+  const frac = ids.reduce((a, id) => a + Math.min(1, done[id] / GLOW_PROGRESS[id]), 0) / ids.length;
+  return Math.min(8, 1 + Math.floor(frac * 7));
+}
+
 function startScene() {
   const canvas = document.getElementById('scene');
   let renderer;
@@ -140,6 +156,10 @@ function startScene() {
 
   const camera = new THREE.PerspectiveCamera(RENDER.fov, 1, 0.1, 200);
   const plaza = buildPlaza(scene, { onTextureLoad: () => requestRender() });
+  // v1.0：映えの演出（4つのワールドを進めるほど豪華に）
+  const glow = createGlow(scene, GLOW);
+  glow.setLevel(glowLevel());
+  if (new URLSearchParams(location.search).has('debug')) window.__home = { glow: (n) => { glow.setLevel(n); requestRender(); }, level: glowLevel };
 
   // ── カメラ：広場の中心のまわりを回る ──
   const view = {
@@ -409,6 +429,7 @@ function startScene() {
     if (updateCamera(now, dt)) needsRender = true;
     if (needsRender || now - last >= idleGap) {
       plaza.animate(now);
+      glow.step(now / 1000, Math.min(0.1, (now - last) / 1000));
       renderer.render(scene, camera);
       needsRender = false;
       last = now;

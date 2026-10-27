@@ -12,13 +12,13 @@
 // 画面：（初めてのときはタイミング調整）→ タイトル → プレイ（一時停止あり）→ 結果。ワールドに入るときは、毎回アバター選択の画面を通る。
 // 時刻の基準は、音の時計（audio.js の heardTime）。
 
-import { ROYALE } from './config.js';
+import { ROYALE, GLOW } from './config.js';
 import { VERSION, NOTE, COMBO_LAYERS, CUTIN_EVERY, FLASH, DIFFICULTY, DEFAULT_DIFFICULTY, GAUGE, CALIB, JUDGE, SHOP_FX, WEAK } from './config.js';
 import { NOTES } from './notes.js';
 import { CHARTS, CHART_ORDER, STAGE_ORDER, expandChart, chartFormulas, makeWeakChart } from './charts.js';
 import { createJudge } from './judge.js';
 import { unlockAudio, heardTime, heardTimeAt, pauseAudio, resumeAudio, savedOffset, saveOffset, startCalibration } from './audio.js';
-import { isUnlocked, recordOf, prevStageNo, recordResult } from './progress.js';
+import { isUnlocked, isCleared, recordOf, prevStageNo, recordResult } from './progress.js';
 import { createSong, playHit, playWrong } from './music.js';
 import { createScene } from './scene3d.js';
 import { renderResult } from './results.js';
@@ -35,7 +35,7 @@ import { initBackend, getUser, setUserLang, getAvatar, getCostume, itemCount, us
 import { initEconomy, isWorldOpen, onSettingsChange, formatHiyama, SETTINGS, reward, pay, grant, priceWithTax, canAfford, isInArrears } from '../../shared/economy.js';
 import { initNotices } from '../../shared/notices.js';
 import { openAvatarSelect } from '../../shared/avatar.js';
-import { DEFAULT_AVATAR, standUrl, lineKey, nameKey } from '../../shared/characters.js';
+import { DEFAULT_AVATAR, standUrl, lineKey, nameKey, say, tagStand, faceFig, nameTag } from '../../shared/characters.js';
 
 const $ = (id) => document.getElementById(id);
 const params = new URLSearchParams(location.search);
@@ -77,11 +77,21 @@ function show(name) {
 }
 
 // ───────────── タイトル ─────────────
+/** v1.0：映えの段階。タイトルでは、開いているいちばん先のステージの段階 */
+function titleGlow() {
+  // 練習曲（ノーツ・パレード）はいつでも開いているので数えない。全ステージをクリアしたら最高の段階
+  if (STAGE_ORDER.every((id) => isCleared(id))) return GLOW.byStage.parade;
+  const open = STAGE_ORDER.filter((id) => isUnlocked(id));
+  return Math.max(1, ...open.map((id) => GLOW.byStage[id] || 1));
+}
+
 function renderTitle() {
+  if (scene) scene.setGlow(titleGlow());
   const st = $('title');
   st.querySelector('.hb-guide__stand').src = standUrl('minato', 'normal');
   st.querySelector('.hb-guide__stand').alt = t(nameKey('minato'));
-  st.querySelector('.hb-guide__line').textContent = t('quote', { line: t(lineKey('minato', 'hb1')) });
+  st.querySelector('.hb-guide__line').textContent = say(t, 'minato', t(lineKey('minato', 'hb1')));
+  tagStand(t, st.querySelector('.hb-guide__stand'), 'minato');
   const esc = (x) => String(x).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   if (!isUnlocked(pick.chart)) pick.chart = CHART_ORDER[0];
   $('chart-pick').innerHTML = CHART_ORDER.map((id) => {
@@ -169,6 +179,9 @@ async function startPlay(opts = {}) {
   scene.reset();
   setSolvent('water', false);
   scene.setPlay({ approachSec: diff.approachSec, assist: hinted ? 1 : diff.assist });
+  // 映え：ステージの曲はその段階。練習曲（パレード）は、いまの進み具合の段階
+  const cid = bt ? bt.chart : pick.chart;
+  scene.setGlow(weak ? GLOW.practice : STAGE_ORDER.includes(cid) ? (GLOW.byStage[cid] || 1) : titleGlow());
   scene.setFx(fxState().on);
   scene.setTiming(0, chart.bpm);
   scene.setComboLevel(0);
@@ -224,6 +237,7 @@ function flashPerfect() {
 function cutin(combo) {
   const el = $('cutin');
   el.querySelector('img').src = standUrl(avatar, 'smile', getCostume(avatar));
+  tagStand(t, el.querySelector('img'), avatar);
   el.querySelector('p').textContent = t('hb.cutin', { n: combo });
   el.classList.remove('is-shown');
   void el.offsetWidth;
@@ -416,7 +430,7 @@ function rivalRow(r) {
   const esc = (x) => String(x).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const state = r.dropped ? t('hb.battle.dropped') : r.out ? t('hb.battle.out') : r.done ? t('hb.battle.finished') : (r.combo >= 2 ? t('hb.battle.combo', { n: r.combo }) : '');
   return `<div class="hb-rv${r.out || r.dropped ? ' is-out' : ''}${r.attacker ? ' is-attacker' : ''}${r.me ? ' is-me' : ''}">
-    <img src="${esc(r.face)}" alt="" width="32" height="32">
+    ${faceFig(t, r.avatar || 'minato', { costume: r.costume || 'base', size: 32, cls: 'is-mini' })}
     <div><b>${esc(r.rank)}. ${esc(r.name)}${r.me ? ` ${esc(t('hb.battle.you'))}` : ''}</b><span>${formatHiyama(r.score)}</span>
       <i><i style="width:${Math.max(0, Math.min(100, r.gauge))}%"></i></i><small>${esc(state)}</small></div></div>`;
 }
@@ -859,6 +873,7 @@ async function start() {
   // 確かめるための入口（住所に ?debug=1 を付けたときだけ）
   if (params.has('debug')) {
     window.__hb = {
+      glow: (n) => scene.setGlow(n),
       get screen() { return screen; },
       get play() { return play; },
       pressAt: (input, songTime) => handleInput(input, songTime),

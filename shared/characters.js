@@ -77,3 +77,30 @@ export const nameKey = (id) => `char.${id}.name`;
 export const motifKey = (id) => `char.${id}.motif`;
 export const roleKey = (id) => `char.${id}.role`;
 export const lineKey = (id, name) => `char.${id}.line.${name}`;
+
+// ── 名前の見せ方（v1.0：キャラクターの顔・立ち絵の下には、いつも名前の札。セリフの文頭にも名前） ──
+const escH = (x) => String(x ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+/** 名前の札（HTML）。t は i18n の t */
+export function nameTag(t, id, cls = '') { return `<span class="char-tag${cls ? ` ${cls}` : ''}">${escH(t(nameKey(id)))}</span>`; }
+/** 顔アイコンと、その下の名前の札（HTML）。label を渡すと、名前の代わりにその文字（対戦の参加者のニックネームなど） */
+export function faceFig(t, id, { costume = 'base', size = 40, cls = '', label = null } = {}) {
+  return `<figure class="char-fig${cls ? ` ${cls}` : ''}" style="--fs:${size}px"><img src="${faceUrl(id, costume)}" alt="" width="${size}" height="${size}">`
+    + `<figcaption class="char-tag">${escH(label ?? t(nameKey(id)))}</figcaption></figure>`;
+}
+/** 名前つきのセリフ：「タケヒロ「……」」（英語は Takehiro: “…”） */
+export function say(t, id, line) { return t('quoteBy', { name: t(nameKey(id)), line }); }
+/** 立ち絵の img に、名前の札をつける（すでにあれば、文字だけ書きかえる） */
+export function tagStand(t, img, id, { face = false } = {}) {
+  if (!img) return;
+  let fig = img.parentElement;
+  if (!fig || !fig.classList.contains('char-fig')) {
+    fig = document.createElement('figure');
+    fig.className = face ? 'char-fig char-fig--img' : 'char-fig char-fig--stand';
+    img.replaceWith(fig);
+    fig.append(img);
+    const cap = document.createElement('figcaption');
+    cap.className = 'char-tag';
+    fig.append(cap);
+  }
+  fig.querySelector('.char-tag').textContent = t(nameKey(id));
+}

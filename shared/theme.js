@@ -112,7 +112,7 @@ export const fx = {
    * 政府の重大発表：画面全体を一瞬暗くし、発表文を中央に出す。
    * @returns {Promise} 閉じたときに解決する
    */
-  announce({ title, text, faceSrc, closeLabel }) {
+  announce({ title, text, faceSrc, faceName = '', closeLabel }) {
     return new Promise((resolve) => {
       const el = document.createElement('div');
       el.className = 'fx-announce';
@@ -120,13 +120,15 @@ export const fx = {
       el.setAttribute('aria-modal', 'true');
       el.innerHTML = `
         <div class="fx-announce__box">
-          ${faceSrc ? `<img class="fx-announce__face" src="${faceSrc}" alt="" width="256" height="256">` : ''}
+          ${faceSrc ? `<figure class="char-fig char-fig--img fx-announce__fig"><img class="fx-announce__face" src="${faceSrc}" alt="" width="256" height="256">${faceName ? '<figcaption class="char-tag"></figcaption>' : ''}</figure>` : ''}
           <p class="fx-announce__title"></p>
           <p class="fx-announce__text"></p>
           <button type="button" class="btn btn--primary fx-announce__close"></button>
         </div>`;
       el.querySelector('.fx-announce__title').textContent = title;
       el.querySelector('.fx-announce__text').textContent = text;
+      const cap = el.querySelector('.fx-announce__fig .char-tag');
+      if (cap) cap.textContent = faceName;
       const btn = el.querySelector('.fx-announce__close');
       btn.textContent = closeLabel;
       btn.addEventListener('click', () => { el.classList.add('is-leaving'); setTimeout(() => { el.remove(); resolve(); }, 250); });

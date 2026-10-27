@@ -9,7 +9,7 @@
 //   朝：守れた区間の数と残った予算で評価。凍った区間・むだの多い区間に、どこで計算がずれたかの解説。
 //   報酬：1夜を守り切ると 60 ヒヤマ、予算を半分以上残すと追加 40 ヒヤマ（どちらも、その夜で初めてのときだけ）。
 
-import { VERSION, SUBSTANCES, STAGES, LOCKED_STAGES, NIGHT, REWARD, CONST, SPREAD, ASSIST, WAVE, TUG } from './config.js';
+import { VERSION, SUBSTANCES, STAGES, LOCKED_STAGES, NIGHT, REWARD, CONST, SPREAD, ASSIST, WAVE, TUG, GLOW } from './config.js';
 import { nightOf, plan, judge, nightState, needed, coolingCurve, molarFrom } from './model.js';
 import { chainOf, demoOf, pictureOf, EXAMPLES, SHOW_IONS } from './tutorial.js';
 import { pictureSvg, ionsHtml, lineBar } from './explain.js';
@@ -21,7 +21,7 @@ import { initBackend, getUser, setUserLang, getAvatar, getWorldData, setWorldDat
 import { initEconomy, isWorldOpen, onSettingsChange, formatHiyama, reward, grant } from '../../shared/economy.js';
 import { initNotices } from '../../shared/notices.js';
 import { openAvatarSelect } from '../../shared/avatar.js';
-import { standUrl, nameKey } from '../../shared/characters.js';
+import { standUrl, nameKey, say, tagStand, faceFig, nameTag } from '../../shared/characters.js';
 import { createCalc } from '../../shared/calc.js';
 import * as battle from './battle.js';
 
@@ -75,11 +75,21 @@ function nightOpen(s, n) {
 function stageOpen(s) { return nightOpen(s, 0); }
 
 // ───────────── タイトル ─────────────
+/** v1.0：映えの段階（選んでいるステージで決まる。全部クリアしたら最後のステージは段階8） */
+function glowLevel(s = si) {
+  const r = rec();
+  const all = STAGES.every((S, i) => S.nights.every((_, n) => (r[key(i, n)] || {}).cleared));
+  if (all && s === STAGES.length - 1) return GLOW.allClear;
+  return GLOW.byStage[s] || 1;
+}
+
 function renderTitle() {
+  if (scene) scene.setGlow(glowLevel());
   const st = $('title');
   st.querySelector('.fz-guide__stand').src = standUrl(GUIDE, 'normal');
   st.querySelector('.fz-guide__stand').alt = t(nameKey(GUIDE));
-  st.querySelector('.fz-guide__line').textContent = t('quote', { line: t('fz.guide1') });
+  st.querySelector('.fz-guide__line').textContent = say(t, GUIDE, t('fz.guide1'));
+  tagStand(t, st.querySelector('.fz-guide__stand'), GUIDE);
   const r = rec();
   $('stages').innerHTML = STAGES.map((S, i) => {
     const open = stageOpen(i);
@@ -122,6 +132,7 @@ function startNight(s, n, keepPicks = false) {
   else meterUsed = meter;
   run = null; result = null; rewardText = '';
   scene.setTheme(night.kind);
+  scene.setGlow(glowLevel(s));
   scene.setNight(0.2);
   closeCurve();
   closeTut();
@@ -846,6 +857,7 @@ async function start() {
   if (params.has('debug')) {
     if (params.has('fast')) { NIGHT.durSec = 6; WAVE.decideSec = 32; TUG.decideSec = 14; }
     window.__fz = {
+      glow: (n) => scene.setGlow(n),
       get phase() { return phase; }, get night() { return night; }, get result() { return result; }, get screen() { return screen; },
       start: (s, n) => startNight(s, n),
       tut: (m) => openTut(m), closeTut: () => closeTut(),

@@ -16,7 +16,8 @@
 // 色：δ−（O）は朱、δ+（H）は群青。色を見分けにくい人のために、必ず「−」「+」の記号を添える。
 // 軽く保つため、分子は同時に RENDER.maxMolecules 個まで、影は使わない。
 
-import { NOTE, RENDER, CRYSTAL } from './config.js';
+import { NOTE, RENDER, CRYSTAL, GLOW } from './config.js';
+import { createGlow } from '../../shared/glow.js';
 import { ACCENTS, hexToInt } from '../../shared/theme.js';
 import { laneTexture, labelTexture } from '../../shared/patterns.js';
 import { t } from '../../shared/i18n.js';
@@ -233,6 +234,8 @@ export function createScene(canvas, { noteDefs }) {
   scene.add(rim2);
 
   const camera = new THREE.PerspectiveCamera(RENDER.fov, 1, 0.1, 140);
+  // v1.0：映えの演出（ステージが進むほど豪華に）
+  const glow = createGlow(scene, GLOW);
 
   // ── 道：和柄の床と、左右の光る縁（左は朱、右は群青。左右のボタンと同じ色） ──
   const laneTex = laneTexture(MINUS.neon, PLUS.neon);
@@ -586,6 +589,8 @@ export function createScene(canvas, { noteDefs }) {
   let lastFrame = 0;
 
   return {
+    /** v1.0：映えの段階（0〜8） */
+    setGlow(n) { if (glow.level !== n) glow.setLevel(n); },
     setTiming(t0, bpm) { timing = { t0, bpm }; },
     setComboLevel(lv) { comboLevel = lv; },
     /** 曲ごとの設定：飛んでくる秒数と補助輪の段階 */
@@ -808,6 +813,7 @@ export function createScene(canvas, { noteDefs }) {
       hexPulse = Math.max(0, hexPulse - dt);
       hexPlayer.rotation.set(0.3, now * 0.8, Math.sin(now * 1.3) * 0.2);
       hexPlayer.scale.setScalar(1.25 * (1 + hexPulse * 1.2));
+      glow.step(now, dt);
       waterPivot.position.set(WATER_POS.x + Math.sin(now * 80) * shake * 0.25, WATER_POS.y + Math.sin(now * 2) * 0.05, WATER_POS.z);
       renderer.render(scene, camera);
     },

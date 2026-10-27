@@ -6,7 +6,7 @@
 
 import { t, onLangChange } from './i18n.js';
 import {
-  selectableCharacters, standUrl, faceUrl, nameKey, motifKey, roleKey, lineKey,
+  selectableCharacters, standUrl, faceUrl, nameKey, motifKey, roleKey, lineKey, say,
   UNLOCK_PRICE, DEFAULT_AVATAR, COSTUMES, COLOR_HEX,
 } from './characters.js';
 import { getAvatar, setAvatar, ownsCharacter, ownsCostume, getCostume, setCostume } from './auth.js';
@@ -52,7 +52,7 @@ function build() {
   for (const c of selectableCharacters()) {
     const b = el('button', 'avatar-chip', { type: 'button', role: 'radio', 'data-id': c.id });
     b.style.setProperty('--chip-accent', c.accent);
-    b.innerHTML = `<img src="${faceUrl(c.id)}" alt="" width="256" height="256"><span class="avatar-chip__lock" aria-hidden="true"></span>`;
+    b.innerHTML = `<img src="${faceUrl(c.id)}" alt="" width="256" height="256"><span class="avatar-chip__lock" aria-hidden="true"></span><span class="char-tag avatar-chip__name"></span>`;
     b.addEventListener('click', () => pick(c.id));
     list.append(b);
   }
@@ -102,7 +102,7 @@ function render() {
   q('.avatar-screen__motif').textContent = t(motifKey(picked));
   q('.avatar-screen__role').textContent = t(roleKey(picked));
   q('.avatar-screen__line').textContent = owned
-    ? t('quote', { line: t(lineKey(picked, state.line)) })
+    ? say(t, picked, t(lineKey(picked, state.line)))
     : t('avatar.lockedNote');
 
   // 衣装：いつもの衣装と、持っている色違い
@@ -127,6 +127,7 @@ function render() {
     b.setAttribute('aria-label', has ? t(nameKey(id)) : t('avatar.chipLocked', { name: t(nameKey(id)), price: price(id) }));
     b.classList.toggle('is-locked', !has);
     b.querySelector('.avatar-chip__lock').textContent = has ? '' : price(id);
+    b.querySelector('.avatar-chip__name').textContent = t(nameKey(id));
   });
 
   q('.avatar-screen__note').textContent = owned

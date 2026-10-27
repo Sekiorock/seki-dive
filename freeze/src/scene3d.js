@@ -5,7 +5,8 @@
 //   ・指でなぞると回る、2本指で寄る・引く。下の操作盤より上の「見える場所」に、峠道全体が入るように距離を決める。
 // 軽く保つため、影は使わない。物体は60個まで。
 
-import { RENDER, SPREAD } from './config.js';
+import { RENDER, SPREAD, GLOW } from './config.js';
+import { createGlow } from '../../shared/glow.js';
 import { ACCENTS, hexToInt } from '../../shared/theme.js';
 
 const ACC = ACCENTS.freeze;
@@ -40,6 +41,8 @@ export function createScene(canvas) {
   const lampB = new THREE.PointLight(hexToInt(ACC.a2.neon), 0.5, 16, 1.4);
   lampB.position.set(4, 2.5, 2);
   scene.add(lampA, lampB);
+  // v1.0：映えの演出（ステージが進むほど豪華に）
+  const glow = createGlow(scene, GLOW);
 
   // ── 雪の地面と山 ──
   const ground = new THREE.Mesh(new THREE.CircleGeometry(16, 6), new THREE.MeshStandardMaterial({ color: 0x4a5a86, roughness: 0.95, emissive: 0x0e1638, emissiveIntensity: 0.5 }));
@@ -434,6 +437,8 @@ export function createScene(canvas) {
 
   let last = 0;
   return {
+    /** v1.0：映えの段階（0〜8） */
+    setGlow(n) { if (glow.level !== n) glow.setLevel(n); },
     setViewport(top, bottom) { port.top = top; port.bottom = bottom; resize(); },
     /**
      * 区間の見た目。list：[{ title, big, small, frozen, safe }]、frost：0〜1（凍り方）
@@ -484,6 +489,7 @@ export function createScene(canvas) {
       const now = nowMs / 1000;
       const dt = Math.min(0.1, Math.max(0, now - last));
       last = now;
+      glow.step(now, dt);
       for (const s of sections) {
         s.frost += (s.goalFrost - s.frost) * (1 - Math.exp(-2.5 * dt));
         const c = new THREE.Color(0x1b2442).lerp(new THREE.Color(0xeaf6ff), s.frost);

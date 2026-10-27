@@ -9,7 +9,7 @@
 // v0.8：対戦の結果（順位とスコアだけ。誰が何を間違えたかは出さない）と、賞金。
 
 import { t } from '../../shared/i18n.js';
-import { standUrl, nameKey, lineKey } from '../../shared/characters.js';
+import { standUrl, nameKey, lineKey, nameTag, say } from '../../shared/characters.js';
 import { getCostume } from '../../shared/auth.js';
 import { formatHiyama } from '../../shared/economy.js';
 import { NOTES } from './notes.js';
@@ -78,12 +78,12 @@ export function renderResult(el, r) {
       <p class="hb-result__stage">${esc(r.stageNo ? t('hb.stageLabel', { n: r.stageNo }) : t(r.practiceKey))} ・ ${esc(t(r.stageTitleKey))} ・ ${esc(t(`hb.diff.${r.diffId}`))}</p>
     </div>
     <div class="hb-result__hero">
-      <img class="hb-result__stand" src="${standUrl(r.avatar, good ? 'smile' : 'surprise', getCostume(r.avatar))}" alt="${esc(t(nameKey(r.avatar)))}" width="1024" height="1536">
+      <figure class="char-fig char-fig--stand hb-result__fig"><img class="hb-result__stand" src="${standUrl(r.avatar, good ? 'smile' : 'surprise', getCostume(r.avatar))}" alt="${esc(t(nameKey(r.avatar)))}" width="1024" height="1536">${nameTag(t, r.avatar)}</figure>
       <div class="hb-result__score">
         <span>${esc(t('hb.result.score'))}</span>
         <b>${formatHiyama(r.score)}</b>
         ${r.news && r.news.newRecord ? `<em class="hb-result__new">${esc(t('hb.result.newRecord'))}</em>` : ''}
-        <p class="hb-result__line">${esc(t('quote', { line: t(lineKey('minato', good ? 'hbResultGood' : 'hbResultTry')) }))}</p>
+        <p class="hb-result__line">${esc(say(t, 'minato', t(lineKey('minato', good ? 'hbResultGood' : 'hbResultTry'))))}</p>
       </div>
     </div>
     ${battleBox(r.battle)}

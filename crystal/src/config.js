@@ -1,7 +1,7 @@
 // crystal/src/config.js
 // ② クリスタル・ラボの数値の設定。数値はここに集め、プログラムの中に直接書かない。
 
-export const VERSION = 'crystal v0.4.1';
+export const VERSION = 'crystal v1.0.0';
 
 // 実験台の並び
 export const BENCHES = ['solid', 'gas', 'conc'];
@@ -167,4 +167,17 @@ export const NEARPIN = {
     { solute: 'KNO3', mass: [70, 90, 110] },
     { solute: 'CuSO4H', mass: [40, 50, 60] },
   ],
+};
+
+// ── v1.0：映えの演出（shared/glow.js）。注文が進むほど景色が豪華になる（段階 1〜8） ──
+// 段階：1 浮かぶ灯籠 2 光の粒 3 ネオンの鳥居と月 4 光の柱 5 光の和柄の輪 6 桜 7 光の文字と金箔 8 オーロラ
+export const GLOW = {
+  perOrders: 3,                 // 注文を 3つ進めるごとに 1段階あがる（注文 01〜03 は段階1 … 22〜24 は段階8）
+  area: { c: [0, 0, 0], r: [6.5, 13], h: [1.2, 6], arc: [-1.8, 1.8] },   // 実験台（半径5）の外の輪の、奥と左右（手前には置かない。実験が見えにくくなるので）
+  torii: [{ at: [0, -0.3, -12], s: 1.5, lv: 3 }, { at: [-9, -0.3, -2], s: 0.9, ry: Math.PI / 2.4, lv: 6 }, { at: [9, -0.3, -2], s: 0.9, ry: -Math.PI / 2.4, lv: 6 }],
+  kanji: '結晶溶解析出',
+  fall: 'petal',
+  sparkle: '#FFE38A',
+  groundY: -0.28,
+  size: 1.2,
 };

@@ -10,7 +10,7 @@
 
 import { backend } from '../../shared/auth.js';
 import { SETTINGS, payFee, prize, fine, formatHiyama } from '../../shared/economy.js';
-import { faceUrl } from '../../shared/characters.js';
+import { faceUrl, faceFig } from '../../shared/characters.js';
 import * as room from '../../shared/room.js';
 import { RACE, TOOLS } from './config.js';
 
@@ -148,7 +148,7 @@ function renderLobby() {
   const host = r && r.host === backend.uid;
   const coop = isCoop(ps);
   const me = ps.find((p) => p.uid === backend.uid) || {};
-  const li = (p) => `<li class="cl-bp"><img src="${faceUrl(p.avatar || 'kasumi', p.costume || 'base')}" alt="" width="30" height="30"><b>${esc(p.name || t('topbar.guest'))}${p.uid === backend.uid ? ` ${esc(t('cl.r.you'))}` : ''}</b>${r && r.host === p.uid ? `<span>${esc(t('cl.r.host'))}</span>` : ''}</li>`;
+  const li = (p) => `<li class="cl-bp">${faceFig(t, p.avatar || 'kasumi', { costume: p.costume || 'base', size: 30 })}<b>${esc(p.name || t('topbar.guest'))}${p.uid === backend.uid ? ` ${esc(t('cl.r.you'))}` : ''}</b>${r && r.host === p.uid ? `<span>${esc(t('cl.r.host'))}</span>` : ''}</li>`;
   const list = coop
     ? `<p class="cl-note cl-note--hot">${esc(t('cl.r.coopNote', { min: RACE.versusMin }))}</p><ul class="cl-bplayers">${ps.map(li).join('')}</ul>`
     : `<div class="cl-teams">${['A', 'B'].map((tm) => `<div class="cl-team is-${tm}"><p><b>${esc(t(`cl.r.team${tm}`))}</b>${me.team !== tm ? `<button type="button" class="cl-mini" data-act="r-team" data-team="${tm}">${esc(t('cl.r.toTeam'))}</button>` : ''}</p>`
@@ -361,6 +361,9 @@ function resultView() {
   const ps = players();
   const res = result(Math.max(room.serverNow(), R.finalAt));
   if (R.coop) return { state: 'done', res, share: 0 };
+  // v1.0：部屋に書かれた取り分があれば、全員それを使う
+  const fixed = R.fixed || (R.room && R.room.result) || null;
+  if (fixed) return { state: 'done', res, share: room.resultOf(fixed, backend.uid).share, fixed: true };
   const all = ps.every((p) => room.isDropped(p) || (p.done && p.paid));
   if (!all) return { state: 'waiting', res };
   const paid = ps.filter((p) => p.paid);
@@ -369,7 +372,9 @@ function resultView() {
   // 端末ごとに人数がちがって、賞金の合計が参加料の合計をこえてしまうため（つながらないままの人の取り分は、受け取られずに残る）
   const getters = paid.filter((p) => !p.left && (!res.win || teamOf(p) === res.win));
   const me = getters.find((p) => p.uid === backend.uid);
-  return { state: 'done', res, share: me && getters.length ? Math.floor(pot / getters.length) : 0 };
+  const each = getters.length ? Math.floor(pot / getters.length) : 0;
+  return { state: 'done', res, share: me ? each : 0,
+    fix: () => room.fixShares(R.code, { pot, ranks: Object.fromEntries(ps.map((p) => [p.uid, getters.includes(p) ? 1 : p.left ? 0 : 2])), shares: Object.fromEntries(getters.map((p) => [p.uid, each])) }) };
 }
 function renderFinal() {
   if (!R) return;
@@ -397,11 +402,12 @@ function renderFinal() {
 let settling = false;
 async function settle() {
   if (!R || R.settled || settling || R.coop) return;
-  const v = resultView();
+  let v = resultView();
   if (v.state !== 'done') return;
   settling = true;
   try {
     R.settled = true;
+    if (!v.fixed && v.fix) { R.fixed = await v.fix(); v = resultView(); }
     if (R.room && R.room.host === backend.uid) room.updateRoom(R.code, { state: 'done' }).catch(() => {});
     if (v.share > 0 && await room.claimOnce(R.code)) {
       const entry = await prize({ itemKey: 'ledger.item.clRacePrize', itemVars: {}, gross: v.share });

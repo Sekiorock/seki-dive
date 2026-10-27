@@ -85,7 +85,7 @@ html[lang="en"] .cl-logo__name { font-family: var(--font-en); font-weight: 700; 
 .cl-mini--hot { color: #05081A; background: linear-gradient(90deg, var(--neon-1), #ffffff); box-shadow: none; }
 .cl-say { display: flex; gap: 8px; align-items: flex-start; }
 .cl-say__face { width: 40px; height: 40px; flex: none; object-fit: cover; clip-path: var(--chamfer-s); box-shadow: inset 0 0 0 2px var(--neon-1); background: rgba(92, 242, 168, 0.15); }
-.cl-say__face.is-surprise { animation: cl-shake .4s; }
+.cl-say__fig.is-surprise { animation: cl-shake .4s; }
 .cl-say p { margin: 0; flex: 1; padding: 7px 10px; font-size: 13px; line-height: 1.55; clip-path: var(--chamfer-s); background: rgba(92, 242, 168, 0.1); box-shadow: inset 3px 0 0 var(--neon-1); animation: cl-in .35s ease-out; }
 @keyframes cl-shake { 25% { transform: translateX(-3px); } 75% { transform: translateX(3px); } }
 @keyframes cl-in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }

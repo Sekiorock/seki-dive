@@ -2126,5 +2126,6 @@
   "cl.rq.shield3.q": "Add salt to carbon liquid with glue:",
   "cl.rq.shield3.a": "it stays spread",
   "cl.rq.shield3.b": "it settles at once",
-  "cl.rq.shield3.c": "it loses color"
+  "cl.rq.shield3.c": "it loses color",
+  "quoteBy": "{name}: “{line}”"
 }

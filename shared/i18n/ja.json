@@ -2126,5 +2126,6 @@
   "cl.rq.shield3.q": "にかわを加えた炭素の液に塩を加えると？",
   "cl.rq.shield3.a": "散らばったまま",
   "cl.rq.shield3.b": "すぐ沈む",
-  "cl.rq.shield3.c": "色が消える"
+  "cl.rq.shield3.c": "色が消える",
+  "quoteBy": "{name}「{line}」"
 }

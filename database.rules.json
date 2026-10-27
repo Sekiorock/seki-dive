@@ -136,6 +136,9 @@
             ".write": "auth != null && auth.uid === $uid && !data.exists()",
             ".validate": "newData.val() === true && auth.uid === $uid"
           }
+        },
+        "result": {
+          ".write": "auth != null && !data.exists() && root.child('rooms').child($room).child('players').child(auth.uid).exists()"
         }
       }
     },

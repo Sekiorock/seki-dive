@@ -16,7 +16,7 @@ import {
   itemCount, addItem, onUserChange,
 } from '../../shared/auth.js';
 import {
-  CHARACTERS, UNLOCK_PRICE, COSTUMES, COLOR_HEX, costumePrice, faceUrl, nameKey, motifKey,
+  CHARACTERS, UNLOCK_PRICE, COSTUMES, COLOR_HEX, costumePrice, faceUrl, nameKey, motifKey, nameTag, say,
 } from '../../shared/characters.js';
 import { FACILITIES } from './config.js';
 
@@ -73,13 +73,13 @@ function frame(id, bodyHtml) {
   const lineKeyName = id === 'bank' || id === 'gov' ? `${id}.line.welcome` : `${id}.line.${keeperLine}`;
   return `
     <div class="shop__head">
-      <img class="shop__keeper" src="${faceUrl(keeper)}" alt="" width="256" height="256">
+      <figure class="char-fig char-fig--img shop__keeperfig"><img class="shop__keeper" src="${faceUrl(keeper)}" alt="" width="256" height="256">${nameTag(t, keeper)}</figure>
       <div class="shop__head-text">
         <h2 class="shop__title" id="shop-title">${esc(t(`facility.${id}`))}</h2>
         <p class="shop__keeper-name">${esc(t('facility.keeper', { name: t(nameKey(keeper)) }))}</p>
       </div>
     </div>
-    <p class="shop__speech">${esc(t('quote', { line: t(lineKeyName) }))}</p>
+    <p class="shop__speech">${esc(say(t, keeper, t(lineKeyName)))}</p>
     <div class="shop__body">${bodyHtml}</div>
     <div class="shop__foot"><button type="button" class="btn shop__close" data-act="close">${esc(t('shop.close'))}</button></div>`;
 }
@@ -191,7 +191,7 @@ function gofukuHtml() {
       const owned = ownsCharacter(c.id);
       return `
         <li class="goods">
-          <img class="goods__face ${owned ? '' : 'is-locked'}" src="${faceUrl(c.id)}" alt="" width="256" height="256">
+          <figure class="char-fig char-fig--img"><img class="goods__face ${owned ? '' : 'is-locked'}" src="${faceUrl(c.id)}" alt="" width="256" height="256">${nameTag(t, c.id)}</figure>
           <div class="goods__text">
             <span class="goods__name">${esc(t(nameKey(c.id)))}</span>
             <span class="goods__desc">${esc(t(motifKey(c.id)))}</span>

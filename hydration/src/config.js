@@ -1,7 +1,7 @@
 // hydration/src/config.js
 // ① ハイドレーション・ビートの数値の設定。数値はここに集め、プログラムの中に直接書かない。
 
-export const VERSION = 'hydration v0.9.0';
+export const VERSION = 'hydration v1.0.0';
 
 // ── 判定の幅（ミリ秒。ノーツが判定リングに来た瞬間からのずれ） ──
 export const JUDGE = {
@@ -136,4 +136,19 @@ export const ROYALE = {
   maxPlayers: 12,
   startPct: 50,         // 水和ゲージは半分から始まる（0 から始めると、すぐに脱落してしまうため）
   negMul: 3,            // ミスでゲージが減る量を、ひとりのときの何倍にするか（脱落が起きるように）
+};
+
+// ── v1.0：映えの演出（shared/glow.js）。ステージが進むほど景色が豪華になる（段階 1〜8） ──
+// 段階：1 浮かぶ灯籠 2 光の泡 3 ネオンの鳥居と月 4 光の柱 5 光の和柄の輪 6 泡が昇る 7 光の文字と金箔 8 オーロラ
+export const GLOW = {
+  byStage: { stage1: 1, stage2: 2, stage3: 3, stage4: 4, stage5: 5, stage6: 7, parade: 8 },   // parade：全ステージをクリアしたあとの段階
+  practice: 3,                  // 苦手ノーツの練習曲
+  area: { box: true, x: [-6.5, 6.5], gap: 2.3, z: [-40, 2], h: [0.6, 3.2] },   // 道の左右（道の上はあけておく）
+  // 鳥居は道をまたいで並ぶ（千本鳥居）。手前に置くと上の横木がノーツにかぶるので z は -16 より奥。上の横木は画面の外になるので、柱が道の両わきに並んで見える
+  torii: [{ at: [0, 0, -16], s: 1.3, lv: 3 }, { at: [0, 0, -22], s: 1.3, lv: 4 }, { at: [0, 0, -28], s: 1.3, lv: 5 }, { at: [0, 0, -34], s: 1.3, lv: 7 }],
+  sky: { moonTop: '24%', moonRight: '6%' },     // 月は、点数やゲージにかぶらない高さに
+  kanji: '水和溶極性',
+  fall: 'bubble',
+  sparkle: '#8FF3FA',
+  size: 1.6,
 };

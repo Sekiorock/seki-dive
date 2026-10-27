@@ -59,6 +59,7 @@ function present(n, isPersonal) {
         title: t('notice.majorTitle'),
         text,
         faceSrc: faceUrl('tsukasa'),
+        faceName: t(nameKey('tsukasa')),
         closeLabel: t('notice.ok'),
       });
       return;

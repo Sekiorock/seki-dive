@@ -6,7 +6,7 @@
 
 import { createLangToggle, onLangChange, t } from './i18n.js';
 import { getUser, onUserChange, getCostume } from './auth.js';
-import { faceUrl } from './characters.js';
+import { faceUrl, nameKey } from './characters.js';
 import { getBalance, onWalletChange, onMoneyEvent, formatHiyama } from './economy.js';
 import { fx } from './theme.js';
 
@@ -40,13 +40,21 @@ export function createTopbar({ mount, showQR = false, onQR, onBalance, onHome })
     left.append(home);
     left.classList.add('has-home');
   }
-  left.append(face, name);
+  // 顔の下に、キャラクターの名前の札
+  const faceFig = document.createElement('figure');
+  faceFig.className = 'char-fig topbar__fig';
+  const faceTag = document.createElement('figcaption');
+  faceTag.className = 'char-tag';
+  faceFig.append(face, faceTag);
+  left.append(faceFig, name);
 
   const refreshIdentity = () => {
     const u = getUser();
     const src = faceUrl(u.lastAvatar, getCostume(u.lastAvatar));
     if (face.getAttribute('src') !== src) face.setAttribute('src', src);
     name.textContent = u.nickname || t('topbar.guest');
+    faceTag.textContent = u.lastAvatar ? t(nameKey(u.lastAvatar)) : '';
+    faceTag.hidden = !u.lastAvatar;
   };
   refreshIdentity();
   onUserChange(refreshIdentity);

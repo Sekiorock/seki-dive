@@ -6,7 +6,8 @@
 //     ダブルタップで元の視点。視点のボタン（全体・結晶・グラフ など）で、見たいところへなめらかに移る。
 //   ・下の操作盤に隠れないように、操作盤より上の「見える場所」に収まるように距離を決める。
 
-import { RENDER, CAMERA } from './config.js';
+import { RENDER, CAMERA, GLOW } from './config.js';
+import { createGlow } from '../../shared/glow.js';
 import { ACCENTS, hexToInt } from '../../shared/theme.js';
 import { makeEnvironment } from './crystals.js';
 import { createSolidBench } from './bench-solid.js';
@@ -33,6 +34,8 @@ export function createScene(canvas) {
   rimB.position.set(3, 2, 2);
   scene.add(rimA, rimB);
   const envMap = makeEnvironment(renderer);
+  // v1.0：映えの演出（注文が進むほど豪華に）
+  const glow = createGlow(scene, GLOW);
 
   // ── 実験台（六角の模様の天板と、光るふち） ──
   const deckTex = (() => {
@@ -190,6 +193,9 @@ export function createScene(canvas) {
 
   let last = 0;
   return {
+    /** v1.0：映えの段階（0〜8） */
+    setGlow(n) { if (glow.level !== n) glow.setLevel(n); },
+    get glow() { return glow.level; },
     /** 実験台を切りかえる：'solid' | 'gas' | 'conc' */
     setBench(name) {
       if (!benches[name] || name === benchName) return;
@@ -220,6 +226,7 @@ export function createScene(canvas) {
       const dt = Math.min(0.1, Math.max(0, now - last));
       last = now;
       benches[benchName].frame(now, dt);
+      glow.step(now, dt);
       // 視点を、新しい位置へなめらかに近づける
       const k = 1 - Math.exp(-CAMERA.ease * dt);
       updateGoal();

@@ -644,3 +644,57 @@ html[lang="ja"] .buy__price { font-family: var(--font-ja); }
 .calc__k--op { background: rgba(76, 134, 255, 0.22); color: #cfe0ff; }
 .calc__k--eq { grid-column: span 3; background: linear-gradient(90deg, var(--neon-1), var(--neon-2)); color: #05081A; }
 .calc-btn { font-family: var(--font-en); }
+
+/* ── v1.0：キャラクターの名前の札（顔・立ち絵の下）。どのワールドでも同じ形 ── */
+.char-fig { margin: 0; flex: none; display: inline-flex; flex-direction: column; align-items: center; position: relative; }
+.char-fig:not(.char-fig--stand):not(.char-fig--img) > img { display: block; width: var(--fs, 40px); height: var(--fs, 40px); object-fit: cover; }
+.char-tag { position: relative; z-index: 1; display: inline-block; max-width: 100%; margin-top: -2px; padding: 1px 7px; font: 800 10px/1.4 var(--font-ja); letter-spacing: 0.04em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  color: #05081A; background: linear-gradient(90deg, var(--neon-1, #36A9FF), #ffffff 55%, var(--neon-2, #FFC83A)); clip-path: polygon(5px 0, 100% 0, calc(100% - 5px) 100%, 0 100%);
+  box-shadow: 0 0 8px rgba(255, 255, 255, 0.35); }
+html[lang="en"] .char-tag { font-family: var(--font-en); }
+.char-fig--stand { align-self: flex-end; }
+.char-fig--stand .char-tag { margin-top: -14px; font-size: 12px; padding: 2px 10px; }
+.char-fig.is-mini .char-tag { font-size: 8px; padding: 0 5px; margin-top: -1px; }
+
+/* ── v1.0：映えの空（shared/glow.js）。3D の後ろに重ねる。段階が上がるほど豪華に ── */
+.glow-sky { position: fixed; inset: 0; z-index: 0; pointer-events: none; overflow: hidden; opacity: 0; transition: opacity 1.2s; }
+body[data-glow] .glow-sky { opacity: 1; }
+body[data-glow="0"] .glow-sky { opacity: 0; }
+.glow-sky i, .glow-sky b { position: absolute; display: block; }
+.glow-sky__haze { inset: 0; opacity: var(--glow-k, 0.3); transition: background 1.2s;
+  background:
+    radial-gradient(70% 40% at 15% 8%, color-mix(in srgb, var(--glow-a, #7aa8ff) 45%, transparent), transparent 70%),
+    radial-gradient(60% 35% at 90% 18%, color-mix(in srgb, var(--glow-b, #5CF2A8) 40%, transparent), transparent 70%),
+    radial-gradient(90% 30% at 50% 100%, color-mix(in srgb, var(--glow-a, #7aa8ff) 25%, transparent), transparent 70%); }
+.glow-sky__stars { inset: 0 0 45% 0; opacity: calc(var(--glow-k, 0.3) * 1.4);
+  background-image:
+    radial-gradient(1px 1px at 12% 20%, #fff, transparent), radial-gradient(1px 1px at 28% 8%, #fff, transparent),
+    radial-gradient(1.5px 1.5px at 44% 30%, #fff, transparent), radial-gradient(1px 1px at 63% 12%, #fff, transparent),
+    radial-gradient(1px 1px at 77% 34%, #fff, transparent), radial-gradient(1.5px 1.5px at 88% 6%, #fff, transparent),
+    radial-gradient(1px 1px at 6% 42%, #fff, transparent), radial-gradient(1px 1px at 52% 4%, #fff, transparent),
+    radial-gradient(1px 1px at 35% 46%, #fff, transparent), radial-gradient(1px 1px at 95% 40%, #fff, transparent);
+  animation: glow-twinkle 4s ease-in-out infinite alternate; }
+@keyframes glow-twinkle { from { filter: brightness(0.6); } to { filter: brightness(1.3); } }
+.glow-sky__moon { width: 64px; height: 64px; right: var(--glow-moon-right, 14%); top: var(--glow-moon-top, calc(var(--topbar-h, 48px) + 20px)); border-radius: 50%; opacity: 0; transform: scale(0.6);
+  background: radial-gradient(circle at 40% 40%, #fffaf0, #ffeccc 60%, #f0d8a8);
+  box-shadow: 0 0 24px 6px rgba(255, 246, 224, 0.55), 0 0 80px 20px color-mix(in srgb, var(--glow-a) 35%, transparent);
+  transition: opacity 1.2s, transform 1.2s; }
+.glow-sky.has-moon .glow-sky__moon { opacity: 0.9; transform: scale(1); }
+.glow-sky.is-bigmoon .glow-sky__moon { transform: scale(1.7); }
+.glow-sky__aurora { left: -20%; width: 140%; height: 30%; top: 6%; opacity: 0; transition: opacity 1.5s; filter: blur(3px); mix-blend-mode: screen;
+  border-radius: 0 0 50% 50% / 0 0 40% 40%;
+  background: linear-gradient(0deg, transparent 0%, color-mix(in srgb, var(--glow-a) 80%, transparent) 12%, color-mix(in srgb, var(--glow-b) 45%, transparent) 45%, transparent 100%);
+  -webkit-mask-image: repeating-linear-gradient(90deg, #000 0 2px, rgba(0,0,0,0.35) 2px 7px, #000 7px 8px, rgba(0,0,0,0.15) 8px 15px);
+  mask-image: repeating-linear-gradient(90deg, #000 0 2px, rgba(0,0,0,0.35) 2px 7px, #000 7px 8px, rgba(0,0,0,0.15) 8px 15px);
+  animation: glow-aurora 14s ease-in-out infinite alternate; }
+.glow-sky__aurora.is-b { top: 15%; height: 22%; left: -40%; animation-duration: 19s; animation-direction: alternate-reverse;
+  background: linear-gradient(0deg, transparent 0%, color-mix(in srgb, var(--glow-b) 70%, transparent) 15%, color-mix(in srgb, var(--glow-a) 35%, transparent) 50%, transparent 100%); }
+.glow-sky.has-aurora .glow-sky__aurora { opacity: 0.6; }
+@keyframes glow-aurora { from { transform: translateX(-5%) skewX(-10deg) rotate(-3deg); } to { transform: translateX(5%) skewX(10deg) rotate(3deg); } }
+.glow-sky__lamps { position: absolute; inset: 0; opacity: 0; transition: opacity 1.5s; }
+.glow-sky.has-lamps .glow-sky__lamps { opacity: 1; }
+.glow-sky__lamps b { width: 7px; height: 10px; bottom: -14px; left: calc(var(--i) * 10% + 3%); border-radius: 3px;
+  background: #ffcf7a; box-shadow: 0 0 10px 3px rgba(255, 170, 60, 0.75);
+  animation: glow-rise calc(16s + var(--i) * 1.7s) linear infinite; animation-delay: calc(var(--i) * -3.1s); }
+@keyframes glow-rise { from { transform: translate(0, 0); opacity: 0; } 10% { opacity: 0.9; } 90% { opacity: 0.6; } to { transform: translate(18px, -105vh); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .glow-sky *, .glow-sky__lamps b { animation: none !important; } }

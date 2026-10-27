@@ -10,7 +10,7 @@
 
 import {
   VERSION, RANGE, SOLUTE_ORDER, DISCOVERY, DISCOVERIES, DISCOVERY_GROUPS, BENCHES,
-  GAS_RANGE, GAS_ORDER, GASES, GAS_VIEW, CONC_RANGE, CONC_ORDER, CONC_SOLUTES, NEARPIN,
+  GAS_RANGE, GAS_ORDER, GASES, GAS_VIEW, CONC_RANGE, CONC_ORDER, CONC_SOLUTES, NEARPIN, GLOW,
 } from './config.js';
 import { SOLUTES } from './solubility.js';
 import { createLab } from './lab.js';
@@ -29,7 +29,7 @@ import { initBackend, getUser, setUserLang, getAvatar, getWorldData, setWorldDat
 import { initEconomy, isWorldOpen, onSettingsChange, formatHiyama, reward, grant } from '../../shared/economy.js';
 import { initNotices } from '../../shared/notices.js';
 import { openAvatarSelect } from '../../shared/avatar.js';
-import { standUrl, faceUrl, nameKey } from '../../shared/characters.js';
+import { standUrl, faceUrl, nameKey, say, tagStand, faceFig, nameTag } from '../../shared/characters.js';
 
 const $ = (id) => document.getElementById(id);
 const esc = (x) => String(x ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -86,8 +86,9 @@ async function onDiscover(kind) {
   setWorldData(WORLD, d);
   const el = $('discover');
   el.querySelector('img').src = faceUrl(GUIDE);
+  tagStand(t, el.querySelector('img'), GUIDE, { face: true });
   el.querySelector('b').textContent = t('cr.discover.head', { name: t(`cr.d.${kind}`) });
-  el.querySelector('p').textContent = t(`cr.d.${kind}Line`);
+  el.querySelector('p').textContent = say(t, GUIDE, t(`cr.d.${kind}Line`));
   el.querySelector('span').textContent = t('cr.discover.pending');
   el.hidden = false;
   fx.celebrate();
@@ -122,11 +123,20 @@ function renderFound() {
 }
 
 // ───────────── タイトル ─────────────
+/** v1.0：映えの段階。ふだんは、すんだ注文の数で決まる */
+function glowLevel() {
+  const n = Object.keys(getWorldData(WORLD).orders || {}).length;
+  return Math.min(8, 1 + Math.floor(n / GLOW.perOrders));
+}
+function setGlow(n) { if (scene) scene.setGlow(n); }
+
 function renderTitle() {
+  setGlow(glowLevel());
   const st = $('title');
   st.querySelector('.cr-guide__stand').src = standUrl(GUIDE, 'normal');
   st.querySelector('.cr-guide__stand').alt = t(nameKey(GUIDE));
-  st.querySelector('.cr-guide__line').textContent = t('quote', { line: t('cr.guide1') });
+  st.querySelector('.cr-guide__line').textContent = say(t, GUIDE, t('cr.guide1'));
+  tagStand(t, st.querySelector('.cr-guide__stand'), GUIDE);
   st.querySelectorAll('[data-act="pick-bench"]').forEach((b) => b.classList.toggle('is-on', b.dataset.bench === bench));
   st.querySelectorAll('[data-act="pick-mode"]').forEach((b) => b.classList.toggle('is-on', b.dataset.mode === mode));
   st.querySelectorAll('[data-act="pick-bench"]').forEach((b) => b.classList.toggle('is-dim', mode !== 'free'));
@@ -457,6 +467,7 @@ async function start() {
   });
   modes = createModes({
     $, t, esc, scene, faceUrl, guide: GUIDE,
+    glow: (n) => setGlow(n ?? glowLevel()),
     getData: () => getWorldData(WORLD),
     setData: (d) => setWorldData(WORLD, d),
     gasUnit,
@@ -476,6 +487,7 @@ async function start() {
   if (params.has('debug')) {
     if (params.has('fast')) { NEARPIN.decideSec = 20; NEARPIN.revealSec = 16; NEARPIN.coolSec = 3; }
     window.__cr = {
+      glow: (n) => setGlow(n),
       get lab() { return lab; }, get gas() { return gasLab; }, get conc() { return concLab; },
       get screen() { return screen; }, get scene() { return scene; }, get modes() { return modes.debug; }, battle: battle.debug, grant: (n) => grant({ itemKey: 'ledger.item.founding', amount: n }),
       order: (i) => modes.onClick('order-open', { dataset: { i } }),

@@ -40,9 +40,10 @@ function watchOffset() {
 }
 export function serverNow() { watchOffset(); return Date.now() + serverOffset; }
 
-/** 対戦できるか。{ ok, reason }（reason：'offline' | 'off' | 'class' | 'arrears' | 'short'） */
+/** 対戦できるか。{ ok, reason }（reason：'noconfig' | 'offline' | 'off' | 'class' | 'arrears' | 'short'） */
 export function battleAllowed() {
-  if (backend.mode !== 'online') return { ok: false, reason: 'offline' };
+  // つながっていないとき：設定が空（noconfig）か、通信できなかった（offline）かを分けて知らせる
+  if (backend.mode !== 'online') return { ok: false, reason: backend.reason === 'noconfig' ? 'noconfig' : 'offline' };
   const s = getSettings();
   // はじめは「いつでも」（生徒どうしで自由に対戦を始められる）。先生は「授業中のみ」「停止」にもできる
   const mode = s.battleMode || 'always';
@@ -119,6 +120,35 @@ export function sendAttack(code, to, kind) {
 export async function claimOnce(code) {
   const res = await fb().runTransaction(r(`rooms/${code}/claims/${backend.uid}`), (cur) => (cur ? undefined : true));
   return !!res.committed;
+}
+
+/**
+ * v1.0：結果（順位と賞金の取り分）を、部屋に1回だけ書いて全員でそろえる。
+ *   端末ごとに「切断」の見え方が少しずれることがある（電波が一瞬切れた人など）。各自が自分で計算すると、
+ *   取り分の合計が参加料の合計をこえることがあるので、最初に書いた人の結果を、全員が使う。
+ *   返り値：{ ranks: { uid: 順位（抜けた人は 0） }, shares: { uid: 取り分 }, pot }
+ */
+export async function fixResult(code, list, fee = SETTINGS.battleFee) {
+  const split = prizeSplit(list, fee);
+  return fixShares(code, { pot: split.pot, ranks: Object.fromEntries(list.map((p) => [p.uid, p.dropped ? 0 : p.rank])), shares: split.shares });
+}
+/** 順位と取り分を自分で決めたとき（チーム戦など）に、部屋に1回だけ書いてそろえる */
+export async function fixShares(code, { pot = 0, ranks = {}, shares = {} }) {
+  // 空のものは書けない（Firebase では空のものは消える）ので、印を入れておく
+  const mine = { at: serverNow(), pot, ranks: Object.keys(ranks).length ? ranks : { none: 0 }, shares: Object.keys(shares).length ? shares : { none: 0 } };
+  try {
+    const res = await fb().runTransaction(r(`rooms/${code}/result`), (cur) => (cur ? undefined : mine));
+    const v = res && res.snapshot && typeof res.snapshot.val === 'function' ? res.snapshot.val() : null;
+    return v && v.ranks ? v : mine;
+  } catch (e) {
+    console.warn('fixShares', e);
+    return mine;
+  }
+}
+/** 部屋に書かれた結果から、自分の順位と取り分 */
+export function resultOf(fixed, uid) {
+  if (!fixed) return null;
+  return { rank: (fixed.ranks || {})[uid] || null, share: (fixed.shares || {})[uid] || 0, pot: fixed.pot || 0 };
 }
 
 /** 切断・放置・途中退出した人か */

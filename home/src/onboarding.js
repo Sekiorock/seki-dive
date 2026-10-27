@@ -5,7 +5,7 @@
 
 import { t, tIn, setLang, getLang, onLangChange } from '../../shared/i18n.js';
 import { getUser, setNickname, cleanNickname, finishOnboarding, NICKNAME_MAX } from '../../shared/auth.js';
-import { standUrl, nameKey, lineKey } from '../../shared/characters.js';
+import { standUrl, nameKey, lineKey, say, tagStand } from '../../shared/characters.js';
 import { ONBOARDING } from './config.js';
 import { grantFounding, SETTINGS, formatHiyama } from '../../shared/economy.js';
 
@@ -118,7 +118,8 @@ export function runOnboarding() {
     img.alt = t(nameKey('tsukasa'));
     box.querySelector('.onboard__speaker').textContent = t(nameKey('tsukasa'));
     box.querySelector('.onboard__line').textContent =
-      t(lineKey('tsukasa', `onboard${talkIndex + 1}`), { name: getUser().nickname, amount });
+      say(t, 'tsukasa', t(lineKey('tsukasa', `onboard${talkIndex + 1}`), { name: getUser().nickname, amount }));
+    tagStand(t, img, 'tsukasa');
     box.querySelector('.onboard__step').textContent = t('onboard.step', { n: talkIndex + 1, total });
     const adv = box.querySelector('.onboard__advance');
     adv.textContent = last ? t('onboard.toPlaza') : t('onboard.tapNext');

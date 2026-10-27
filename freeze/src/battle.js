@@ -11,7 +11,7 @@
 import { t } from '../../shared/i18n.js';
 import { backend } from '../../shared/auth.js';
 import { SETTINGS, payFee, prize, fine, formatHiyama } from '../../shared/economy.js';
-import { faceUrl } from '../../shared/characters.js';
+import { faceUrl, faceFig } from '../../shared/characters.js';
 import * as room from '../../shared/room.js';
 import { WAVE, TUG, SUBSTANCES, CONST, NIGHT } from './config.js';
 import { judge, nightState } from './model.js';
@@ -180,7 +180,7 @@ function renderLobby() {
   const ps = players().filter((p) => !p.left);
   const host = r && r.host === backend.uid;
   const C = CFG(B.mode);
-  const li = (p) => `<li class="fz-bp${p.team ? ` is-${p.team}` : ''}"><img src="${faceUrl(p.avatar || 'toma', p.costume || 'base')}" alt="" width="34" height="34">`
+  const li = (p) => `<li class="fz-bp${p.team ? ` is-${p.team}` : ''}">${faceFig(t, p.avatar || 'toma', { costume: p.costume || 'base', size: 34 })}`
     + `<b>${esc(p.name || t('topbar.guest'))}${p.uid === backend.uid ? ` ${esc(t('fz.b.you'))}` : ''}</b>${r && r.host === p.uid ? `<span>${esc(t('fz.b.host'))}</span>` : ''}</li>`;
   let list;
   if (B.mode === 'tug') {
@@ -577,20 +577,33 @@ function resultView() {
     const list = waveRanking(sim);
     const rows = list.map((p) => ({ name: p.name || t('topbar.guest'), me: p.uid === backend.uid, rank: p.rank, dropped: p.dropped, done: !!p.done,
       text: t('fz.b.wave.finalRow', { n: sim.st[p.uid].frozen, left: Math.round(sim.st[p.uid].left) }), out: sim.st[p.uid].out !== null }));
+    // v1.0：部屋に書かれた結果があれば、全員それを使う（端末ごとに切断の見え方がずれても、順位と賞金がそろう）
+    const fixed = B.fixed || (B.room && B.room.result) || null;
+    if (fixed) {
+      rows.forEach((x, i) => { const uid = list[i].uid; x.rank = (fixed.ranks || {})[uid] || 0; x.dropped = !x.rank; });
+      rows.sort((a, b) => (a.rank || 99) - (b.rank || 99));
+      const m = room.resultOf(fixed, backend.uid);
+      return { state: 'done', rows, rank: m.rank, share: m.share, fixed: true };
+    }
     if (!all) return { state: 'waiting', rows };
     const mine = list.find((p) => p.uid === backend.uid);
     const split = room.prizeSplit(list, SETTINGS.battleFee);
-    return { state: 'done', rows, rank: mine ? mine.rank : null, share: split.shares[backend.uid] || 0 };
+    return { state: 'done', rows, rank: mine && !mine.dropped ? mine.rank : null, share: split.shares[backend.uid] || 0,
+      fix: () => room.fixResult(B.code, list, SETTINGS.battleFee) };
   }
   const sim = tugSim(TUG.rounds);
   const win = tugWinner(sim);
   const rows = ['A', 'B'].map((tm) => ({ team: tm, win: win === tm, names: ps.filter((p) => p.team === tm).map((p) => ({ name: p.name || t('topbar.guest'), me: p.uid === backend.uid, dropped: room.isDropped(p) })) }));
+  const fixedT = B.fixed || (B.room && B.room.result) || null;
+  if (fixedT) return { state: 'done', rows, win, h: sim.h, share: room.resultOf(fixedT, backend.uid).share, fixed: true };
   if (!all) return { state: 'waiting', rows, win, h: sim.h };
   const paid = ps.filter((p) => p.paid);
   const pot = paid.length * SETTINGS.battleFee;
   const getters = paid.filter((p) => !room.isDropped(p) && (!win || p.team === win));
   const me = getters.find((p) => p.uid === backend.uid);
-  return { state: 'done', rows, win, h: sim.h, share: me && getters.length ? Math.floor(pot / getters.length) : 0 };
+  const each = getters.length ? Math.floor(pot / getters.length) : 0;
+  return { state: 'done', rows, win, h: sim.h, share: me ? each : 0,
+    fix: () => room.fixShares(B.code, { pot, ranks: Object.fromEntries(ps.map((p) => [p.uid, getters.includes(p) ? 1 : room.isDropped(p) ? 0 : 2])), shares: Object.fromEntries(getters.map((p) => [p.uid, each])) }) };
 }
 function renderFinal() {
   if (!B) return;
@@ -617,11 +630,12 @@ function renderFinal() {
 let settling = false;
 async function settle() {
   if (!B || B.settled || settling) return;
-  const v = resultView();
+  let v = resultView();
   if (v.state !== 'done') return;
   settling = true;
   try {
     B.settled = true;
+    if (!v.fixed && v.fix) { B.fixed = await v.fix(); v = resultView(); }
     if (B.room && B.room.host === backend.uid) room.updateRoom(B.code, { state: 'done' }).catch(() => {});
     if (v.share > 0 && await room.claimOnce(B.code)) {
       const entry = await prize({ itemKey: 'ledger.item.fzBattlePrize', itemVars: {}, gross: v.share });

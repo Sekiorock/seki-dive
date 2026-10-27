@@ -1,7 +1,7 @@
 // colloid/src/config.js
 // ④ コロイド・ミストの数値の設定（全体の仕様書 10章）。数値はここに集め、プログラムの中に直接書かない。
 
-export const VERSION = 'colloid v0.4.0';
+export const VERSION = 'colloid v1.0.0';
 
 // ── エリア：入るときに道具を1つ受け取り、謎を順に解く。全部解くとエリアを抜ける ──
 export const AREAS = [

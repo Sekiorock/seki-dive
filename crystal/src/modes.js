@@ -6,7 +6,8 @@
 //   精製：KNO₃ と CuSO₄·5H₂O の混合物を、① 溶かす → ② 冷やす → ③ ろ過して冷水で洗う → ④ 乾かす。
 //         取り出した KNO₃ の質量と純度が目標を超えれば達成（はじめての達成で REFINE.reward）。
 
-import { ORDER, REFINE } from './config.js';
+import { faceFig, say } from '../../shared/characters.js';
+import { ORDER, REFINE, GLOW } from './config.js';
 import { ORDERS, buildState, rankOf } from './orders.js';
 import { defineMix, mixEq, filter, wash, dry } from './refine.js';
 import { curvePoint, solubility } from './solubility.js';
@@ -85,6 +86,8 @@ export function createModes(ctx) {
   }
 
   function openOrder(i) {
+    // v1.0：注文が進むほど、景色が豪華に
+    if (ctx.glow) ctx.glow(Math.min(8, 1 + Math.floor(i / GLOW.perOrders)));
     kind = 'order';
     oi = i;
     phase = 'predict';
@@ -128,7 +131,7 @@ export function createModes(ctx) {
       + `<span class="cr-tag cr-tag--${o.type}">${esc(t(`cr.order.type.${o.type}`))}</span>`
       + `${rec ? `<em>${esc(t('cr.order.stars', { s: stars(rec.rank) }))}</em>` : ''}`
       + `<button type="button" class="cr-fold calc-btn" data-act="calc">${esc(t('calc.open'))}</button><button type="button" class="cr-fold" data-act="order-list">${esc(t('cr.order.list'))}</button></div>`
-      + `<div class="cr-order"><img src="${faceUrl(guide)}" alt="" width="44" height="44"><p>${esc(q)}</p></div>${body}`;
+      + `<div class="cr-order">${faceFig(t, guide, { size: 44 })}<p>${esc(say(t, guide, q))}</p></div>${body}`;
     ctx.updateViewport();
   }
 

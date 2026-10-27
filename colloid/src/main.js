@@ -22,7 +22,7 @@ import { initBackend, getUser, setUserLang, getAvatar, getWorldData, setWorldDat
 import { initEconomy, isWorldOpen, onSettingsChange, formatHiyama, reward, grant } from '../../shared/economy.js';
 import { initNotices } from '../../shared/notices.js';
 import { openAvatarSelect } from '../../shared/avatar.js';
-import { standUrl, faceUrl, nameKey } from '../../shared/characters.js';
+import { standUrl, faceUrl, nameKey, say, tagStand, faceFig, nameTag } from '../../shared/characters.js';
 
 const $ = (id) => document.getElementById(id);
 const esc = (x) => String(x ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -72,7 +72,8 @@ function renderTitle() {
   const st = $('title');
   st.querySelector('.cl-guide__stand').src = standUrl(GUIDE, 'normal');
   st.querySelector('.cl-guide__stand').alt = t(nameKey(GUIDE));
-  st.querySelector('.cl-guide__line').textContent = t('quote', { line: t('cl.guide1') });
+  st.querySelector('.cl-guide__line').textContent = say(t, GUIDE, t('cl.guide1'));
+  tagStand(t, st.querySelector('.cl-guide__stand'), GUIDE);
   $('areas').innerHTML = AREAS.map((A, i) => {
     const open = areaOpen(i);
     return `<button type="button" class="cl-card${i === ai ? ' is-on' : ''}" data-act="area" data-i="${i}" ${open ? '' : 'disabled'}>`
@@ -181,7 +182,7 @@ function itemLabel(k) {
 }
 
 function guideBox(line, f = face) {
-  return `<div class="cl-say"><img src="${faceUrl(GUIDE)}" alt="" width="40" height="40" class="cl-say__face is-${f}"><p>${esc(line)}</p></div>`;
+  return `<div class="cl-say"><figure class="char-fig cl-say__fig is-${f}" style="--fs:40px"><img src="${faceUrl(GUIDE)}" alt="" width="40" height="40" class="cl-say__face"><figcaption class="char-tag">${esc(t(nameKey(GUIDE)))}</figcaption></figure><p>${esc(say(t, GUIDE, line))}</p></div>`;
 }
 
 // ───────────── 正解・おしいの演出（光・動き・音） ─────────────

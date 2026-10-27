@@ -13,7 +13,7 @@
 import { t } from '../../shared/i18n.js';
 import { backend } from '../../shared/auth.js';
 import { SETTINGS, payFee, prize, fine, formatHiyama } from '../../shared/economy.js';
-import { faceUrl } from '../../shared/characters.js';
+import { faceUrl, faceFig, say } from '../../shared/characters.js';
 import * as room from '../../shared/room.js';
 import { NEARPIN } from './config.js';
 import { equilibrium, curvePoint, SOLUTES } from './solubility.js';
@@ -137,7 +137,7 @@ function renderLobby() {
   const r = B.room;
   const ps = players().filter((p) => !p.left);
   const host = r && r.host === backend.uid;
-  const slots = ps.map((p) => `<li class="cr-bp"><img src="${faceUrl(p.avatar || 'minato', p.costume || 'base')}" alt="" width="36" height="36">
+  const slots = ps.map((p) => `<li class="cr-bp">${faceFig(t, p.avatar || 'minato', { costume: p.costume || 'base', size: 36 })}
       <b>${esc(p.name || t('topbar.guest'))}${p.uid === backend.uid ? ` ${esc(t('cr.b.you'))}` : ''}</b>${r.host === p.uid ? `<span>${esc(t('cr.b.host'))}</span>` : ''}</li>`).join('');
   const html = `
     <h2 class="cr-found__title">${esc(t('cr.b.title'))}</h2>
@@ -307,7 +307,7 @@ function renderPanel(s) {
   const head = `<div class="cr-mpanel__head"><b>${esc(t('cr.b.round', { r: s.r + 1, n: NEARPIN.rounds }))}</b>`
     + `<span class="cr-mpanel__goal">${esc(t('cr.b.myTotal', { e: f1(totals(s.stage === 'reveal' ? s.r : s.r).find((p) => p.uid === backend.uid)?.total || 0) }))}</span>`
     + `<button type="button" class="cr-fold calc-btn" data-act="calc">${esc(t('calc.open'))}</button>${s.stage === 'decide' ? `<b class="cr-btimer" id="b-timer">${Math.ceil(s.left)}</b>` : ''}</div>`;
-  const tk = `<div class="cr-order"><img src="${faceUrl(H.guide)}" alt="" width="44" height="44"><p>${esc(taskText(task))}</p></div>`;
+  const tk = `<div class="cr-order">${faceFig(t, H.guide, { size: 44 })}<p>${esc(say(t, H.guide, taskText(task)))}</p></div>`;
   if (s.stage === 'decide') {
     const dis = B.locked ? 'disabled' : '';
     box.innerHTML = head + `<div class="cr-bbar"><i id="b-bar" style="width:${(s.left / NEARPIN.decideSec) * 100}%"></i></div>` + tk
@@ -350,11 +350,16 @@ function resultView() {
   // 全員が終わり、参加料を払った印もそろってから賞金を分ける（印が届くのがおくれても、取り分がずれないように）
   const all = list.every((p) => p.dropped || (p.done && p.paid));
   const tot = totals(NEARPIN.rounds);
-  const rows = list.map((p) => ({ name: p.name || t('topbar.guest'), me: p.uid === backend.uid, rank: p.rank, dropped: p.dropped, done: !!p.done, total: (tot.find((x) => x.uid === p.uid) || {}).total || 0 }));
-  if (!all) return { state: 'waiting', rows };
+  // v1.0：部屋に書かれた結果があれば、全員それを使う（端末ごとに切断の見え方がずれても、順位と賞金がそろう）
+  const fixed = B.fixed || (B.room && B.room.result) || null;
+  const rankOf = (p) => (fixed ? (fixed.ranks || {})[p.uid] || 0 : p.rank);
+  const rows = list.map((p) => ({ name: p.name || t('topbar.guest'), me: p.uid === backend.uid, rank: rankOf(p), dropped: fixed ? !rankOf(p) : p.dropped, done: !!p.done, total: (tot.find((x) => x.uid === p.uid) || {}).total || 0 }));
+  if (fixed) rows.sort((a, b) => (a.rank || 99) - (b.rank || 99));
+  if (!all && !fixed) return { state: 'waiting', rows };
+  if (fixed) { const m = room.resultOf(fixed, backend.uid); return { state: 'done', rows, list, rank: m.rank, share: m.share, pot: m.pot, fixed: true }; }
   const mine = list.find((p) => p.uid === backend.uid);
   const split = room.prizeSplit(list, SETTINGS.battleFee);
-  return { state: 'done', rows, rank: mine ? mine.rank : null, share: split.shares[backend.uid] || 0, pot: split.pot };
+  return { state: 'done', rows, list, rank: mine ? mine.rank : null, share: split.shares[backend.uid] || 0, pot: split.pot };
 }
 
 function renderFinal() {
@@ -376,11 +381,12 @@ function renderFinal() {
 let settling = false;
 async function settle() {
   if (!B || B.settled || settling) return;
-  const v = resultView();
+  let v = resultView();
   if (v.state !== 'done') return;
   settling = true;
   try {
     B.settled = true;
+    if (!v.fixed) { B.fixed = await room.fixResult(B.code, v.list, SETTINGS.battleFee); v = resultView(); }
     if (B.room && B.room.host === backend.uid) room.updateRoom(B.code, { state: 'done' }).catch(() => {});
     if (v.share > 0 && await room.claimOnce(B.code)) {
       const entry = await prize({ itemKey: 'ledger.item.crBattlePrize', itemVars: {}, gross: v.share });

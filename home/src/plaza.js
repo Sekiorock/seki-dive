@@ -5,7 +5,7 @@
 // 軽く保つため、1つの門・建物の部品は、材質ごとに1つの形にまとめて描く（画面の物体はおよそ60個）。
 
 import { PLAZA, GATE, GATES, STANDEE, FACILITY, FACILITIES, GOV, FX } from './config.js';
-import { standUrl } from '../../shared/characters.js';
+import { standUrl, nameKey } from '../../shared/characters.js';
 import { ACCENTS, hexToInt } from '../../shared/theme.js';
 import { t } from '../../shared/i18n.js';
 import { formatHiyama } from '../../shared/economy.js';
@@ -561,7 +561,14 @@ function buildStandee(id, height, onLoad) {
   ring.position.y = 0.03;
   const group = new THREE.Group();
   group.add(mesh, ring);
-  return { group, mesh, ring };
+  // 頭の上に名前の札（v1.0）
+  const labelCanvas = makeCanvas(420, 120);
+  const draw = () => drawLabel(labelCanvas, t(nameKey(id)), HOME.a2.neon, HOME.a1.neon);
+  draw();
+  const label = makeSprite(labelCanvas, 1.9, 0.54);
+  label.sprite.position.set(0, height + 0.42, 0);
+  group.add(label.sprite);
+  return { group, mesh, ring, redraw: () => { draw(); label.tex.needsUpdate = true; } };
 }
 
 /** 広場全体を作って返す。 */
@@ -588,7 +595,7 @@ export function buildPlaza(scene, { onTextureLoad } = {}) {
   let last = 0;
   return {
     hitTargets: [standee.mesh, ...gates.map((x) => x.hit), ...facilities.map((x) => x.hit), gov.hit],
-    redrawLabels: () => [...gates, ...facilities, gov].forEach((x) => x.redraw()),
+    redrawLabels: () => [...gates, ...facilities, gov, standee].forEach((x) => x.redraw()),
     setTreasury: gov.setTreasury,
     setGateOpen: (id, open) => { const x = gates.find((gg) => gg.hit.userData.gateId === id); if (x) x.setOpen(open); },
     /** 立ち絵の板をカメラの方へ向ける（縦の軸のまわりだけ回す） */

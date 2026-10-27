@@ -1,7 +1,7 @@
 // home/src/config.js
 // ホームワールドの数値の設定。数値はここに集め、プログラムの中に直接書かない。
 
-export const VERSION = 'home v0.8.0';
+export const VERSION = 'home v1.0.0';
 
 // QRコードで配る公開URL。
 // 空のままなら、いま開いているページのURL（例 https://ユーザー名.github.io/seki-dive/）を自動で使う。
@@ -124,4 +124,30 @@ export const FACILITIES = [
 export const ONBOARDING = {
   talkLines: 5,         // キタローの説明のセリフの数（char.tsukasa.line.onboard1〜5）
   grantLine: 4,         // 開国交付金を支給する場面（4場面目）
+};
+
+// ── v1.0：映えの演出（shared/glow.js）。4つのワールドを進めるほど、広場が豪華になる（段階 1〜8） ──
+// 段階：1 浮かぶ灯籠 2 蛍 3 ネオンの鳥居と月 4 光の柱 5 光の和柄の輪 6 桜 7 光の文字と金箔 8 オーロラ
+// 進み具合 ＝ 4つのワールドの「すんだ割合」の平均（0〜1）。段階 ＝ 1 ＋ 切り捨て(進み具合 × 7)
+export const GLOW_PROGRESS = {
+  hydration: 6,       // クリアした曲（ステージ1〜6）
+  crystal: 24,        // すんだ注文
+  freeze: 21,         // クリアした夜（7ステージ × 3夜）
+  colloid: 8,         // クリアしたエリア
+};
+export const GLOW = {
+  area: { c: [0, 0, 0], r: [17, 27], h: [3, 9] },     // 広場（半径13）の外の輪
+  // 鳥居は、門と門のあいだ（ななめ）に、広場の中心を向けて立てる
+  torii: [
+    { at: [15.5, 0, -15.5], s: 1.1, ry: -Math.PI / 4, lv: 3 },
+    { at: [-15.5, 0, 15.5], s: 1.1, ry: -Math.PI / 4, lv: 4 },
+    { at: [15.5, 0, 15.5], s: 1.1, ry: Math.PI / 4, lv: 5 },
+    { at: [-15.5, 0, -15.5], s: 1.1, ry: Math.PI / 4, lv: 7 },
+  ],
+  ring: { size: 34, op: 0.45 },
+  kanji: '化学潜行水晶凍霧',
+  fall: 'petal',
+  sparkle: '#d8ff6a',
+  groundY: 0.02,
+  size: 2.0,
 };

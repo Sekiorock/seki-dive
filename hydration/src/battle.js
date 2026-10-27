@@ -16,7 +16,7 @@
 import { t } from '../../shared/i18n.js';
 import { backend } from '../../shared/auth.js';
 import { SETTINGS, payFee, prize, fine, formatHiyama } from '../../shared/economy.js';
-import { faceUrl } from '../../shared/characters.js';
+import { faceUrl, faceFig } from '../../shared/characters.js';
 import { ROYALE } from './config.js';
 import * as net from './net.js';
 
@@ -187,7 +187,7 @@ function rivalViews(room) {
     mode: B.mode,
     me: B.out,
     rows: list.filter((p) => p.uid !== backend.uid || B.mode === 'royale').map((p) => ({
-      uid: p.uid, me: p.uid === backend.uid, name: p.name || t('topbar.guest'), face: faceUrl(p.avatar || 'minato', p.costume || 'base'),
+      uid: p.uid, me: p.uid === backend.uid, name: p.name || t('topbar.guest'), face: faceUrl(p.avatar || 'minato', p.costume || 'base'), avatar: p.avatar || 'minato', costume: p.costume || 'base',
       score: p.final ?? p.score ?? 0, gauge: p.gauge ?? 0, combo: p.combo ?? 0, rank: p.rank,
       dropped: p.dropped, out: !!p.out, done: !!p.done, attacker: p.uid === B.lastAttacker,
     })),
@@ -207,7 +207,7 @@ function renderLobby() {
     const e = ps[i];
     if (!e) return `<li class="hb-battle__p is-empty">${esc(t('hb.battle.waiting'))}</li>`;
     const [uid, p] = e;
-    return `<li class="hb-battle__p"><img src="${faceUrl(p.avatar || 'minato', p.costume || 'base')}" alt="" width="40" height="40">
+    return `<li class="hb-battle__p">${faceFig(t, p.avatar || 'minato', { costume: p.costume || 'base', size: 40 })}
       <b>${esc(p.name || t('topbar.guest'))}${uid === backend.uid ? ` ${esc(t('hb.battle.you'))}` : ''}</b>
       ${room.host === uid ? `<span>${esc(t('hb.battle.host'))}</span>` : ''}</li>`;
   }).join('');
@@ -320,26 +320,41 @@ export async function finished(score) {
 export function resultView() {
   if (!B || !B.room) return { state: 'waiting', ranks: [], mode: B ? B.mode : 'duel' };
   const list = net.ranking(B.room.players);
-  const all = list.every((p) => p.done || p.dropped);
-  const ranks = list.map((p) => ({ name: p.name || t('topbar.guest'), score: p.final ?? p.score ?? 0, rank: p.rank, me: p.uid === backend.uid, dropped: p.dropped, out: !!p.out }));
-  if (!all) return { state: 'waiting', ranks, code: B.code, mode: B.mode };
-  const mine = list.find((p) => p.uid === backend.uid);
-  const split = net.prizeSplit(list, SETTINGS.battleFee);
-  const firsts = list.filter((p) => p.rank === 1 && !p.dropped);
+  // v1.0：参加料を払った印もそろってから（印が届くのがおくれても、賞金の合計がずれないように）
+  const all = list.every((p) => p.dropped || (p.done && p.paid));
+  // v1.0：部屋に書かれた結果があれば、全員それを使う（端末ごとに切断の見え方がずれても、順位と賞金がそろう）
+  const fixed = B.fixed || B.room.result || null;
+  const rankOf = (p) => (fixed ? (fixed.ranks || {})[p.uid] || 0 : p.rank);
+  const ranks = list.map((p) => ({ name: p.name || t('topbar.guest'), score: p.final ?? p.score ?? 0, rank: rankOf(p), me: p.uid === backend.uid, dropped: fixed ? !rankOf(p) : p.dropped, out: !!p.out }));
+  if (fixed) ranks.sort((a, b) => (a.rank || 99) - (b.rank || 99));
+  if (!all && !fixed) return { state: 'waiting', ranks, code: B.code, mode: B.mode };
+  let rank, share, pot, firsts;
+  if (fixed) {
+    const m = net.resultOf(fixed, backend.uid);
+    ({ rank, share, pot } = m);
+    firsts = Object.values(fixed.ranks || {}).filter((r) => r === 1);
+  } else {
+    const mine = list.find((p) => p.uid === backend.uid);
+    const split = net.prizeSplit(list, SETTINGS.battleFee);
+    rank = mine && !mine.dropped ? mine.rank : null;
+    share = split.shares[backend.uid] || 0; pot = split.pot;
+    firsts = list.filter((p) => p.rank === 1 && !p.dropped);
+  }
   return {
-    state: 'done', ranks, code: B.code, mode: B.mode, rank: mine ? mine.rank : null, win: !!(mine && mine.rank === 1 && !mine.dropped),
-    draw: firsts.length > 1, share: split.shares[backend.uid] || 0, pot: split.pot, prize: B.prize || null,
+    state: 'done', ranks, list, fixed: !!fixed, code: B.code, mode: B.mode, rank: rank || null, win: rank === 1,
+    draw: firsts.length > 1, share, pot, prize: B.prize || null,
   };
 }
 
 let settling = false;
 async function settle() {
-  const v = resultView();
+  let v = resultView();
   H.updateBattleResult(v);
   if (v.state !== 'done' || settling || B.settled) return;
   settling = true;
   try {
     B.settled = true;
+    if (!v.fixed) { B.fixed = await net.fixResult(B.code, v.list, SETTINGS.battleFee); v = resultView(); }
     setActive(null);
     if (B.room && B.room.host === backend.uid) net.updateRoom(B.code, { state: 'done' }).catch(() => {});
     if (v.share > 0 && await net.claimOnce(B.code)) {
