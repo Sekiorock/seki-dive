@@ -17,6 +17,7 @@
 
   <!-- 3Dの峠道 -->
   <canvas id="scene" aria-hidden="true"></canvas>
+  <div class="fz-dawn" id="dawn" aria-hidden="true"></div>
   <div class="fz-frame" aria-hidden="true"></div>
 
   <!-- タイトル -->
@@ -44,6 +45,9 @@
       <div class="fz-panel" id="panel"></div>
     </div>
   </section>
+
+  <!-- 解き方の説明（アニメーション）。中身は main.js で作る -->
+  <div class="fz-tut" id="tut" role="dialog" hidden></div>
 
   <!-- ステージ3：冷却曲線の小窓 -->
   <div class="fz-curve" id="curve" role="dialog" hidden>

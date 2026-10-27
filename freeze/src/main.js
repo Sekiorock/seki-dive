@@ -1,5 +1,7 @@
 // freeze/src/main.js
 // ③ フリーズ・ガード：画面の切り替えと1夜の進行（全体の仕様書 9章）。
+// v0.3：区間を6から3に減らした。朝が近づくと朝日。各ステージのはじめに、公式への値の代入をアニメーションで説明し、
+//       失敗した朝には、失敗した区間の数値で「かんたん解説」。ステージ6（浸透圧と逆浸透）・7（分子量から物質を特定）。
 // v0.2：ステージ3（冷却曲線から凝固点を読む）、4（蒸気圧降下：真水で薄めて乾かす）、5（沸点上昇：釜の湯を煮立たせる）。
 // v0.1：1夜の流れ（準備 → 夜 → 朝）と、ステージ1（凍結の峠：非電解質）・ステージ2（電解質の峠：電離で粒子が増える）。
 //   準備：6つの区間ごとに、撒く物質と質量を決める（予算の中で）。凝固点は自分で計算する（電卓あり）。
@@ -7,8 +9,9 @@
 //   朝：守れた区間の数と残った予算で評価。凍った区間・むだの多い区間に、どこで計算がずれたかの解説。
 //   報酬：1夜を守り切ると 60 ヒヤマ、予算を半分以上残すと追加 40 ヒヤマ（どちらも、その夜で初めてのときだけ）。
 
-import { VERSION, SUBSTANCES, STAGES, LOCKED_STAGES, NIGHT, REWARD, CONST } from './config.js';
-import { nightOf, plan, judge, nightState, needed, coolingCurve } from './model.js';
+import { VERSION, SUBSTANCES, STAGES, LOCKED_STAGES, NIGHT, REWARD, CONST, TUTORIAL } from './config.js';
+import { nightOf, plan, judge, nightState, needed, coolingCurve, molarFrom } from './model.js';
+import { buildSteps, EXAMPLES } from './tutorial.js';
 import { createScene } from './scene3d.js';
 import { initI18n, t, onLangChange, applyToDom, getLang, setLang } from '../../shared/i18n.js';
 import { applyTheme, fx } from '../../shared/theme.js';
@@ -113,17 +116,81 @@ function startNight(s, n, keepPicks = false) {
   scene.setTheme(night.kind);
   scene.setNight(0.2);
   closeCurve();
+  closeTut();
+  setDawn(0);
   show('play');
   renderPanel();
   updateSections();
+  // そのステージを初めて遊ぶときは、解き方の説明から
+  const seen = getWorldData(WORLD).tut || {};
+  if (!seen[night.stage]) openTut('intro');
 }
 
 function subName(id) { return t(`fz.sub.${id}`); }
+function startHour() { return { boil: 16, vapor: 18, osmo: 20, mm: 21 }[night.kind] ?? NIGHT.startHour; }
+function spanHours() { return { boil: 3, vapor: 12, osmo: 10, mm: 9 }[night.kind] ?? NIGHT.hours; }
+function setDawn(k) {
+  const el = $('dawn');
+  if (el) el.style.opacity = String(Math.min(1, k));
+  if (scene) scene.setDawn(k);
+}
+
+// ───────────── 解き方の説明（アニメーション） ─────────────
+let tutMode = 'intro';
+let tutIdx = 0;
+function closeTut() { const m = $('tut'); if (m) m.hidden = true; }
+function failRows() { return result ? result.rows.map((r, k) => ({ r, k })).filter((x) => x.r.fail) : []; }
+/** mode：'intro'（ステージのはじめの例）| 'recap'（失敗した区間の数値で） */
+function openTut(mode, idx = 0) {
+  tutMode = mode;
+  tutIdx = idx;
+  let ex, title;
+  if (mode === 'recap') {
+    const fr = failRows();
+    if (!fr.length) return;
+    const { r, k } = fr[Math.min(idx, fr.length - 1)];
+    ex = { ...r };
+    if (night.kind !== 'vapor' && night.kind !== 'osmo' && night.kind !== 'mm') ex.sub = r.sub || night.substances[night.substances.length - 1];
+    title = t('fz.recapTitle', { n: night.kind === 'mm' ? t('fz.sampleN', { n: k + 1 }) : t('fz.secN', { n: k + 1 }) });
+  } else {
+    ex = EXAMPLES[night.stage];
+    title = t('fz.tutTitle', { s: night.stage, name: t(`fz.stage${night.stage}.name`) });
+  }
+  const kind = mode === 'recap' ? night.kind : ex.kind;
+  const { formula, steps } = buildSteps(t, kind, ex);
+  const m = $('tut');
+  m.hidden = false;
+  const lead = mode === 'recap' ? t('fz.recapLead') : t(`fz.tutLead${night.stage}`);
+  const more = mode === 'recap' && failRows().length > 1;
+  m.innerHTML = `<div class="fz-tut__card"><div class="fz-tut__bar"><b>${esc(title)}</b></div>`
+    + `<p class="fz-tut__lead">${esc(lead)}</p>`
+    + `<p class="fz-tut__formula"><span>${esc(formula)}</span></p>`
+    + `<ol class="fz-tut__steps">${steps.map((st, i) => `<li style="--i:${i}"><span class="fz-tut__no">${i + 1}</span><div><b>${esc(st.h)}</b><p class="fz-tut__eq">${st.eq}</p>${st.note ? `<small>${esc(st.note)}</small>` : ''}</div></li>`).join('')}</ol>`
+    + `<p class="fz-tut__legend"><i class="c-g">${esc(t('fz.tut.lgGiven'))}</i><i class="c-k">${esc(t('fz.tut.lgConst'))}</i><i class="c-a">${esc(t('fz.tut.lgAns'))}</i></p>`
+    + `<div class="fz-foot"><button type="button" class="btn" data-act="tut-replay">${esc(t('fz.tutReplay'))}</button>`
+    + (more ? `<button type="button" class="btn" data-act="tut-next">${esc(t('fz.tutNextFail'))}</button>` : '')
+    + `<button type="button" class="btn btn--primary" data-act="tut-close">${esc(t('fz.tutClose'))}</button></div></div>`;
+  m.style.setProperty('--step', `${TUTORIAL.stepSec}s`);
+  if (mode === 'intro') {
+    const d = getWorldData(WORLD);
+    setWorldData(WORLD, { ...d, tut: { ...(d.tut || {}), [night.stage]: Date.now() } });
+  }
+}
 const fmtBp = (v) => `${(Math.round(v * 100) / 100).toFixed(2)}`;
 const isFreezing = () => night.kind === 'freeze' || night.kind === 'curve';
 
 /** 準備の行の、区間の条件の部分（kind ごと） */
+function mmText(sec) {
+  const solvent = sec.q === 'fpb' ? t('fz.benzene') : t('fz.water');
+  if (sec.q === 'osm') return t('fz.mm.osm', { g: sec.g, V: sec.V, T: sec.tc, p: `${sec.piMant.toFixed(2)}×10^${sec.piExp}` });
+  return t('fz.mm.fp', { g: sec.g, s: solvent, sg: sec.sg, fp: sec.q === 'fpb' ? sec.fp.toFixed(2) : `−${sec.dt.toFixed(2)}` });
+}
 function condCells(sec, k) {
+  if (night.kind === 'mm') return `<span class="fz-q">${esc(mmText(sec)).replace(/\^(-?\d+)/g, '<sup>$1</sup>')}</span>`;
+  if (night.kind === 'osmo') {
+    const S = SUBSTANCES[sec.csub];
+    return `<span class="fz-v fz-cloth">${esc(S.formula)}<br>${f2(sec.c)}<small>mol/L</small></span><span class="fz-v fz-low">${sec.tc}<small>℃</small></span>`;
+  }
   if (night.kind === 'vapor') {
     const S = SUBSTANCES[sec.csub];
     return `<span class="fz-v fz-cloth">${esc(S.formula)} ${sec.cg}<small>g</small><br>${esc(t('fz.waterShort'))} ${f1(sec.water)}<small>kg</small></span>`
@@ -142,37 +209,49 @@ function renderPanel() {
     const p = plan(night, cleanPicks());
     const ratio = Math.min(1, p.used / night.budget);
     const subs = night.substances;
-    const tableBtn = kind === 'vapor' ? '' : `<button type="button" class="fz-mini" data-act="table">${esc(t('fz.table'))}</button>`;
-    const table = kind === 'vapor'
+    const tableBtn = kind === 'vapor' || kind === 'mm' || kind === 'osmo' ? '' : `<button type="button" class="fz-mini" data-act="table">${esc(t('fz.table'))}</button>`;
+    const table = kind === 'mm'
+      ? `<div class="fz-table">${night.candidates.map((id) => { const S = SUBSTANCES[id]; return `<b>${esc(S.formula)}</b><span>${esc(subName(id))}</span><span>M = ${S.M}</span><span></span>`; }).join('')}</div>`
+      : kind === 'osmo'
+      ? `<div class="fz-table">${['NaCl', 'CaCl2', 'urea', 'glucose'].map((id) => { const S = SUBSTANCES[id]; return `<b>${esc(S.formula)}</b><span>${esc(subName(id))}</span><span></span><span>${esc(t(`fz.ion.${id}`))}</span>`; }).join('')}</div>`
+      : kind === 'vapor'
       ? `<div class="fz-table">${['NaCl', 'CaCl2', 'urea', 'glucose'].map((id) => { const S = SUBSTANCES[id]; return `<b>${esc(S.formula)}</b><span>${esc(subName(id))}</span><span>${S.M} g/mol</span><span>${esc(t(`fz.ion.${id}`))}</span>`; }).join('')}</div>`
       : `<div class="fz-table">${subs.map((id) => { const S = SUBSTANCES[id]; return `<b>${esc(S.formula)}</b><span>${esc(subName(id))}</span><span>${S.M} g/mol</span><span>${S.price} pt/mol　${esc(t(`fz.ion.${id}`))}</span>`; }).join('')}</div>`;
     box.innerHTML = head(tableBtn
+      + `<button type="button" class="fz-mini fz-mini--hot" data-act="tut">${esc(t('fz.tutBtn'))}</button>`
       + `<button type="button" class="fz-mini calc-btn" data-act="calc">${esc(t('calc.open'))}</button>`
       + `<button type="button" class="fz-mini" data-act="to-title">${esc(t('fz.toTitle'))}</button>`)
-      + `<div class="fz-budget${p.over ? ' is-over' : ''}" id="budget"><span>${esc(t('fz.used'))} <b>${f1(p.used)}</b> / ${night.budget} pt</span>`
-      + `<span>${esc(t('fz.left'))} <b>${f1(p.left)}</b> pt</span><span class="fz-budget__bar"><i style="width:${(ratio * 100).toFixed(1)}%"></i></span></div>`
-      + `<p class="fz-hint">${esc(t(`fz.hint${night.stage}`, { kf: CONST.Kf, kb: CONST.Kb, wp: CONST.waterPrice }))}</p>`
-      + (showTable || kind === 'vapor' ? table : '')
+      + (kind === 'mm' ? '' : `<div class="fz-budget${p.over ? ' is-over' : ''}" id="budget"><span>${esc(t('fz.used'))} <b>${f1(p.used)}</b> / ${night.budget} pt</span>`
+      + `<span>${esc(t('fz.left'))} <b>${f1(p.left)}</b> pt</span><span class="fz-budget__bar"><i style="width:${(ratio * 100).toFixed(1)}%"></i></span></div>`)
+      + `<p class="fz-hint">${esc(t(`fz.hint${night.stage}`, { kf: CONST.Kf, kb: CONST.Kb, wp: CONST.waterPrice, pp: CONST.pressPrice, bk: CONST.benzeneKf, bf: CONST.benzeneFp }))}</p>`
+      + (showTable || ['vapor', 'mm', 'osmo'].includes(kind) ? table : '')
       + `<ol class="fz-rows fz-rows--${kind}">${night.sections.map((sec, k) => {
         const pk = picks[k];
-        const sel = kind === 'vapor' ? ''
+        if (kind === 'mm') {
+          return `<li class="fz-row fz-row--mm"><b>${k + 1}</b>${condCells(sec, k)}`
+            + `<select data-k="${k}" data-f="sub" aria-label="${esc(t('fz.pickLabel', { n: k + 1 }))}"><option value="">${esc(t('fz.pickNone'))}</option>${night.candidates.map((id) => `<option value="${id}" ${pk.sub === id ? 'selected' : ''}>${esc(SUBSTANCES[id].formula)}</option>`).join('')}</select></li>`;
+        }
+        const sel = kind === 'vapor' || kind === 'osmo' ? ''
           : `<select data-k="${k}" data-f="sub" aria-label="${esc(t('fz.subLabel'))}">${subs.map((id) => `<option value="${id}" ${pk.sub === id ? 'selected' : ''}>${esc(SUBSTANCES[id].formula)}</option>`).join('')}</select>`;
-        const unit = kind === 'vapor' ? 'kg' : 'g';
+        const unit = kind === 'vapor' ? 'kg' : kind === 'osmo' ? '×10⁵Pa' : 'g';
+        const lbl = kind === 'vapor' ? 'fz.addLabel' : kind === 'osmo' ? 'fz.pressLabel' : 'fz.massLabel';
         return `<li class="fz-row fz-row--${kind}"><b>${k + 1}</b>${condCells(sec, k)}${sel}`
-          + `<input type="number" inputmode="decimal" step="any" min="0" data-k="${k}" data-f="mass" id="m${k}" value="${esc(pk.mass)}" placeholder="${unit}" aria-label="${esc(t(kind === 'vapor' ? 'fz.addLabel' : 'fz.massLabel', { n: k + 1 }))}">`
+          + `<input type="number" inputmode="decimal" step="any" min="0" data-k="${k}" data-f="mass" id="m${k}" value="${esc(pk.mass)}" placeholder="${unit}" aria-label="${esc(t(lbl, { n: k + 1 }))}">`
           + `<span class="fz-cost" id="c${k}">${f1(p.rows[k].cost)} pt</span></li>`;
       }).join('')}</ol>`
       + `<p class="fz-note">${esc(t(`fz.colHelp.${kind}`))}</p>`
       + `<div class="fz-foot"><button type="button" class="btn btn--primary" data-act="go-night" id="go-btn" ${p.over ? 'disabled' : ''}>${esc(t(p.over ? 'fz.overBudget' : `fz.go.${kind}`))}</button></div>`;
   } else if (phase === 'night') {
-    box.innerHTML = head(`<b class="fz-clock" id="clock">${kind === 'boil' ? '16:00' : kind === 'vapor' ? '18:00' : '22:00'}</b><button type="button" class="fz-mini" data-act="fast">${esc(t('fz.fast'))}</button>`)
+    box.innerHTML = head(`<b class="fz-clock" id="clock">${startHour()}:00</b><button type="button" class="fz-mini" data-act="fast">${esc(t('fz.fast'))}</button>`)
       + `<ol class="fz-rows" id="night-rows"></ol>`;
     renderNightRows(0);
   } else {
     const r = result;
-    box.innerHTML = head(`<button type="button" class="fz-mini calc-btn" data-act="calc">${esc(t('calc.open'))}</button>`)
+    const fails = r.rows.filter((x) => x.fail).length;
+    box.innerHTML = head((fails ? `<button type="button" class="fz-mini fz-mini--hot" data-act="recap">${esc(t('fz.recapBtn'))}</button>` : '')
+      + `<button type="button" class="fz-mini calc-btn" data-act="calc">${esc(t('calc.open'))}</button>`)
       + `<div class="fz-sum"><p class="fz-sum__big ${r.all ? 'is-ok' : 'is-ng'}">${esc(t(r.all ? `fz.all.${kind}` : `fz.some.${kind}`, { n: r.safe, total: r.rows.length }))}</p>`
-      + `<p class="fz-sum__sub">${esc(t('fz.budgetLeft', { left: f1(r.left), budget: r.budget }))}${r.half ? ` ${esc(t('fz.halfLeft'))}` : ''}</p>`
+      + (kind === 'mm' ? '' : `<p class="fz-sum__sub">${esc(t('fz.budgetLeft', { left: f1(r.left), budget: r.budget }))}${r.half ? ` ${esc(t('fz.halfLeft'))}` : ''}</p>`)
       + (rewardText ? `<p class="fz-sum__reward">${esc(rewardText)}</p>` : '') + '</div>'
       + `<ul class="fz-diag">${r.rows.map((row, k) => diagLine(row, k)).join('')}</ul>`
       + `<div class="fz-foot"><button type="button" class="btn" data-act="retry">${esc(t('fz.retry'))}</button>`
@@ -190,12 +269,17 @@ function diagLine(row, k) {
   const vars = {
     n: k + 1, fp: signed(row.value), low: kind === 'boil' || kind === 'vapor' ? '' : signed(row.low), need: d.need !== undefined ? (kind === 'vapor' ? f2(d.need) : f1(d.need)) : '',
     mass: kind === 'vapor' ? f2(row.mass || 0) : f1(row.mass || 0),
-    sub: S ? subName(row.sub) : C ? subName(row.csub) : '', f: S ? S.formula : C ? C.formula : '', i: S ? S.i : C ? C.i : 1, wi: d.wrongI || '', r: d.ratio ? f1(d.ratio) : '',
+    sub: S ? subName(row.sub) : C ? subName(row.csub) : '', f: S ? S.formula : C ? C.formula : '', i: S ? S.i : C ? C.i : 1, wi: d.wrongI || '', r: d.ratio ? (d.ratio < 0.1 ? f2(d.ratio) : f1(d.ratio)) : '',
     read: d.read !== undefined ? signed(d.read) : '', fp0: kind === 'curve' ? signed(row.fp0) : '', min: kind === 'curve' ? signed(row.fp0 - row.sc) : '',
     bp: kind === 'boil' ? fmtBp(row.value) : '', target: kind === 'boil' ? fmtBp(row.target) : '',
     m: kind === 'vapor' ? f2(row.value) : '', max: kind === 'vapor' ? f2(row.mMax) : '',
+    p: kind === 'osmo' ? f1(row.mass || 0) : '', pi: kind === 'osmo' ? f2(row.pi) : '', T: row.tc ?? '', TK: row.TK ?? '', c: row.c !== undefined ? f2(row.c) : '',
+    M: kind === 'mm' ? f1(d.M) : '', ans: kind === 'mm' ? t('fz.ansFmt', { f: SUBSTANCES[row.ans].formula, n: subName(row.ans), M: SUBSTANCES[row.ans].M }) : '',
+    pickM: kind === 'mm' && d.picked ? d.picked : '',
   };
-  const fam = kind === 'vapor' ? 'dv' : kind === 'boil' ? 'db' : 'diag';
+  if (kind === 'osmo') { vars.sub = subName(row.csub); vars.f = SUBSTANCES[row.csub].formula; vars.i = SUBSTANCES[row.csub].i; }
+  if (kind === 'mm' && row.sub) { vars.sub = subName(row.sub); vars.f = SUBSTANCES[row.sub].formula; }
+  const fam = kind === 'vapor' ? 'dv' : kind === 'boil' ? 'db' : kind === 'osmo' ? 'do' : kind === 'mm' ? 'dm' : 'diag';
   const cls = row.fail ? 'is-frozen' : ['waste', 'forgotIon', 'ignoredResidual', 'noSubtract'].includes(d.kind) ? 'is-waste' : '';
   return `<li class="${cls}"><b>${k + 1}</b>${esc(t(`fz.${fam}.${d.kind}`, vars))}</li>`;
 }
@@ -218,7 +302,7 @@ function refreshPrep() {
     b.querySelector('i').style.width = `${(Math.min(1, p.used / night.budget) * 100).toFixed(1)}%`;
   }
   const go = $('go-btn');
-  if (go) { go.disabled = p.over; go.textContent = t(p.over ? 'fz.overBudget' : `fz.go.${night.kind}`); }
+  if (go) { go.disabled = p.over && night.kind !== 'mm'; go.textContent = t(p.over && night.kind !== 'mm' ? 'fz.overBudget' : `fz.go.${night.kind}`); }
 }
 
 /** 3D の札 */
@@ -230,11 +314,20 @@ function updateSections(tNight = null) {
     if (phase === 'prep') {
       if (kind === 'vapor') return { title, big: `≦${f2(sec.mMax)}`, small: `${SUBSTANCES[sec.csub].formula} ${sec.cg} g`, progress: 0 };
       if (kind === 'boil') return { title, big: `${fmtBp(sec.target)}℃`, small: t('fz.waterKg', { w: f1(sec.water) }), progress: 0 };
+      if (kind === 'osmo') return { title, big: `${f2(sec.c)} mol/L`, small: `${SUBSTANCES[sec.csub].formula} ${sec.tc}℃`, progress: 0 };
+      if (kind === 'mm') return { title: t('fz.sampleN', { n: k + 1 }), big: '?', small: t('fz.unknown'), progress: 0 };
       return { title, big: `${signed(sec.low)}℃`, small: t('fz.waterKg', { w: f1(sec.water) }), progress: 0 };
     }
     const row = (result || judge(night, cleanPicks())).rows[k];
     const x = phase === 'night' ? tNight : 1;
     const ns = nightState(kind, row, x);
+    if (kind === 'osmo') {
+      return { title, big: phase === 'morning' ? t(row.fail ? 'fz.osFail' : 'fz.osOk') : `${f1(row.mass || 0)}×10⁵`, small: phase === 'morning' ? `Π = ${f2(row.pi)}×10⁵ Pa` : t('fz.pressing'), bad: ns.failNow, ok: !row.fail && ns.progress >= 1, progress: ns.progress, fail: row.fail };
+    }
+    if (kind === 'mm') {
+      const S = row.sub ? SUBSTANCES[row.sub] : null;
+      return { title: t('fz.sampleN', { n: k + 1 }), big: ns.reveal ? (row.fail ? '✗' : '✓') : '…', small: ns.reveal ? SUBSTANCES[row.ans].formula : (S ? S.formula : '?'), bad: ns.reveal && row.fail, ok: ns.reveal && !row.fail, progress: ns.progress };
+    }
     if (kind === 'vapor') {
       const pct = Math.round(ns.progress * 100);
       return { title, big: phase === 'morning' ? t(row.fail ? 'fz.wet' : 'fz.dry') : `${pct}%`, small: `${f2(row.value)} mol/kg`, bad: ns.failNow, ok: !row.fail && ns.progress >= 1, progress: ns.progress };
@@ -252,7 +345,7 @@ function cleanPicks() { return picks.map((x) => ({ sub: x.sub, mass: Number(x.ma
 
 function goNight() {
   const p = plan(night, cleanPicks());
-  if (p.over) return;
+  if (p.over && night.kind !== 'mm') return;
   result = judge(night, cleanPicks());
   run = { t0: performance.now(), dur: NIGHT.durSec * 1000, base: 0 };
   phase = 'night';
@@ -268,7 +361,17 @@ function renderNightRows(x) {
   box.innerHTML = result.rows.map((row, k) => {
     const ns = nightState(kind, row, x);
     let a, b, c, bad = ns.failNow, ok = false;
-    if (kind === 'vapor') {
+    if (kind === 'osmo') {
+      a = `${esc(t('fz.pressShort'))} ${f1(row.mass || 0)}<small>×10⁵Pa</small>`;
+      b = `${esc(t('fz.fresh'))} ${row.fail ? '−' : ''}${Math.round(ns.progress * 100)}<small>%</small>`;
+      ok = !row.fail && ns.progress >= 1;
+      c = t(bad ? 'fz.osBack' : ok ? 'fz.osOk' : 'fz.pressing');
+    } else if (kind === 'mm') {
+      a = `${esc(t('fz.sampleN', { n: k + 1 }))}`;
+      b = row.sub ? `${esc(SUBSTANCES[row.sub].formula)}` : '—';
+      ok = ns.reveal && !row.fail;
+      c = t(!ns.reveal ? 'fz.testing' : row.fail ? 'fz.mmWrong' : 'fz.mmRight');
+    } else if (kind === 'vapor') {
       a = `${esc(t('fz.dryness'))} ${Math.round(ns.progress * 100)}<small>%</small>`;
       b = `${f2(row.value)}<small>/${f2(row.mMax)}</small>`;
       ok = !row.fail && ns.progress >= 1;
@@ -340,14 +443,30 @@ async function morning() {
   const nights = { ...(d.nights || {}) };
   const k = key(si, ni);
   const prev = nights[k] || {};
-  const firstClear = r.all && !prev.cleared;
-  const firstBonus = r.all && r.half && !prev.bonus;
+  const firstClear = r.all && !prev.cleared && night.kind !== 'mm';
+  const firstBonus = r.all && r.half && !prev.bonus && night.kind !== 'mm';
   nights[k] = { cleared: prev.cleared || r.all, bonus: prev.bonus || (r.all && r.half), best: Math.max(prev.best || 0, r.safe), at: Date.now() };
   setWorldData(WORLD, { ...d, nights });
   if (r.all) fx.celebrate();
   renderPanel();
   updateSections();
   const lines = [];
+  if (night.kind === 'mm') {
+    // ステージ7：正しく特定した問題ごとに 150（その問題で初めてのとき）
+    const d2 = getWorldData(WORLD);
+    const ids = { ...(d2.ids || {}) };
+    let total = 0;
+    r.rows.forEach((row, q) => { const id = `${night.stage}-${night.night}-${q + 1}`; if (!row.fail && !ids[id]) { ids[id] = Date.now(); total += REWARD.identify; } });
+    setWorldData(WORLD, { ...d2, ids });
+    if (total > 0) {
+      const e = await pay('ledger.item.fzIdentify', { s: night.stage, n: night.night }, total);
+      lines.push(e ? t('fz.rewardIdentify', { gross: formatHiyama(e.gross), net: formatHiyama(e.amount) }) : t('fz.cap'));
+    } else if (r.safe > 0) lines.push(t('fz.already'));
+    rewardText = lines.join(' ／ ');
+    if (phase === 'morning') renderPanel();
+    if (!r.all) setTimeout(() => { if (phase === 'morning') openTut('recap'); }, 1400);
+    return;
+  }
   if (firstClear) {
     const e = await pay('ledger.item.fzNight', { s: night.stage, n: night.night }, REWARD.night);
     lines.push(e ? t('fz.rewardNight', { gross: formatHiyama(e.gross), net: formatHiyama(e.amount) }) : t('fz.cap'));
@@ -359,6 +478,8 @@ async function morning() {
   if (r.all && !firstClear && !firstBonus) lines.push(t('fz.already'));
   rewardText = lines.join(' ／ ');
   if (phase === 'morning') renderPanel();
+  // 失敗した区間があれば、少し待ってから「かんたん解説」
+  if (!r.all) setTimeout(() => { if (phase === 'morning') openTut('recap'); }, 1400);
 }
 
 async function pay(itemKey, itemVars, gross) {
@@ -374,8 +495,9 @@ function loop(nowMs) {
   if (phase === 'night' && run && screen === 'play') {
     const x = Math.min(1, run.base + (nowMs - run.t0) / run.dur);
     scene.setNight(Math.min(1, x / NIGHT.lowAt));
-    const startH = night.kind === 'boil' ? 16 : night.kind === 'vapor' ? 18 : NIGHT.startHour;
-    const hour = (startH + x * (night.kind === 'boil' ? 3 : night.kind === 'vapor' ? 12 : NIGHT.hours)) % 24;
+    const hour = (startHour() + x * spanHours()) % 24;
+    // 朝が近づくと、地平線のあたりがぼんやり明るくなる
+    setDawn(Math.max(0, (x - 0.72) / 0.28));
     const el = $('clock');
     if (el) el.textContent = `${String(Math.floor(hour)).padStart(2, '0')}:${String(Math.floor((hour % 1) * 60)).padStart(2, '0')}`;
     const tick = Math.floor(x * 80);
@@ -393,11 +515,16 @@ function setupInput() {
     if (act === 'stage') { si = Number(b.dataset.i); ni = 0; for (let n = STAGES[si].nights.length - 1; n >= 0; n--) if (nightOpen(si, n)) { ni = n; break; } renderTitle(); }
     else if (act === 'night') { ni = Number(b.dataset.i); renderTitle(); }
     else if (act === 'start') { if (nightOpen(si, ni)) startNight(si, ni); }
-    else if (act === 'to-title') { phase = 'prep'; run = null; if (calc) calc.close(); renderTitle(); show('title'); scene.setNight(0.2); }
+    else if (act === 'to-title') { phase = 'prep'; run = null; if (calc) calc.close(); closeTut(); setDawn(0); renderTitle(); show('title'); scene.setNight(0.2); }
     else if (act === 'calc') calc.toggle();
     else if (act === 'table') { showTable = !showTable; renderPanel(); }
     else if (act === 'go-night') goNight();
     else if (act === 'curve') openCurve(Number(b.dataset.k));
+    else if (act === 'tut') openTut('intro');
+    else if (act === 'recap') openTut('recap');
+    else if (act === 'tut-close') closeTut();
+    else if (act === 'tut-replay') openTut(tutMode, tutIdx);
+    else if (act === 'tut-next') openTut('recap', (tutIdx + 1) % Math.max(1, failRows().length));
     else if (act === 'curve-close') closeCurve();
     else if (act === 'fast') {
       if (run) {
@@ -454,7 +581,7 @@ async function start() {
     setUserLang(lang);
     applyToDom();
     if (screen === 'title') renderTitle();
-    if (screen === 'play') { if (phase === 'night') renderPanel(); else renderPanel(); updateSections(); }
+    if (screen === 'play') { renderPanel(); updateSections(); if (!$('tut').hidden) openTut(tutMode, tutIdx); }
     if (calc) calc.redraw();
   });
 
@@ -491,6 +618,7 @@ async function start() {
     window.__fz = {
       get phase() { return phase; }, get night() { return night; }, get result() { return result; }, get screen() { return screen; },
       start: (s, n) => startNight(s, n),
+      tut: (m) => openTut(m), closeTut: () => closeTut(),
       fill: (list) => { list.forEach((x, k) => { picks[k] = { sub: x.sub, mass: String(x.mass) }; }); renderPanel(); },
       need: (sub, k) => needed(night.kind, night.sections[k], sub),
       go: () => goNight(),

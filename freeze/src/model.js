@@ -18,7 +18,33 @@ function sectionOf(kind, row, i) {
   if (kind === 'curve') { const [water, low, fp0, sc] = row; return { i, water, low, fp0, sc }; }
   if (kind === 'vapor') { const [csub, cg, water, mMax] = row; return { i, csub, cg, water, mMax }; }
   if (kind === 'boil') { const [water, rise] = row; return { i, water, rise, target: 100 + rise }; }
+  if (kind === 'osmo') { const [csub, c, tc] = row; const S = SUBSTANCES[csub]; return { i, csub, c, tc, TK: tc + 273, pi: (S.i * c * CONST.R * (tc + 273)) / 1e5 }; }
+  if (kind === 'mm') return mmSection(row, i);
   const [water, low] = row; return { i, water, low };
+}
+
+/** ステージ7：問題の中身と、測った値（表示する桁に丸めた値） */
+function mmSection(row, i) {
+  const q = row[0];
+  if (q === 'osm') {
+    const [, g, V, tc, ans] = row;
+    const S = SUBSTANCES[ans];
+    const pi = ((g / S.M) / V) * CONST.R * (tc + 273);
+    const e = Math.floor(Math.log10(pi));
+    const mant = Math.round((pi / 10 ** e) * 100) / 100;
+    return { i, q, g, V, tc, TK: tc + 273, ans, piMant: mant, piExp: e, measured: mant * 10 ** e };
+  }
+  const [, g, sg, ans] = row;
+  const S = SUBSTANCES[ans];
+  const kf = q === 'fpb' ? CONST.benzeneKf : CONST.Kf;
+  const dt = Math.round(kf * ((g / S.M) / (sg / 1000)) * 100) / 100;
+  const fp = q === 'fpb' ? Math.round((CONST.benzeneFp - dt) * 100) / 100 : -dt;
+  return { i, q, g, sg, ans, kf, dt, fp, measured: fp };
+}
+/** ステージ7：測った値から求めた分子量 */
+export function molarFrom(sec) {
+  if (sec.q === 'osm') return (sec.g * CONST.R * sec.TK) / (sec.measured * sec.V);
+  return (sec.kf * sec.g * 1000) / (sec.dt * sec.sg);
 }
 
 /** 撒く・溶かす物質で、必要な粒子の物質量（mol） */
@@ -38,6 +64,8 @@ function waterNeeded(sec) {
 /** その区間に、物質 sub をちょうどの量だけ撒く・溶かすときの質量 g（ステージ4は真水の kg） */
 export function needed(kind, sec, sub) {
   if (kind === 'vapor') return waterNeeded(sec);
+  if (kind === 'osmo') return sec.pi;
+  if (kind === 'mm') return 0;
   const S = SUBSTANCES[sub];
   return (particlesNeeded(kind, sec) / S.i) * S.M;
 }
@@ -45,6 +73,8 @@ export function needed(kind, sec, sub) {
 export function cost(kind, sub, amount) {
   if (!(amount > 0)) return 0;
   if (kind === 'vapor') return amount * CONST.waterPrice;
+  if (kind === 'osmo') return amount * CONST.pressPrice;
+  if (kind === 'mm') return 0;
   if (!sub) return 0;
   const S = SUBSTANCES[sub];
   return (amount / S.M) * S.price;
@@ -57,13 +87,17 @@ export function nightOf(stageIdx, nightIdx) {
   const sections = st.nights[nightIdx].map((row, i) => sectionOf(kind, row, i));
   let budget;
   if (kind === 'vapor') budget = ceil10(sections.reduce((a, s) => a + waterNeeded(s), 0) * CONST.waterPrice * st.budgetPerKg);
+  else if (kind === 'osmo') budget = ceil10(sections.reduce((a, s) => a + s.pi, 0) * CONST.pressPrice * st.budgetPerBar);
+  else if (kind === 'mm') budget = 0;
   else budget = ceil10(sections.reduce((a, s) => a + particlesNeeded(kind, s), 0) * st.budgetPerMol);
-  return { stage: st.id, night: nightIdx + 1, kind, substances: st.substances, sections, budget };
+  return { stage: st.id, night: nightIdx + 1, kind, substances: st.substances, candidates: st.candidates || [], sections, budget };
 }
 
 /** 区間の結果の値：freeze・curve は凝固点、vapor は粒子の質量モル濃度、boil は沸点 */
 export function valueOf(kind, sec, pick) {
+  if (kind === 'mm') return pick && pick.sub ? pick.sub : null;
   const amt = Number(pick && pick.mass) || 0;
+  if (kind === 'osmo') return amt;
   if (kind === 'vapor') {
     const S = SUBSTANCES[sec.csub];
     return ((sec.cg / S.M) * S.i) / (sec.water + amt);
@@ -76,6 +110,8 @@ export function valueOf(kind, sec, pick) {
 }
 /** 合格しなかったか（凍った・乾かなかった・煮立たなかった） */
 export function failed(kind, sec, v) {
+  if (kind === 'mm') return v !== sec.ans;
+  if (kind === 'osmo') return v < sec.pi - 1e-6;
   if (kind === 'vapor') return v > sec.mMax + 1e-6;
   if (kind === 'boil') return v < sec.target - 1e-6;
   return sec.low < v - 1e-6;
@@ -100,7 +136,7 @@ export function judge(night, picks) {
     return { ...r, fail, frozen: fail, diag: diagnose(night.kind, r, fail) };
   });
   const safe = rows.filter((r) => !r.fail).length;
-  return { rows, safe, all: safe === rows.length, used: p.used, left: p.left, budget: night.budget, half: p.left >= night.budget / 2 - 1e-9 };
+  return { rows, safe, all: safe === rows.length, used: p.used, left: p.left, budget: night.budget, half: night.budget > 0 && p.left >= night.budget / 2 - 1e-9 };
 }
 
 /**
@@ -113,6 +149,26 @@ export function judge(night, picks) {
  */
 export function diagnose(kind, r, fail) {
   const amt = r.mass || 0;
+  if (kind === 'mm') {
+    const M = molarFrom(r);
+    if (!r.sub) return { kind: 'none', M };
+    return { kind: fail ? 'wrong' : 'good', M, picked: SUBSTANCES[r.sub].M };
+  }
+  if (kind === 'osmo') {
+    const S = SUBSTANCES[r.csub];
+    const need = r.pi;
+    if (!(amt > 0)) return { kind: 'none', ratio: 0, need };
+    const ratio = amt / need;
+    if (fail) {
+      if (S.i > 1 && near(ratio, 1 / S.i)) return { kind: 'forgotIon', ratio, need };
+      if (near(ratio, r.tc / r.TK, 0.2) && r.tc > 1) return { kind: 'celsius', ratio, need };
+      if (ratio < 0.004) return { kind: 'unit', ratio, need };
+      if (ratio >= DIAG.near) return { kind: 'near', ratio, need };
+      return { kind: 'short', ratio, need };
+    }
+    if (ratio >= DIAG.waste) return { kind: 'waste', ratio, need };
+    return { kind: 'good', ratio, need };
+  }
   if (kind === 'vapor') {
     const S = SUBSTANCES[r.csub];
     const need = waterNeeded(r);
@@ -164,6 +220,14 @@ export function tempAt(low, t, N = NIGHT) {
 
 /** 夜の途中の、区間のようす（t：0〜1）。{ shown：表示する数値, failNow：もう失敗の見た目か, progress：0〜1 } */
 export function nightState(kind, row, t) {
+  if (kind === 'osmo') {
+    const p = Math.min(1, t / 0.85);
+    return { shown: p, failNow: row.fail && p > 0.3, progress: p };
+  }
+  if (kind === 'mm') {
+    const p = Math.min(1, t / 0.8);
+    return { shown: p, failNow: row.fail && p >= 1, progress: p, reveal: p >= 1 };
+  }
   if (kind === 'vapor') {
     const p = Math.min(1, t / 0.85);
     return { shown: (row.fail ? Math.min(p, DRY.failAt) : p), failNow: row.fail && p >= DRY.failAt, progress: row.fail ? Math.min(p, DRY.failAt) : p };

@@ -72,7 +72,7 @@ export function createScene(canvas) {
   }
 
   // ── 峠道（6区間） ──
-  const N = 6;
+  const N = 3;          // 区間の数（v0.3 から3つ）
   const sections = [];
   const tmpA = new THREE.Vector3(), tmpB = new THREE.Vector3();
   for (let k = 0; k < N; k++) {
@@ -107,8 +107,8 @@ export function createScene(canvas) {
     const c = document.createElement('canvas'); c.width = 256; c.height = 160;
     const tex = new THREE.CanvasTexture(c);
     const label = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false, depthTest: false, toneMapped: false }));
-    label.scale.set(1.9, 1.18, 1);
-    label.position.set(mid.x, mid.y + 1.3, mid.z);
+    label.scale.set(2.4, 1.5, 1);
+    label.position.set(mid.x, mid.y + 1.55, mid.z);
     label.renderOrder = 10;
     scene.add(label);
     // ステージ4：物干しの竿と布
@@ -140,7 +140,36 @@ export function createScene(canvas) {
     potG.add(pot, hotWater, fire, steam);
     potG.visible = false;
     scene.add(potG);
-    sections.push({ mesh, mat, label, c, tex, mid, frost: 0, goalFrost: 0, key: '', info: null, clothG, clothMat, cloth, potG, hotMat, fire, steam, stPos, stG });
+    // ステージ6：逆浸透の水槽（左：海水、まん中：半透膜、右：真水）
+    const tankG = new THREE.Group();
+    tankG.position.set(mid.x, mid.y, mid.z);
+    const glassM = new THREE.MeshStandardMaterial({ color: 0xcfe0ff, transparent: true, opacity: 0.18, roughness: 0.05, depthWrite: false, side: THREE.DoubleSide });
+    const tank = new THREE.Mesh(new THREE.BoxGeometry(1.0, 0.8, 0.45), glassM);
+    tank.position.y = 0.42;
+    const memb = new THREE.Mesh(new THREE.PlaneGeometry(0.45, 0.8), new THREE.MeshBasicMaterial({ color: 0xFFC074, transparent: true, opacity: 0.55, side: THREE.DoubleSide, toneMapped: false }));
+    memb.rotation.y = Math.PI / 2; memb.position.y = 0.42;
+    const seaW = new THREE.Mesh(new THREE.BoxGeometry(0.47, 1, 0.42), new THREE.MeshStandardMaterial({ color: 0x2a6bd8, transparent: true, opacity: 0.7, emissive: 0x0a2a6a, emissiveIntensity: 0.4 }));
+    seaW.position.x = -0.25;
+    const freshM = new THREE.MeshStandardMaterial({ color: 0xcfefff, transparent: true, opacity: 0.6, emissive: 0x2a5a7a, emissiveIntensity: 0.3 });
+    const freshW = new THREE.Mesh(new THREE.BoxGeometry(0.47, 1, 0.42), freshM);
+    freshW.position.x = 0.25;
+    const piston = new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.06, 0.42), new THREE.MeshStandardMaterial({ color: 0x9aa6c4, metalness: 0.8, roughness: 0.3 }));
+    piston.position.x = -0.25;
+    tankG.add(tank, memb, seaW, freshW, piston);
+    tankG.visible = false;
+    scene.add(tankG);
+    // ステージ7：鑑定のフラスコ
+    const flaskG = new THREE.Group();
+    flaskG.position.set(mid.x, mid.y, mid.z);
+    const flaskMat = new THREE.MeshStandardMaterial({ color: 0xcfe0ff, transparent: true, opacity: 0.22, roughness: 0.05, depthWrite: false });
+    const body = new THREE.Mesh(new THREE.ConeGeometry(0.36, 0.55, 20, 1, true), flaskMat); body.position.y = 0.3;
+    const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 0.3, 12, 1, true), flaskMat); neck.position.y = 0.72;
+    const liqMat = new THREE.MeshStandardMaterial({ color: 0x8FF3FA, emissive: 0x2a6a7a, emissiveIntensity: 0.6, transparent: true, opacity: 0.8 });
+    const liq = new THREE.Mesh(new THREE.ConeGeometry(0.3, 0.3, 20), liqMat); liq.position.y = 0.17;
+    flaskG.add(body, neck, liq);
+    flaskG.visible = false;
+    scene.add(flaskG);
+    sections.push({ mesh, mat, label, c, tex, mid, frost: 0, goalFrost: 0, key: '', info: null, clothG, clothMat, cloth, potG, hotMat, fire, steam, stPos, stG, tankG, seaW, freshW, piston, freshM, flaskG, liqMat });
   }
 
   // ── 海（ステージ4：港） ──
@@ -259,7 +288,7 @@ export function createScene(canvas) {
     setTheme(kind) {
       theme = kind;
       sea.visible = kind === 'vapor';
-      for (const s of sections) { s.clothG.visible = kind === 'vapor'; s.potG.visible = kind === 'boil'; s.goalFrost = 0; s.frost = 0; s.key = ''; }
+      for (const s of sections) { s.clothG.visible = kind === 'vapor'; s.potG.visible = kind === 'boil'; s.tankG.visible = kind === 'osmo'; s.flaskG.visible = kind === 'mm'; s.goalFrost = 0; s.frost = 0; s.key = ''; }
     },
     setSections(list) {
       list.forEach((inf, k) => {
@@ -270,6 +299,13 @@ export function createScene(canvas) {
       });
     },
     /** 夜の深さ：0（夕方）〜1（真夜中）。雪の降り方と空の暗さ */
+    /** 朝日：0（夜）〜1（朝）。明かりを暖かくする */
+    setDawn(k) {
+      const c = new THREE.Color(0xbfd8ff).lerp(new THREE.Color(0xffd2a8), k * 0.8);
+      hemi.color.copy(c);
+      moon.color.copy(new THREE.Color(0xdfe8ff).lerp(new THREE.Color(0xffb07a), k));
+      moon.intensity = 0.45 + k * 0.6;
+    },
     setNight(depth) {
       snowRate = 0.3 + depth * 0.9;
       hemi.intensity = 0.6 - depth * 0.25;
@@ -296,6 +332,17 @@ export function createScene(canvas) {
           const pa = s.cloth.geometry.attributes.position;
           for (let v = 0; v < pa.count; v++) { const x = pa.getX(v), y = pa.getY(v); pa.setZ(v, Math.sin(now * 2.2 + x * 5 + s.mid.x) * 0.05 * (0.6 - y)); }
           pa.needsUpdate = true;
+        } else if (theme === 'osmo') {
+          const p = inf.progress || 0;
+          const f = inf.fail ? Math.max(0.05, 0.3 - p * 0.25) : 0.3 + p * 0.35;
+          const sw = inf.fail ? 0.5 + p * 0.15 : 0.5 - p * 0.18;
+          s.freshW.scale.y = f; s.freshW.position.y = 0.03 + f / 2;
+          s.seaW.scale.y = sw; s.seaW.position.y = 0.03 + sw / 2;
+          s.piston.position.y = 0.03 + sw + 0.03;
+          s.freshM.emissive.copy(new THREE.Color(0x2a5a7a).lerp(new THREE.Color(inf.bad ? 0x7a2030 : 0x5fd6ff), p));
+        } else if (theme === 'mm') {
+          const p = inf.progress || 0;
+          s.liqMat.emissive.copy(new THREE.Color(0x2a6a7a).lerp(new THREE.Color(inf.bad ? 0xff3050 : inf.ok ? 0xffd86b : 0x8FF3FA), p >= 1 ? 1 : 0.3 + Math.sin(now * 6 + s.mid.x) * 0.2));
         } else if (theme === 'boil') {
           const p = inf.progress || 0;
           s.fire.scale.setScalar(0.6 + p * 0.5 + Math.sin(now * 12 + s.mid.x) * 0.08);
