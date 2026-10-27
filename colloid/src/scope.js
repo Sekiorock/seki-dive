@@ -90,6 +90,7 @@ export function createScope(canvas) {
           if (d.y < 0.05 || d.y > 0.95) d.vy *= -1;
           d.x = Math.max(0.04, Math.min(0.96, d.x)); d.y = Math.max(0.04, Math.min(0.96, d.y));
           const r = opt.molecules ? 4.5 : 2.6;
+          if (opt.shield) { g.strokeStyle = 'rgba(255,216,107,0.9)'; g.lineWidth = 2; g.beginPath(); g.arc(d.x * W, d.y * H, r * 2.4, 0, Math.PI * 2); g.stroke(); }
           const gg = g.createRadialGradient(d.x * W, d.y * H, 0, d.x * W, d.y * H, r * 2.6);
           gg.addColorStop(0, 'rgba(255,250,220,1)'); gg.addColorStop(0.4, 'rgba(255,230,160,0.6)'); gg.addColorStop(1, 'rgba(255,230,160,0)');
           g.fillStyle = gg; g.beginPath(); g.arc(d.x * W, d.y * H, r * 2.6, 0, Math.PI * 2); g.fill();
@@ -100,6 +101,32 @@ export function createScope(canvas) {
           g.fillStyle = 'rgba(160,120,80,0.9)';
           g.beginPath(); g.arc(p.x * W, p.y * H, p.r * W, 0, Math.PI * 2); g.fill();
         }
+      } else if (mode === 'electro') {
+        // 電気泳動：左が陰極（−）、右が陽極（＋）。正の粒は左へ、負の粒は右へ
+        const leftNeg = (opt.left || '-') === '-';
+        g.fillStyle = leftNeg ? 'rgba(92,224,255,0.5)' : 'rgba(255,94,112,0.5)'; g.fillRect(0, 0, W * 0.08, H);
+        g.fillStyle = leftNeg ? 'rgba(255,94,112,0.5)' : 'rgba(92,224,255,0.5)'; g.fillRect(W * 0.92, 0, W * 0.08, H);
+        g.fillStyle = '#fff'; g.font = `800 ${Math.round(W * 0.1)}px sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle';
+        g.fillText(leftNeg ? '−' : '+', W * 0.12, H * 0.5); g.fillText(leftNeg ? '+' : '−', W * 0.88, H * 0.5);
+        const toLeft = (opt.sign > 0) === leftNeg;
+        for (const d of dots) {
+          if (opt.on) d.x += (toLeft ? -1 : 1) * dt * 0.28;
+          d.x += (Math.random() - 0.5) * dt * 0.2; d.y += (Math.random() - 0.5) * dt * 0.2;
+          if (d.x < 0.14) d.x = 0.14 + Math.random() * 0.02; if (d.x > 0.86) d.x = 0.86 - Math.random() * 0.02;
+          d.y = Math.max(0.08, Math.min(0.92, d.y));
+          g.fillStyle = opt.sign > 0 ? '#ffb070' : '#c8b090';
+          g.beginPath(); g.arc(d.x * W, d.y * H, W * 0.035, 0, Math.PI * 2); g.fill();
+          g.fillStyle = '#05081A'; g.font = `800 ${Math.round(W * 0.05)}px sans-serif`;
+          g.fillText(opt.sign > 0 ? '+' : '−', d.x * W, d.y * H + 1);
+        }
+      } else if (mode === 'coag') {
+        // 凝析：電荷が打ち消されて、粒どうしが集まり、大きくなって沈む
+        dots.forEach((d, i) => {
+          const cx = 0.3 + (i % 3) * 0.2, cy = 0.75 + Math.floor(i / 9) * 0.05;
+          d.x += (cx - d.x) * dt * 0.6; d.y += (cy - d.y) * dt * 0.5;
+          g.fillStyle = opt.sign < 0 ? '#c8b090' : '#c0602e';
+          g.beginPath(); g.arc(d.x * W, d.y * H, W * 0.04, 0, Math.PI * 2); g.fill();
+        });
       } else if (mode === 'dialysis') {
         // 外の水（AgNO₃ を入れたとき、Cl⁻ があれば白くにごる：AgCl）
         if (opt.cloud) { g.fillStyle = `rgba(240,245,255,${0.55 * opt.cloud})`; g.fillRect(MEMB * W, 0, W, H); }

@@ -6,7 +6,8 @@
 //   ・指でなぞると少し回る、2本指で寄る・引く。下の操作盤より上の「見える場所」に小道具が入るように距離を決める。
 // 軽く保つため、影は使わない。
 
-import { RENDER, LIQUIDS } from './config.js';
+import { RENDER, LIQUIDS, SCOPE } from './config.js';
+import { createDecor } from './decor.js';
 import { ACCENTS, hexToInt } from '../../shared/theme.js';
 
 const ACC = ACCENTS.colloid;
@@ -70,7 +71,8 @@ export function createScene(canvas) {
   mistGeo.setAttribute('position', new THREE.BufferAttribute(mistPos, 3));
   const puff = document.createElement('canvas'); puff.width = puff.height = 64;
   { const pg = puff.getContext('2d'); const gr = pg.createRadialGradient(32, 32, 0, 32, 32, 32); gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); pg.fillStyle = gr; pg.fillRect(0, 0, 64, 64); }
-  const mist = new THREE.Points(mistGeo, new THREE.PointsMaterial({ color: 0xdff8ef, size: 1.2, map: new THREE.CanvasTexture(puff), transparent: true, opacity: 0.13, depthWrite: false }));
+  const puffTex = new THREE.CanvasTexture(puff);
+  const mist = new THREE.Points(mistGeo, new THREE.PointsMaterial({ color: 0xdff8ef, size: 1.2, map: puffTex, transparent: true, opacity: 0.13, depthWrite: false }));
   scene.add(mist);
 
   // ── 光の鈴（左の灯籠） ──
@@ -106,7 +108,14 @@ export function createScene(canvas) {
     const liqMat = new THREE.MeshStandardMaterial({ color: 0xbfe6ff, transparent: true, opacity: 0.55, roughness: 0.15, emissive: 0x0a2a3a, emissiveIntensity: 0.3 });
     const liq = new THREE.Mesh(new THREE.CylinderGeometry(0.39, 0.36, 0.8, 24), liqMat);
     liq.position.y = 0.46;
-    cupG.add(cup, base, liq);
+    // ゲル（豆腐）やキセロゲル（高野豆腐）は、杯ではなく皿の上の固まり。沈殿は杯の底に
+    const solidMat = new THREE.MeshStandardMaterial({ color: 0xf8f6ee, roughness: 0.6, emissive: 0x202018, emissiveIntensity: 0.3, flatShading: true });
+    const solid = new THREE.Mesh(new THREE.BoxGeometry(0.52, 0.42, 0.52), solidMat);
+    solid.position.y = 0.28;
+    const sedMat = new THREE.MeshStandardMaterial({ color: 0x8a4a22, roughness: 0.9 });
+    const sed = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.35, 0.12, 20), sedMat);
+    sed.position.y = 0.13;
+    cupG.add(cup, base, liq, solid, sed);
     // 光の筋（液の中）と、外の光の線
     const bIn = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 1, 10), beamMat());
     bIn.rotation.z = Math.PI / 2;
@@ -120,7 +129,7 @@ export function createScene(canvas) {
     label.renderOrder = 10;
     g.add(pool, rim, cupG, bIn, spotA, spotB, label);
     scene.add(g);
-    return { g, pool, rim, poolMat, cupG, liqMat, bIn, spotA, spotB, label, c, tex, key: '', lit: 0, litGoal: 0, beam: false, kind: 'pool', sel: false, k };
+    return { g, pool, rim, poolMat, cupG, cup, liq, liqMat, solid, solidMat, sed, sedMat, bIn, spotA, spotB, label, c, tex, key: '', lit: 0, litGoal: 0, beam: false, kind: 'pool', sel: false, k, sedGoal: 0, sedNow: 0 };
   });
   // 鈴から小道具へ向かう光の線（空気の中では見えにくいので、細く淡く）
   const ray = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 1, 6), beamMat());
@@ -177,6 +186,85 @@ export function createScene(canvas) {
   gateG.add(tub, tubWater, bag);
   gateG.visible = false;
   scene.add(gateG);
+
+  // ── エリア4：電気泳動の水槽（左右に電極） ──
+  const troughG = new THREE.Group();
+  const trough = new THREE.Mesh(new THREE.BoxGeometry(4.0, 0.7, 0.8), glassMat);
+  trough.position.set(0, 0.4, 0.4);
+  const tLiqMat = new THREE.MeshStandardMaterial({ color: 0xb4542a, transparent: true, opacity: 0.35, roughness: 0.2, emissive: 0x3a1004, emissiveIntensity: 0.4 });
+  const tLiq = new THREE.Mesh(new THREE.BoxGeometry(3.9, 0.55, 0.72), tLiqMat);
+  tLiq.position.set(0, 0.34, 0.4);
+  troughG.add(trough, tLiq);
+  const poles = {};
+  for (const [side, x] of [['L', -1.85], ['R', 1.85]]) {
+    const rod = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 1.3, 8), new THREE.MeshStandardMaterial({ color: 0x9aa6c4, metalness: 0.8, roughness: 0.3 }));
+    rod.position.set(x, 0.75, 0.4);
+    const c = document.createElement('canvas'); c.width = c.height = 64;
+    const tex = new THREE.CanvasTexture(c);
+    const sign = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false, toneMapped: false, fog: false }));
+    sign.scale.set(0.55, 0.55, 1); sign.position.set(x, 1.65, 0.4); sign.renderOrder = 11;
+    troughG.add(rod, sign);
+    poles[side] = { rod, c, tex, sign, key: '' };
+  }
+  const EN = SCOPE.electro;
+  const ePos = new Float32Array(EN * 3);
+  const eX = Array.from({ length: EN }, () => (Math.random() - 0.5) * 3.4);
+  const eY = Array.from({ length: EN }, () => 0.15 + Math.random() * 0.45);
+  const eZ = Array.from({ length: EN }, () => 0.1 + Math.random() * 0.6);
+  const eGeo = new THREE.BufferGeometry(); eGeo.setAttribute('position', new THREE.BufferAttribute(ePos, 3));
+  const eDots = new THREE.Points(eGeo, new THREE.PointsMaterial({ color: 0xffb070, size: 0.13, transparent: true, depthWrite: false, toneMapped: false, fog: false }));
+  troughG.add(eDots);
+  const arcMat = new THREE.LineBasicMaterial({ color: 0xd8b0ff, transparent: true, opacity: 0, toneMapped: false });
+  const arcGeo = new THREE.BufferGeometry(); const arcPos = new Float32Array(14 * 3); arcGeo.setAttribute('position', new THREE.BufferAttribute(arcPos, 3));
+  troughG.add(new THREE.Line(arcGeo, arcMat));
+  const pileMat = new THREE.MeshStandardMaterial({ color: 0xb4542a, emissive: 0x7a2a08, emissiveIntensity: 0.6, roughness: 0.6 });
+  const pile = new THREE.Mesh(new THREE.ConeGeometry(0.45, 0.6, 12), pileMat);
+  pile.position.set(-1.45, 0.3, 0.4);
+  troughG.add(pile);
+  troughG.visible = false;
+  scene.add(troughG);
+  const tr = { L: null, R: null, on: false, sign: 1, pile: 0, pileGoal: 0, pileSide: 'L' };
+  function drawPole(side) {
+    const P = poles[side]; const v = tr[side] || '';
+    if (P.key === v) return; P.key = v;
+    const g = P.c.getContext('2d'); g.clearRect(0, 0, 64, 64);
+    if (!v) { P.tex.needsUpdate = true; return; }
+    g.fillStyle = v === '-' ? '#5ce0ff' : '#ff5e70';
+    g.beginPath(); g.arc(32, 32, 28, 0, Math.PI * 2); g.fill();
+    g.fillStyle = '#05081A'; g.font = '800 46px sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(v === '-' ? '−' : '+', 32, 34);
+    P.tex.needsUpdate = true;
+  }
+
+  // ── 湖の社：社の建物と、7つの灯（道具をひとつ使うごとに1つ灯る） ──
+  const altarG = new THREE.Group();
+  const shrineBody = new THREE.Mesh(new THREE.BoxGeometry(2.2, 1.2, 1.4), new THREE.MeshStandardMaterial({ color: 0x5a2a1e, roughness: 0.6, emissive: 0x2a0a06, emissiveIntensity: 0.5 }));
+  shrineBody.position.set(0, 0.9, -1.4);
+  const roof = new THREE.Mesh(new THREE.ConeGeometry(2.0, 0.9, 4), new THREE.MeshStandardMaterial({ color: 0x20283a, roughness: 0.4, metalness: 0.3, flatShading: true }));
+  roof.rotation.y = Math.PI / 4; roof.scale.set(1.3, 1, 0.9); roof.position.set(0, 1.95, -1.4);
+  const roofNeon = new THREE.Mesh(new THREE.BoxGeometry(3.4, 0.04, 0.04), new THREE.MeshBasicMaterial({ color: 0x5CF2A8, toneMapped: false }));
+  roofNeon.position.set(0, 1.55, -0.5);
+  const doorGlowMat = new THREE.MeshBasicMaterial({ color: 0xffe7a0, transparent: true, opacity: 0.2, toneMapped: false });
+  const doorGlow = new THREE.Mesh(new THREE.PlaneGeometry(1.0, 0.9), doorGlowMat);
+  doorGlow.position.set(0, 0.8, -0.69);
+  altarG.add(shrineBody, roof, roofNeon, doorGlow);
+  const altarLamps = [];
+  for (let q = 0; q < 7; q++) {
+    const a = Math.PI * (0.1 + 0.8 * (q / 6));
+    const m = new THREE.Mesh(new THREE.SphereGeometry(0.14, 14, 10), new THREE.MeshBasicMaterial({ color: 0x3a4a56, toneMapped: false }));
+    m.position.set(-Math.cos(a) * 2.6, 0.35 + Math.sin(a) * 0.4, 0.4 - Math.sin(a) * 0.9);
+    const halo = new THREE.Sprite(new THREE.SpriteMaterial({ map: puffTex, color: 0x5CF2A8, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, opacity: 0 }));
+    halo.scale.set(1, 1, 1); halo.position.copy(m.position);
+    altarG.add(m, halo); altarLamps.push({ m, halo });
+  }
+  altarG.visible = false;
+  scene.add(altarG);
+  const altar = { lit: 0, done: 0, doneNow: 0 };
+
+  // ── 映え（エリアごとの景色） ──
+  let flash = 0;
+  const decor = createDecor(scene, { a: glowA, b: glowB, flash: (k) => { flash = k; } });
+  decor.setLevel(1);
+  let photo = false;
 
   let prop = 'pool';
   let fogDone = 0, fogGoal = 0, stoneN = 0, doorOpen = 0, doorGoal = 0;
@@ -260,6 +348,8 @@ export function createScene(canvas) {
       fogG.visible = kind === 'fog';
       shoalG.visible = kind === 'shoal';
       gateG.visible = kind === 'gate';
+      troughG.visible = kind === 'trough';
+      altarG.visible = kind === 'altar';
       slots.forEach((s, k) => {
         const it = items[k];
         const show = !!it && (kind === 'pool' || kind === 'cup');
@@ -270,8 +360,15 @@ export function createScene(canvas) {
         const col = new THREE.Color(L.color);
         s.pool.visible = kind === 'pool'; s.rim.visible = kind === 'pool'; s.cupG.visible = kind === 'cup';
         s.poolMat.color.copy(col.clone().multiplyScalar(0.45)); s.poolMat.opacity = 0.75 + L.cloud * 0.25;
-        s.liqMat.color.copy(col); s.liqMat.opacity = 0.45 + L.cloud * 0.5;
-        s.beam = L.beam;
+        const solidKind = L.solid;
+        s.cup.visible = !solidKind; s.liq.visible = !solidKind; s.solid.visible = !!solidKind;
+        if (solidKind) { s.solidMat.color.copy(col); s.solid.scale.set(solidKind === 'xero' ? 0.8 : 1, solidKind === 'xero' ? 0.55 : 1, solidKind === 'xero' ? 0.8 : 1); }
+        // 沈んだ（凝析・塩析）：液は澄んで、底に沈殿
+        const cleared = !!it.sediment;
+        s.liqMat.color.copy(cleared ? new THREE.Color(0xd8f0ff) : col); s.liqMat.opacity = cleared ? 0.35 : 0.45 + (L.cloud || 0) * 0.5;
+        s.sedMat.color.copy(col.clone().multiplyScalar(0.8));
+        s.sedGoal = cleared ? 1 : 0;
+        s.beam = !!L.beam && !cleared;
         s.sel = !!it.sel;
         s.text = it.label || '';
         const y = kind === 'pool' ? 0.09 : 0.5;
@@ -292,6 +389,14 @@ export function createScene(canvas) {
     setStones(n) { stoneN = n; },
     /** エリア3：袋（inWater 0/1、clean 0〜1：鍵の清まり具合、cloud 0〜1：外の水の白いにごり）と門 */
     setGate(o) { bagState.goal = o.inWater ? 1 : 0; bagState.clean = o.clean || 0; bagState.cloud = o.cloud || 0; doorGoal = o.open ? 1 : 0; },
+    /** エリア4：電極（L・R：'+' | '-' | null）、on：電圧をかけた、sign：粒の電荷（+1 正、-1 負）、pile：粒が集まって足場ができた（0〜1） */
+    setTrough(o) { Object.assign(tr, o); tr.pileGoal = o.pile ? 1 : 0; },
+    /** 湖の社：灯った数、すべて解けたか */
+    setAltar(n, done) { altar.lit = n; altar.done = done ? 1 : 0; },
+    /** 映え：エリアの番号（1〜8）で、景色の豪華さが変わる */
+    setAmbience(n) { decor.setLevel(n); document.body.dataset.amb = String(n); },
+    /** 映えスポット：写真向きのカメラにする */
+    setPhoto(v) { photo = v; },
     resetView() { user.az = 0; user.el = 0.32; user.zoom = 1; fit(); },
     frame(nowMs) {
       const now = nowMs / 1000;
@@ -305,6 +410,8 @@ export function createScene(canvas) {
       let rayOn = 0, rayTo = 0;
       slots.forEach((s) => {
         s.lit += (s.litGoal - s.lit) * ease(6);
+        s.sedNow += (s.sedGoal - s.sedNow) * ease(2);
+        s.sed.visible = s.sedNow > 0.02 && s.cup.visible; s.sed.scale.y = Math.max(0.01, s.sedNow);
         const flick = 0.9 + Math.sin(now * 9 + s.k) * 0.06;
         s.bIn.material.opacity = (s.beam ? 0.85 : 0.0) * s.lit * flick;
         s.spotA.material.opacity = 0.9 * s.lit; s.spotB.material.opacity = 0.9 * s.lit;
@@ -348,10 +455,40 @@ export function createScene(canvas) {
         doorOpen += (doorGoal - doorOpen) * ease(1.6);
         doorL.position.x = -0.73 - doorOpen * 1.2; doorR.position.x = 0.73 + doorOpen * 1.2;
       }
+      decor.step(now, dt);
+      hemi.intensity = 0.8 + flash;
+      if (prop === 'trough') {
+        drawPole('L'); drawPole('R');
+        const target = tr.on && (tr.L || tr.R) ? ((tr.L === '-') === (tr.sign > 0) ? -1.6 : 1.6) : null;
+        for (let i = 0; i < EN; i++) {
+          if (target !== null) eX[i] += Math.sign(target - eX[i]) * Math.min(Math.abs(target - eX[i]), dt * (0.5 + (i % 4) * 0.12));
+          else eX[i] += (Math.random() - 0.5) * dt * 0.4;
+          eX[i] = Math.max(-1.75, Math.min(1.75, eX[i]));
+          ePos[i * 3] = eX[i] + Math.sin(now * 3 + i) * 0.02; ePos[i * 3 + 1] = eY[i] + Math.sin(now * 2 + i * 1.7) * 0.03; ePos[i * 3 + 2] = eZ[i];
+        }
+        eGeo.attributes.position.needsUpdate = true;
+        eDots.material.color.set(tr.sign > 0 ? 0xffb070 : 0xc8b090);
+        if (tr.on) {
+          for (let q = 0; q < 14; q++) arcPos.set([-1.85 + (3.7 * q) / 13, 1.4 + (q % 13 ? (Math.random() - 0.5) * 0.25 : 0), 0.4], q * 3);
+          arcGeo.attributes.position.needsUpdate = true;
+          arcMat.opacity = Math.random() > 0.3 ? 0.9 : 0.2;
+        } else arcMat.opacity = 0;
+        tr.pile += (tr.pileGoal - tr.pile) * ease(1.5);
+        pile.visible = tr.pile > 0.02; pile.scale.set(1, Math.max(0.01, tr.pile), 1);
+        pile.position.set((tr.pileSide === 'R' ? 1.45 : -1.45), 0.3 * tr.pile, 0.4);
+        pileMat.color.set(tr.sign > 0 ? 0xb4542a : 0xa08a6a);
+      }
+      if (prop === 'altar') {
+        altar.doneNow += (altar.done - altar.doneNow) * ease(1.5);
+        altarLamps.forEach((L, q) => { const on = q < altar.lit; L.m.material.color.set(on ? 0x5CF2A8 : 0x3a4a56); L.halo.material.opacity = on ? 0.7 + Math.sin(now * 3 + q) * 0.2 : 0; });
+        doorGlowMat.opacity = 0.2 + altar.doneNow * 0.75;
+      }
       fit();
-      cur.dist += (goalDist - cur.dist) * ease(6);
-      cur.az += (user.az - cur.az) * ease(6);
-      cur.el += (user.el - cur.el) * ease(6);
+      const want = photo ? { az: 0.22, el: 0.05, dist: goalDist * 1.3 } : { az: user.az, el: user.el, dist: goalDist };
+      target.y += ((photo ? 2.6 : 0.8) - target.y) * ease(3);
+      cur.dist += (want.dist - cur.dist) * ease(photo ? 2 : 6);
+      cur.az += (want.az - cur.az) * ease(photo ? 2 : 6);
+      cur.el += (want.el - cur.el) * ease(photo ? 2 : 6);
       const ce = Math.cos(cur.el);
       camera.position.set(target.x + Math.sin(cur.az) * ce * cur.dist, target.y + Math.sin(cur.el) * cur.dist, target.z + Math.cos(cur.az) * ce * cur.dist);
       camera.lookAt(target);

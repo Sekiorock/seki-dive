@@ -197,3 +197,75 @@ html[lang="en"] .cl-logo__name { font-family: var(--font-en); font-weight: 700; 
 .cl-ruler__tick:first-child span { transform: none; }
 .cl-ruler__tick:last-child span { transform: translateX(-100%); }
 .cl-ruler__unit { margin: 0; text-align: right; font-size: 9px; color: var(--dim); }
+
+/* ── v0.2：映え（和風ゲーミング × 霧）。エリアが進むほど、霧の光と縁の光が豪華になる ── */
+body { --amb-a: #5CF2A8; --amb-b: #7aa8ff; --amb-k: 0.25; }
+body[data-amb="2"] { --amb-a: #5CF2A8; --amb-b: #c8ff6a; --amb-k: 0.3; }
+body[data-amb="3"] { --amb-a: #A985FF; --amb-b: #ff5e70; --amb-k: 0.38; }
+body[data-amb="4"] { --amb-a: #b07aff; --amb-b: #5ce0ff; --amb-k: 0.45; }
+body[data-amb="5"] { --amb-a: #FFC83A; --amb-b: #ff8a4a; --amb-k: 0.52; }
+body[data-amb="6"] { --amb-a: #ff9ac8; --amb-b: #FFC83A; --amb-k: 0.6; }
+body[data-amb="7"] { --amb-a: #E6B422; --amb-b: #A985FF; --amb-k: 0.68; }
+body[data-amb="8"] { --amb-a: #5CF2A8; --amb-b: #ff9ac8; --amb-k: 0.8; }
+.cl-mist { position: fixed; inset: 0; z-index: 2; pointer-events: none; overflow: hidden; opacity: var(--amb-k); transition: opacity 1.2s; }
+.cl-mist i { position: absolute; left: -50%; width: 200%; height: 60%; background:
+  radial-gradient(40% 50% at 20% 50%, color-mix(in srgb, var(--amb-a) 35%, transparent), transparent 70%),
+  radial-gradient(35% 45% at 70% 40%, color-mix(in srgb, var(--amb-b) 30%, transparent), transparent 70%),
+  radial-gradient(50% 60% at 45% 60%, rgba(220, 245, 240, 0.25), transparent 70%);
+  filter: blur(18px); mix-blend-mode: screen; animation: cl-drift 28s linear infinite; }
+.cl-mist i:first-child { top: 10%; }
+.cl-mist i:last-child { top: 40%; animation-duration: 40s; animation-direction: reverse; opacity: 0.7; }
+@keyframes cl-drift { from { transform: translateX(0); } to { transform: translateX(25%); } }
+.cl-panel { box-shadow: inset 0 0 0 1px var(--stroke-strong), inset 0 2px 0 var(--amb-a), 0 0 calc(30px * var(--amb-k)) color-mix(in srgb, var(--amb-a) 40%, transparent); }
+.cl-frame::before { filter: drop-shadow(0 0 6px var(--amb-a)); }
+.cl-mini--photo { color: #05081A; background: linear-gradient(135deg, var(--amb-a), var(--amb-b)); box-shadow: none; }
+.cl-photo-btn { min-height: 46px; background: linear-gradient(135deg, color-mix(in srgb, var(--amb-a) 30%, #0a1420), color-mix(in srgb, var(--amb-b) 30%, #0a1420)); }
+/* 映えスポット（写真向きの画面） */
+body.is-photo #title, body.is-photo #play, body.is-photo #topbar, body.is-photo .cl-frame, body.is-photo .cl-scope, body.is-photo #tut { visibility: hidden; }
+.cl-photo { position: fixed; inset: 0; z-index: 80; pointer-events: none; }
+.cl-photo[hidden] { display: none; }
+.cl-photo__frame { position: absolute; inset: 18px 14px 40px; border: 1px solid color-mix(in srgb, var(--amb-a) 50%, transparent); box-shadow: inset 0 0 40px color-mix(in srgb, var(--amb-a) 25%, transparent); }
+.cl-photo__c { position: absolute; width: 34px; height: 34px; border: 3px solid var(--amb-a); filter: drop-shadow(0 0 6px var(--amb-a)); }
+.cl-photo__c.is-tl { left: -2px; top: -2px; border-right: 0; border-bottom: 0; }
+.cl-photo__c.is-tr { right: -2px; top: -2px; border-left: 0; border-bottom: 0; border-color: var(--amb-b); }
+.cl-photo__c.is-bl { left: -2px; bottom: -2px; border-right: 0; border-top: 0; border-color: var(--amb-b); }
+.cl-photo__c.is-br { right: -2px; bottom: -2px; border-left: 0; border-top: 0; }
+.cl-photo__title { position: absolute; right: 30px; top: 46px; margin: 0; writing-mode: vertical-rl; font-size: 34px; font-weight: 800; letter-spacing: 0.25em; color: #fff;
+  text-shadow: 0 0 10px var(--amb-a), 0 0 24px var(--amb-b); animation: cl-pop .8s ease-out; }
+.cl-photo__sub { position: absolute; left: 30px; top: 40px; margin: 0; font-size: 11px; letter-spacing: 0.2em; color: var(--amb-a); text-shadow: 0 0 6px var(--amb-a); }
+.cl-photo__hae { position: absolute; left: 30px; top: 58px; margin: 0; font: 700 14px var(--font-en); color: #FFD86B; text-shadow: 0 0 8px #FFD86B; }
+.cl-photo__seal { position: absolute; right: 30px; bottom: 96px; width: 54px; height: 54px; display: grid; place-items: center; background: #c8102e; border-radius: 6px; transform: rotate(-6deg); box-shadow: 0 0 14px rgba(200, 16, 46, 0.7); }
+.cl-photo__seal b { color: #fff; font-size: 30px; font-weight: 800; }
+.cl-photo__who { position: absolute; left: 30px; bottom: 60px; margin: 0; font: 600 12px var(--font-en); color: rgba(255, 255, 255, 0.85); letter-spacing: 0.12em; }
+.cl-photo__close { pointer-events: auto; position: absolute; left: 30px; bottom: 82px; appearance: none; border: 0; font: inherit; font-size: 11px; color: rgba(255, 255, 255, 0.7); padding: 6px 12px; background: rgba(0, 0, 0, 0.35); clip-path: var(--chamfer-s); cursor: pointer; }
+/* 新しい謎の部品 */
+.cl-vial { display: block; font: 700 15px var(--font-en); }
+.cl-opt small { display: block; font-size: 10px; color: var(--dim); font-family: var(--font-en); }
+.cl-match { display: grid; gap: 5px; }
+.cl-match__row { display: grid; grid-template-columns: 6em repeat(3, 1fr); gap: 4px; align-items: center; }
+.cl-match__row b { font-size: 12px; }
+.cl-chip { appearance: none; border: 0; font: inherit; color: #fff; cursor: pointer; min-height: 36px; font-size: 11px; font-weight: 700; clip-path: var(--chamfer-s); background: rgba(255, 255, 255, 0.06); box-shadow: inset 0 0 0 1px var(--stroke-strong); }
+.cl-chip.is-sel { color: #05081A; background: var(--neon-1); }
+.cl-tools--grid { display: grid; grid-template-columns: repeat(2, 1fr); }
+.cl-tools--grid .cl-toolb { text-align: left; }
+.cl-areas .cl-card:last-child b { color: #FFD86B; }
+/* しくみの絵（v0.2） */
+.cl-pole.is-neg { fill: #5ce0ff; } .cl-pole.is-pos { fill: #ff5e70; }
+.cl-move { animation: cl-left 3s ease-in-out infinite; animation-delay: var(--d); }
+@keyframes cl-left { 0% { transform: none; } 70%, 100% { transform: translateX(-100px); } }
+.cl-sink { animation: cl-sinkk 3.4s ease-in-out infinite; animation-delay: var(--d); }
+@keyframes cl-sinkk { 0%, 30% { transform: none; } 80%, 100% { transform: translate(var(--tx), var(--ty)); } }
+.cl-ion.is-so4 { fill: #5ce0ff; font-size: 10px; animation: cl-come 3.4s ease-in-out infinite; animation-delay: var(--d); }
+@keyframes cl-come { 0% { transform: none; opacity: 1; } 60% { transform: translateX(-90px); opacity: 1; } 100% { transform: translateX(-100px); opacity: 0; } }
+.cl-ion.is-bounce { fill: #b8c4d8; font-size: 10px; animation: cl-bob 1.6s ease-in-out infinite alternate; animation-delay: var(--d); }
+@keyframes cl-bob { to { transform: translateY(10px); } }
+.cl-solp { fill: #f6f0de; animation: cl-wobble 1.4s ease-in-out infinite; animation-delay: var(--d, 0s); transform-box: fill-box; }
+.cl-net { stroke: #f6f0de; stroke-width: 1.5; }
+.cl-net.is-dry { stroke: #d8c49a; }
+.cl-shell { fill: rgba(255, 216, 107, 0.35); stroke: #FFD86B; stroke-width: 2; animation: cl-glow 1.6s ease-in-out infinite alternate; }
+.cl-carbon { fill: #202024; stroke: #555; }
+.cl-pic__arrow { fill: var(--neon-1); font-size: 14px; text-anchor: middle; }
+.cl-pic__icon { font-size: 22px; text-anchor: middle; animation: cl-twinkle 2.2s ease-in-out infinite; animation-delay: var(--d); }
+.cl-torii { fill: none; stroke: #ff3a5a; stroke-width: 7; stroke-linecap: round; filter: drop-shadow(0 0 6px #ff3a5a); }
+.cl-moon { fill: #fffaf0; filter: drop-shadow(0 0 14px #fff); }
+html[lang="en"] .cl-photo__title { writing-mode: horizontal-tb; top: auto; bottom: 160px; right: 30px; left: 30px; text-align: right; font-size: 28px; letter-spacing: 0.06em; font-family: var(--font-en); }

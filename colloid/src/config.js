@@ -1,17 +1,21 @@
 // colloid/src/config.js
 // ④ コロイド・ミストの数値の設定（全体の仕様書 10章）。数値はここに集め、プログラムの中に直接書かない。
 
-export const VERSION = 'colloid v0.1.0';
+export const VERSION = 'colloid v0.2.0';
 
 // ── エリア：入るときに道具を1つ受け取り、謎を順に解く。全部解くとエリアを抜ける ──
 export const AREAS = [
   { id: 1, tool: 'bell', puzzles: ['1-1', '1-2', '1-3'] },      // 霧の入江：チンダル現象
   { id: 2, tool: 'glasses', puzzles: ['2-1', '2-2', '2-3'] },   // 揺らぐ浅瀬：ブラウン運動、粒の大きさ
   { id: 3, tool: 'bag', puzzles: ['3-1', '3-2', '3-3'] },       // セロハンの関所：透析
+  { id: 4, tool: 'pole', puzzles: ['4-1', '4-2', '4-3'] },      // 雷の祠：電気泳動
+  { id: 5, tool: 'vial', puzzles: ['5-1', '5-2', '5-3'] },      // 濁り川：凝析と塩析
+  { id: 6, tool: 'nigari', puzzles: ['6-1', '6-2', '6-3'] },    // 豆腐の里：ゾル・ゲル・キセロゲル
+  { id: 7, tool: 'shield', puzzles: ['7-1', '7-2', '7-3'] },    // 墨の書庫：保護コロイド
+  { id: 8, tool: null, puzzles: ['8-1', '8-2', '8-3', '8-4', '8-5', '8-6', '8-7'] },   // 湖の社：7つの道具をすべて使う
 ];
-export const LOCKED_AREAS = [
-  { id: 4, ver: 'v0.2' }, { id: 5, ver: 'v0.2' }, { id: 6, ver: 'v0.2' }, { id: 7, ver: 'v0.2' },
-];
+export const LOCKED_AREAS = [];
+export const TOOLS = ['bell', 'glasses', 'bag', 'pole', 'vial', 'nigari', 'shield'];
 
 // ── 液体（標本）：beam 光の通り道が見えるか、scope 限外の眼鏡で見たようす（none 何も見えない／brown 光の点が不規則に動く／mud 大きな粒が沈む） ──
 //   color：3D の液の色、cloud：にごり（0〜1）
@@ -24,6 +28,14 @@ export const LIQUIDS = {
   milk: { beam: true, scope: 'brown', color: '#f4f4ee', cloud: 0.35 },
   feoh: { beam: true, scope: 'brown', color: '#b4542a', cloud: 0.2 },
   mud: { beam: false, scope: 'mud', color: '#8a6a46', cloud: 0.7 },
+  // v0.2
+  clay: { beam: true, scope: 'brown', color: '#a08a6a', cloud: 0.55 },
+  gelatin: { beam: true, scope: 'brown', color: '#f2e2b0', cloud: 0.15 },
+  tonyu: { beam: true, scope: 'brown', color: '#f6f0de', cloud: 0.6 },
+  tofu: { solid: 'gel', color: '#f8f6ee' },
+  koya: { solid: 'xero', color: '#d8c49a' },
+  carbon: { beam: true, scope: 'brown', color: '#202024', cloud: 0.95, coag: 'sink' },
+  sumi: { beam: true, scope: 'brown', color: '#141418', cloud: 0.95, coag: 'stay' },
 };
 
 // ── 謎（1つずつ） ──
@@ -41,6 +53,27 @@ export const PUZZLES = {
   '3-1': { type: 'choice', options: ['cello', 'poly', 'cloth'], answer: ['cello'], prop: 'gate' },
   '3-2': { type: 'choice', options: ['H', 'Cl', 'FeOH'], answer: ['H', 'Cl'], multi: true, prop: 'gate' },
   '3-3': { type: 'dialysis', prop: 'gate' },
+  // v0.2
+  '4-1': { type: 'choice', use: 'pole', options: ['cathode', 'anode', 'stay'], answer: ['cathode'], prop: 'trough', scope: 'electro' },
+  '4-2': { type: 'electro', prop: 'trough' },
+  '4-3': { type: 'choice', options: ['anode', 'cathode', 'stay'], answer: ['anode'], prop: 'trough' },
+  '5-1': { type: 'choice', options: ['Na2SO4', 'KI', 'CaCl2', 'AlNO3'], answer: ['Na2SO4'], prop: 'cup', items: [null, 'feoh', null], vial: true },
+  '5-2': { type: 'choice', options: ['Na2SO4', 'KI', 'CaCl2', 'AlNO3'], answer: ['AlNO3'], prop: 'cup', items: [null, 'clay', null], vial: true },
+  '5-3': { type: 'dose', options: ['much', 'little', 'bag'], answer: ['much'], prop: 'cup', items: ['feoh', null, 'gelatin'] },
+  '6-1': { type: 'match', items: ['tonyu', 'tofu', 'koya'], terms: ['sol', 'gel', 'xero'], answer: ['sol', 'gel', 'xero'], prop: 'cup' },
+  '6-2': { type: 'choice', options: ['tofu', 'jelly', 'milk', 'konnyaku', 'tonyu'], answer: ['tofu', 'jelly', 'konnyaku'], multi: true, prop: 'cup', items: ['tonyu', 'tofu', 'koya'] },
+  '6-3': { type: 'choice', options: ['coag', 'dissolve', 'color'], answer: ['coag'], prop: 'cup', items: ['tonyu', 'tofu', 'koya'] },
+  '7-1': { type: 'choice', options: ['protect', 'color', 'smell'], answer: ['protect'], prop: 'cup', items: [null, 'sumi', null] },
+  '7-2': { type: 'probe', tools: ['vial'], items: ['carbon', 'sumi'], answer: ['sumi'], prop: 'cup' },
+  '7-3': { type: 'choice', options: ['gelatin', 'feoh', 'carbon'], answer: ['gelatin'], prop: 'cup', items: [null, 'sumi', null] },
+  // 湖の社：場面に合う道具を、7つの中から選ぶ
+  '8-1': { type: 'tool', answer: 'bell', prop: 'altar' },
+  '8-2': { type: 'tool', answer: 'glasses', prop: 'altar' },
+  '8-3': { type: 'tool', answer: 'bag', prop: 'altar' },
+  '8-4': { type: 'tool', answer: 'pole', prop: 'altar' },
+  '8-5': { type: 'tool', answer: 'vial', prop: 'altar' },
+  '8-6': { type: 'tool', answer: 'nigari', prop: 'altar' },
+  '8-7': { type: 'tool', answer: 'shield', prop: 'altar' },
 };
 
 // ── 透析（3-3）：袋の中のイオンの量（はじめ 100）。待つと、袋の中と外で同じ濃さになるまでイオンが出る ──
@@ -54,10 +87,35 @@ export const DIALYSIS = {
 // ── 報酬（全体の仕様書 10章） ──
 export const REWARD = {
   area: 100,            // エリアを抜ける（はじめてのとき）
+  shrine: 300,          // 湖の社の仕掛けを解く（はじめてのとき）
+};
+
+// ── 映え（v0.2）：エリアが進むほど、景色が豪華になる。数字は「このエリアから出る」 ──
+//   霧の色・光の色もエリアごとに変わる（藍の霧 → 若竹 → 菫 → 雷の紫 → 金の灯 → 桜 → 墨と金 → 夜明けのオーロラ）
+export const GLOW = {
+  lanterns: 1,          // 浮かぶ灯籠（エリアが進むほど数が増える）
+  fireflies: 2,         // 蛍
+  torii: 3,             // 湖に立つネオンの大鳥居（水面に映る）
+  lightning: 4,         // 雷（ときどき紫に光る）
+  river: 5,             // 灯籠流し
+  petals: 6,            // 桜の花びら
+  kanji: 7,             // 宙に浮かぶ光の文字と金箔
+  aurora: 8,            // オーロラと大きな月（湖の社）
+};
+export const AMBIENCE = {
+  1: { fog: '#0e2230', a: '#5CF2A8', b: '#7aa8ff' },
+  2: { fog: '#0d2a2a', a: '#5CF2A8', b: '#c8ff6a' },
+  3: { fog: '#1a1a34', a: '#A985FF', b: '#ff5e70' },
+  4: { fog: '#1c1436', a: '#b07aff', b: '#5ce0ff' },
+  5: { fog: '#1e1a20', a: '#FFC83A', b: '#ff8a4a' },
+  6: { fog: '#2a1a2a', a: '#ff9ac8', b: '#FFC83A' },
+  7: { fog: '#141018', a: '#E6B422', b: '#A985FF' },
+  8: { fog: '#1a1a3a', a: '#5CF2A8', b: '#ff9ac8' },
 };
 
 // ── のぞき窓（限外の眼鏡で見たようす）の粒の数 ──
 export const SCOPE = {
+  electro: 22,          // 電気泳動の粒
   dots: 26,             // コロイド粒子
   molecules: 70,        // 水分子（「ぶつかる」を見せるとき）
   ions: 40,             // 透析のイオンの最大の数

@@ -7,7 +7,7 @@
 //   エリアに入ると、まず「しくみ」（絵とものさし）を見せる。まちがえると、神主が理由を一言で返す。
 //   報酬：エリアを抜けるごとに 100 ヒヤマ（はじめてのとき）。
 
-import { VERSION, AREAS, LOCKED_AREAS, PUZZLES, LIQUIDS, DIALYSIS, REWARD } from './config.js';
+import { VERSION, AREAS, LOCKED_AREAS, PUZZLES, LIQUIDS, DIALYSIS, REWARD, TOOLS } from './config.js';
 import { createScene } from './scene3d.js';
 import { createScope } from './scope.js';
 import { pictureSvg, rulerHtml } from './explain.js';
@@ -26,7 +26,8 @@ const params = new URLSearchParams(location.search);
 const WORLD = 'colloid';
 const GUIDE = 'kasumi';          // 湖の神主
 const MARK = ['①', '②', '③'];
-const TOOL_ICON = { bell: '🔔', glasses: '🔍', bag: '🛍' };
+const TOOL_ICON = { bell: '🔔', glasses: '🔍', bag: '🛍', pole: '⚡', vial: '🧪', nigari: '💧', shield: '🛡' };
+const AREA_ICON = (A) => (A.tool ? TOOL_ICON[A.tool] : '⛩');
 
 let screen = 'loading';
 let scene = null;
@@ -57,7 +58,9 @@ function rec() { const d = getWorldData(WORLD); return { solved: d.solved || {},
 function save(patch) { const d = getWorldData(WORLD); setWorldData(WORLD, { ...d, ...patch }); }
 function areaOpen(a) { return a === 0 || !!rec().areas[AREAS[a - 1].id]; }
 function areaDone(a) { return !!rec().areas[AREAS[a].id]; }
-function toolsOwned() { const r = rec(); return AREAS.filter((A, i) => r.areas[A.id] || i === ai).map((A) => A.tool); }
+function toolsOwned() { const r = rec(); if (!area().tool) return TOOLS.slice(); return AREAS.filter((A, i) => A.tool && (r.areas[A.id] || i === ai)).map((A) => A.tool); }
+/** 開いているいちばん先のエリアの番号（タイトルの景色に使う） */
+function furthest() { let n = 1; AREAS.forEach((A, i) => { if (areaOpen(i)) n = A.id; }); return n; }
 
 // ───────────── タイトル ─────────────
 function renderTitle() {
@@ -68,12 +71,12 @@ function renderTitle() {
   $('areas').innerHTML = AREAS.map((A, i) => {
     const open = areaOpen(i);
     return `<button type="button" class="cl-card${i === ai ? ' is-on' : ''}" data-act="area" data-i="${i}" ${open ? '' : 'disabled'}>`
-      + `<b>${A.id}</b><span>${esc(t(`cl.area${A.id}.name`))}</span><small>${TOOL_ICON[A.tool]} ${esc(t(`cl.tool.${A.tool}`))}</small><em>${areaDone(i) ? '✓' : open ? '' : '🔒'}</em></button>`;
+      + `<b>${A.tool ? A.id : '⛩'}</b><span>${esc(t(`cl.area${A.id}.name`))}</span><small>${A.tool ? `${TOOL_ICON[A.tool]} ${esc(t(`cl.tool.${A.tool}`))}` : esc(t('cl.allTools'))}</small><em>${areaDone(i) ? '✓' : open ? '' : '🔒'}</em></button>`;
   }).join('') + LOCKED_AREAS.map((L) => `<button type="button" class="cl-card" disabled><b>${L.id}</b><span>${esc(t(`cl.area${L.id}.name`))}</span><small>${esc(t('cl.soon', { v: L.ver }))}</small></button>`).join('');
   const r = rec();
-  const owned = AREAS.filter((A) => r.areas[A.id]).map((A) => A.tool);
-  $('tools').innerHTML = AREAS.map((A) => `<span class="cl-tool${owned.includes(A.tool) ? ' is-on' : ''}" title="${esc(t(`cl.tool.${A.tool}`))}">${TOOL_ICON[A.tool]}<small>${esc(t(`cl.tool.${A.tool}`))}</small></span>`).join('')
-    + LOCKED_AREAS.map(() => '<span class="cl-tool is-locked">?</span>').join('');
+  const owned = AREAS.filter((A) => A.tool && r.areas[A.id]).map((A) => A.tool);
+  $('tools').innerHTML = TOOLS.map((x) => `<span class="cl-tool${owned.includes(x) ? ' is-on' : ''}" title="${esc(t(`cl.tool.${x}`))}">${TOOL_ICON[x]}<small>${esc(t(`cl.tool.${x}`))}</small></span>`).join('');
+  if (scene) scene.setAmbience(furthest());
   $('start-btn').textContent = t(areaDone(ai) ? 'cl.replay' : 'cl.start', { n: AREAS[ai].id, name: t(`cl.area${AREAS[ai].id}.name`) });
   $('start-btn').disabled = !areaOpen(ai);
 }
@@ -100,12 +103,14 @@ function startArea(a) {
   pi = Math.max(0, area().puzzles.findIndex((id) => !r.solved[id]));
   if (areaDone(a)) pi = 0;
   show('play');
+  scene.setAmbience(area().id);
   startPuzzle();
   if (!r.tut[area().id]) openTut(true);
 }
 function startPuzzle() {
   ps = { probed: {}, sel: [], tool: (P().tools || [])[0] || null, order: [], solved: false, fb: null, step: 0, shown: -1,
     opts: (P().options || []).slice().sort(() => Math.random() - 0.5),
+    pol: null, run: false, dose: {}, match: {},
     dial: { inWater: false, inside: DIALYSIS.start, outside: 0, cloud: 0, waits: 0, busy: false, tested: false } };
   face = 'normal';
   updateProp();
@@ -116,11 +121,20 @@ function updateProp() {
   const p = P();
   const id = pid();
   if (p.prop === 'pool' || p.prop === 'cup') {
-    scene.setProp(p.prop, p.items.map((liq, k) => ({ liquid: liq, label: itemLabel(k), sel: ps.sel.includes(liq) })));
+    scene.setProp(p.prop, (p.items || [null, null, null]).map((liq, k) => (liq ? { liquid: liq, label: itemLabel(k), sel: ps.sel.includes(liq), sediment: sedimentOf(liq, k) } : null)));
     scene.shine(ps.shown >= 0 && ps.tool === 'bell' ? ps.shown : -1);
   } else scene.setProp(p.prop);
   if (p.prop === 'fog') scene.setFog(ps.step >= 1, ps.solved);
   if (p.prop === 'shoal') scene.setStones(area().puzzles.filter((x) => rec().solved[x]).length * 2 + (ps.solved ? 0 : 0));
+  if (p.prop === 'trough') {
+    const neg = id === '4-3';
+    if (id === '4-2') scene.setTrough({ L: ps.pol ? (ps.pol === 'L-' ? '-' : '+') : null, R: ps.pol ? (ps.pol === 'L-' ? '+' : '-') : null, on: ps.run, sign: 1, pile: ps.solved, pileSide: 'L' });
+    else {
+      const live = id === '4-1' ? ps.step >= 1 : ps.solved;
+      scene.setTrough({ L: live ? '-' : null, R: live ? '+' : null, on: live, sign: neg ? -1 : 1, pile: false });
+    }
+  }
+  if (p.prop === 'altar') scene.setAltar(AREAS[ai].puzzles.filter((x) => rec().solved[x]).length, areaDone(ai) || (ps.solved && pi === area().puzzles.length - 1));
   if (p.prop === 'gate') {
     const d = ps.dial;
     const done = id === '3-3' && ps.solved;
@@ -132,11 +146,24 @@ function updateProp() {
   if (id === '2-1' && ps.step >= 1) { mode = 'brown'; opt = { molecules: ps.solved }; }
   if (id === '3-3' && ps.dial.inWater) { mode = 'dialysis'; opt = { inside: ps.dial.inside, outside: ps.dial.outside, cloud: ps.dial.cloud }; }
   if (id === '3-2' && ps.solved) { mode = 'dialysis'; opt = { inside: 30, outside: 70 }; }
+  if (p.type === 'probe' && ps.tool === 'vial' && ps.shown >= 0) { mode = LIQUIDS[p.items[ps.shown]].coag === 'sink' ? 'coag' : 'brown'; opt = { shield: LIQUIDS[p.items[ps.shown]].coag === 'stay' }; }
+  if (id === '4-1' && ps.step >= 1) { mode = 'electro'; opt = { sign: 1, on: true }; }
+  if (id === '4-2' && ps.run) { mode = 'electro'; opt = { sign: 1, on: true, left: ps.pol === 'L-' ? '-' : '+' }; }
+  if (id === '4-3' && ps.solved) { mode = 'electro'; opt = { sign: -1, on: true }; }
+  if ((id === '5-1' || id === '5-2') && ps.solved) { mode = 'coag'; opt = { sign: id === '5-1' ? 1 : -1 }; }
   $('scope-box').hidden = !mode;
   if (mode) {
     scope.set(mode, opt);
-    $('scope-cap').textContent = t(`cl.scope.${mode}${opt.molecules ? 'Mol' : ''}`);
+    $('scope-cap').textContent = t(`cl.scope.${mode}${opt.molecules ? 'Mol' : ''}${opt.shield ? 'Shield' : ''}`);
   }
+}
+/** 杯の底に沈殿があるか（凝析・塩析が起きた） */
+function sedimentOf(liq, k) {
+  const id = pid();
+  if ((id === '5-1' || id === '5-2') && ps.solved) return true;
+  if (id === '5-3') return liq === 'feoh' ? !!(ps.dose.little || ps.dose.much) : !!ps.dose.much;
+  if (P().type === 'probe' && ps.probed[liq] && ps.probed[liq].vial && LIQUIDS[liq].coag === 'sink') return true;
+  return false;
 }
 function itemLabel(k) {
   const p = P();
@@ -157,6 +184,7 @@ function renderPanel() {
   const head = `<div class="cl-head"><b>${esc(t('cl.areaHead', { n: A.id, name: t(`cl.area${A.id}.name`) }))}</b>`
     + `<span class="cl-steps">${A.puzzles.map((x, i) => `<i class="${rec().solved[x] ? 'is-done' : ''}${i === pi ? ' is-now' : ''}"></i>`).join('')}</span>`
     + `<button type="button" class="cl-mini cl-mini--hot" data-act="tut">${esc(t('cl.tutBtn'))}</button>`
+    + `<button type="button" class="cl-mini cl-mini--photo" data-act="photo" aria-label="${esc(t('cl.photo'))}">📸</button>`
     + `<button type="button" class="cl-mini" data-act="to-title">${esc(t('cl.toTitle'))}</button></div>`;
   let line = ps.fb ? ps.fb : t(`cl.q.${id}`, { n: DIALYSIS.clean });
   let body = '';
@@ -164,6 +192,10 @@ function renderPanel() {
     if (p.type === 'probe') body = probeHtml(p);
     else if (p.type === 'choice') body = choiceHtml(p, id);
     else if (p.type === 'order') body = orderHtml(p);
+    else if (p.type === 'electro') body = electroHtml();
+    else if (p.type === 'dose') body = doseHtml(p);
+    else if (p.type === 'match') body = matchHtml(p);
+    else if (p.type === 'tool') body = toolPickHtml();
     else body = dialysisHtml();
   } else {
     line = ps.fb || t(`cl.ok.${id}`);
@@ -185,7 +217,9 @@ function probeHtml(p) {
     const parts = [];
     if (r.bell) parts.push(t(LIQUIDS[liq].beam ? 'cl.res.beam' : 'cl.res.noBeam'));
     if (r.glasses) parts.push(t(`cl.res.scope.${LIQUIDS[liq].scope}`));
-    return `<small class="cl-res is-${LIQUIDS[liq].beam ? 'yes' : 'no'}">${esc(parts.join(' ／ '))}</small>`;
+    if (r.vial) parts.push(t(`cl.res.coag.${LIQUIDS[liq].coag}`));
+    const good = r.vial ? LIQUIDS[liq].coag === 'stay' : LIQUIDS[liq].beam;
+    return `<small class="cl-res is-${good ? 'yes' : 'no'}">${esc(parts.join(' ／ '))}</small>`;
   };
   return toolsHtml(p.tools)
     + `<p class="cl-hint">${esc(t(p.multi ? 'cl.howProbeMulti' : 'cl.howProbe'))}</p>`
@@ -196,12 +230,13 @@ function probeHtml(p) {
 }
 function choiceHtml(p, id) {
   // 1-2・2-1 は、まず道具を使う（光を当てる／眼鏡をかける）
-  if ((id === '1-2' || id === '2-1') && ps.step < 1) {
-    const tool = id === '1-2' ? 'bell' : 'glasses';
+  if ((id === '1-2' || id === '2-1' || p.use) && ps.step < 1) {
+    const tool = p.use || (id === '1-2' ? 'bell' : 'glasses');
     return `<div class="cl-foot"><button type="button" class="btn btn--primary" data-act="use">${TOOL_ICON[tool]} ${esc(t(`cl.use.${tool}`))}</button></div>`;
   }
   return `<p class="cl-hint">${esc(t(p.multi ? 'cl.pickMulti' : 'cl.pickOne'))}</p>`
-    + `<div class="cl-opts">${ps.opts.map((o) => `<button type="button" class="cl-opt${ps.sel.includes(o) ? ' is-sel' : ''}" data-act="opt" data-o="${o}">${esc(t(`cl.opt.${id}.${o}`))}</button>`).join('')}</div>`
+    + `<div class="cl-opts${p.vial ? ' cl-opts--2' : ''}">${(p.vial ? p.options : ps.opts).map((o) => `<button type="button" class="cl-opt${ps.sel.includes(o) ? ' is-sel' : ''}" data-act="opt" data-o="${o}">`
+      + (p.vial ? `<b class="cl-vial">${esc(t(`cl.vial.${o}`))}</b><small>${esc(t(`cl.ions.${o}`))}</small>` : esc(t(`cl.opt.${id}.${o}`))) + '</button>').join('')}</div>`
     + `<div class="cl-foot"><button type="button" class="btn btn--primary" data-act="answer" ${ps.sel.length ? '' : 'disabled'}>${esc(t('cl.answer'))}</button></div>`;
 }
 function orderHtml(p) {
@@ -209,6 +244,29 @@ function orderHtml(p) {
     + `<div class="cl-opts cl-opts--3">${p.items.map((o) => `<button type="button" class="cl-opt${ps.order.includes(o) ? ' is-sel' : ''}" data-act="ord" data-o="${o}" ${ps.order.includes(o) ? 'disabled' : ''}>`
       + `${ps.order.includes(o) ? `<em>${ps.order.indexOf(o) + 1}</em>` : ''}${esc(t(`cl.size.${o}`))}</button>`).join('')}</div>`
     + `<div class="cl-foot"><button type="button" class="btn" data-act="ord-reset" ${ps.order.length ? '' : 'disabled'}>${esc(t('cl.reset'))}</button></div>`;
+}
+function electroHtml() {
+  const dis = ps.run ? 'disabled' : '';
+  return `<p class="cl-hint">${esc(t('cl.el.how'))}</p>`
+    + `<div class="cl-opts cl-opts--2">${['L-', 'R-'].map((o) => `<button type="button" class="cl-opt${ps.pol === o ? ' is-sel' : ''}" data-act="pol" data-o="${o}" ${dis}>${esc(t(`cl.el.${o}`))}</button>`).join('')}</div>`
+    + `<div class="cl-foot"><button type="button" class="btn btn--primary" data-act="el-go" ${ps.pol && !ps.run ? '' : 'disabled'}>⚡ ${esc(t('cl.el.go'))}</button></div>`;
+}
+function doseHtml(p) {
+  const both = ps.dose.little && ps.dose.much;
+  let html = `<div class="cl-opts cl-opts--2"><button type="button" class="cl-opt${ps.dose.little ? ' is-sel' : ''}" data-act="dose" data-o="little">🧪 ${esc(t('cl.dose.little'))}</button>`
+    + `<button type="button" class="cl-opt${ps.dose.much ? ' is-sel' : ''}" data-act="dose" data-o="much">🧪🧪🧪 ${esc(t('cl.dose.much'))}</button></div>`;
+  if (!both) return `<p class="cl-hint">${esc(t('cl.dose.how'))}</p>${html}`;
+  return html + `<p class="cl-hint">${esc(t('cl.pickOne'))}</p><div class="cl-opts">${ps.opts.map((o) => `<button type="button" class="cl-opt${ps.sel.includes(o) ? ' is-sel' : ''}" data-act="opt" data-o="${o}">${esc(t(`cl.opt.${pid()}.${o}`))}</button>`).join('')}</div>`
+    + `<div class="cl-foot"><button type="button" class="btn btn--primary" data-act="answer" ${ps.sel.length ? '' : 'disabled'}>${esc(t('cl.answer'))}</button></div>`;
+}
+function matchHtml(p) {
+  const all = p.items.every((it) => ps.match[it]);
+  return `<p class="cl-hint">${esc(t('cl.match.how'))}</p><div class="cl-match">${p.items.map((it) => `<div class="cl-match__row"><b>${esc(t(`cl.liq.${it}`))}</b>`
+    + p.terms.map((tm) => `<button type="button" class="cl-chip${ps.match[it] === tm ? ' is-sel' : ''}" data-act="match" data-i="${it}" data-o="${tm}">${esc(t(`cl.term.${tm}`))}</button>`).join('') + '</div>').join('')}</div>`
+    + `<div class="cl-foot"><button type="button" class="btn btn--primary" data-act="match-go" ${all ? '' : 'disabled'}>${esc(t('cl.answer'))}</button></div>`;
+}
+function toolPickHtml() {
+  return `<p class="cl-hint">${esc(t('cl.shrine.how'))}</p><div class="cl-tools cl-tools--grid">${TOOLS.map((x) => `<button type="button" class="cl-toolb" data-act="use-tool" data-tool="${x}">${TOOL_ICON[x]} ${esc(t(`cl.tool.${x}`))}</button>`).join('')}</div>`;
 }
 function dialysisHtml() {
   const d = ps.dial;
@@ -247,6 +305,7 @@ function solve() {
   const r = rec();
   save({ solved: { ...r.solved, [pid()]: Date.now() } });
   if (P().type === 'probe' && P().tools.includes('bell')) { ps.tool = 'bell'; ps.shown = P().items.indexOf(P().answer[0]); }
+  if (P().type === 'tool') fx.celebrate();
   updateProp();
   if (P().prop === 'shoal') scene.setStones(area().puzzles.filter((x) => rec().solved[x]).length * 2);
   renderPanel();
@@ -261,7 +320,8 @@ async function next() {
   let line = '';
   if (first) {
     try {
-      const e = await reward({ itemKey: 'ledger.item.clArea', itemVars: { n: area().id }, gross: REWARD.area });
+      const shrine = !area().tool;
+      const e = await reward({ itemKey: shrine ? 'ledger.item.clShrine' : 'ledger.item.clArea', itemVars: { n: area().id }, gross: shrine ? REWARD.shrine : REWARD.area });
       line = e ? t('cl.reward', { gross: formatHiyama(e.gross), net: formatHiyama(e.amount) }) : t('cl.cap');
     } catch (e) { line = t('cl.cap'); }
   } else line = t('cl.already');
@@ -280,10 +340,10 @@ function renderTut(first = false) {
   const m = $('tut');
   m.hidden = false;
   const A = area();
-  const marks = { 1: ['light'], 2: [], 3: ['cello', 'paper'] }[A.id];
-  const hi = { 1: 'colloid', 2: 'colloid', 3: 'ion' }[A.id];
+  const marks = { 1: ['light'], 3: ['cello', 'paper'] }[A.id] || [];
+  const hi = { 3: 'ion' }[A.id] || 'colloid';
   const pages = [
-    `${first || tutPage === 0 ? `<p class="cl-gift">${TOOL_ICON[A.tool]} ${esc(t('cl.gift', { tool: t(`cl.tool.${A.tool}`) }))}</p>` : ''}`
+    `${A.tool ? `<p class="cl-gift">${TOOL_ICON[A.tool]} ${esc(t('cl.gift', { tool: t(`cl.tool.${A.tool}`) }))}</p>` : ''}`
       + `<p class="cl-tut__big">${esc(t(`cl.how${A.id}.head`))}</p>${pictureSvg(A.id, t)}<p class="cl-tut__lead">${esc(t(`cl.how${A.id}.text`))}</p>`,
     `<p class="cl-tut__big">${esc(t('cl.ruler.head'))}</p>${rulerHtml(t, hi, marks)}<p class="cl-tut__lead">${esc(t(`cl.how${A.id}.size`))}</p>`,
   ];
@@ -303,9 +363,10 @@ function openClear(line) {
   const nx = ai + 1 < AREAS.length ? ai + 1 : -1;
   face = 'smile';
   m.innerHTML = `<div class="cl-tut__card cl-clear"><p class="cl-clear__big">${esc(t('cl.cleared', { n: A.id, name: t(`cl.area${A.id}.name`) }))}</p>`
-    + `<p class="cl-gift">${TOOL_ICON[A.tool]} ${esc(t('cl.toolMine', { tool: t(`cl.tool.${A.tool}`) }))}</p>`
+    + `<p class="cl-gift">${AREA_ICON(A)} ${esc(A.tool ? t('cl.toolMine', { tool: t(`cl.tool.${A.tool}`) }) : t('cl.shrineDone'))}</p>`
     + guideBox(t(`cl.bye${A.id}`)) + `<p class="cl-reward">${esc(line)}</p>`
     + `<div class="cl-foot"><button type="button" class="btn" data-act="to-title">${esc(t('cl.toTitle'))}</button>`
+    + `<button type="button" class="btn" data-act="photo">📸 ${esc(t('cl.photo'))}</button>`
     + (nx >= 0 ? `<button type="button" class="btn btn--primary" data-act="go-area" data-i="${nx}">${esc(t('cl.nextArea', { n: AREAS[nx].id }))}</button>` : '')
     + `</div></div>`;
 }
@@ -341,6 +402,44 @@ function dialKey() {
   renderPanel();
 }
 
+// ───────────── 電気泳動（4-2） ─────────────
+function electroGo() {
+  ps.run = true;
+  ps.fb = t('cl.el.running');
+  updateProp(); renderPanel();
+  setTimeout(() => {
+    if (!ps || pid() !== '4-2') return;
+    if (ps.pol === 'L-') { solve(); return; }
+    ps.fb = t('cl.el.wrong'); face = 'surprise';
+    ps.run = false; ps.pol = null;
+    updateProp(); renderPanel();
+  }, 2600);
+}
+
+// ───────────── 映えスポット（写真向きの画面） ─────────────
+function openPhoto() {
+  const A = screen === 'play' ? area() : AREAS[Math.max(0, furthest() - 1)];
+  const n = screen === 'play' ? A.id : furthest();
+  const box = $('photo');
+  const stars = Math.min(5, Math.ceil(n * 5 / 8));
+  const d = new Date();
+  box.innerHTML = `<div class="cl-photo__frame"><i class="cl-photo__c is-tl"></i><i class="cl-photo__c is-tr"></i><i class="cl-photo__c is-bl"></i><i class="cl-photo__c is-br"></i></div>`
+    + `<p class="cl-photo__title">${esc(t(`cl.area${A.id}.name`))}</p>`
+    + `<p class="cl-photo__sub">${esc(t('cl.title'))}　·　${esc(t(`cl.spot${A.id}`))}</p>`
+    + `<p class="cl-photo__hae">${esc(t('cl.hae'))} ${'★'.repeat(stars)}${'☆'.repeat(5 - stars)}</p>`
+    + `<div class="cl-photo__seal"><b>${esc(t('cl.sealChar'))}</b></div>`
+    + `<p class="cl-photo__who">${esc(getUser().nickname || t('topbar.guest'))}　${d.getFullYear()}.${d.getMonth() + 1}.${d.getDate()}</p>`
+    + `<button type="button" class="cl-photo__close" data-act="photo-close">${esc(t('cl.photoClose'))}</button>`;
+  box.hidden = false;
+  document.body.classList.add('is-photo');
+  if (scene) { scene.setAmbience(n); scene.setPhoto(true); scene.showLabels(false); }
+}
+function closePhoto() {
+  $('photo').hidden = true;
+  document.body.classList.remove('is-photo');
+  if (scene) { scene.setPhoto(false); scene.showLabels(screen === 'play'); if (screen === 'play') scene.setAmbience(area().id); }
+}
+
 // ───────────── 毎回の描き直し ─────────────
 const LITE_MS = params.has('lite') ? 400 : 0;
 let lastDraw = 0;
@@ -357,7 +456,7 @@ function setupInput() {
     if (act === 'area') { ai = Number(b.dataset.i); renderTitle(); }
     else if (act === 'start') { if (areaOpen(ai)) startArea(ai); }
     else if (act === 'go-area') { closeTut(); startArea(Number(b.dataset.i)); }
-    else if (act === 'to-title') { closeTut(); renderTitle(); show('title'); $('scope-box').hidden = true; }
+    else if (act === 'to-title') { closeTut(); closePhoto(); renderTitle(); show('title'); $('scope-box').hidden = true; }
     else if (act === 'tut') openTut();
     else if (act === 'tut-next') { tutPage += 1; renderTut(); }
     else if (act === 'tut-prev') { tutPage = Math.max(0, tutPage - 1); renderTut(); }
@@ -369,7 +468,7 @@ function setupInput() {
       if (!ps.tool) return;
       ps.probed[liq] = { ...(ps.probed[liq] || {}), [ps.tool]: true };
       ps.shown = k;
-      ps.fb = t(`cl.saw.${ps.tool}.${ps.tool === 'bell' ? (LIQUIDS[liq].beam ? 'yes' : 'no') : LIQUIDS[liq].scope}`);
+      ps.fb = t(`cl.saw.${ps.tool}.${ps.tool === 'bell' ? (LIQUIDS[liq].beam ? 'yes' : 'no') : ps.tool === 'vial' ? LIQUIDS[liq].coag : LIQUIDS[liq].scope}`);
       face = 'normal';
       updateProp(); renderPanel();
     } else if (act === 'pick' || act === 'opt') {
@@ -389,6 +488,19 @@ function setupInput() {
       }
       renderPanel();
     } else if (act === 'ord-reset') { ps.order = []; renderPanel(); }
+    else if (act === 'pol') { ps.pol = b.dataset.o; ps.fb = null; face = 'normal'; updateProp(); renderPanel(); }
+    else if (act === 'el-go') electroGo();
+    else if (act === 'dose') { ps.dose[b.dataset.o] = true; ps.fb = t(`cl.dose.saw.${b.dataset.o}`); updateProp(); renderPanel(); }
+    else if (act === 'match') { ps.match[b.dataset.i] = b.dataset.o; ps.fb = null; face = 'normal'; renderPanel(); }
+    else if (act === 'match-go') {
+      const p = P();
+      const wrong = p.items.findIndex((it, i) => ps.match[it] !== p.answer[i]);
+      if (wrong < 0) solve(); else { ps.fb = t(`cl.ng.6-1.${p.items[wrong]}`); face = 'surprise'; renderPanel(); }
+    } else if (act === 'use-tool') {
+      if (b.dataset.tool === P().answer) solve();
+      else { ps.fb = t(`cl.ng8.${b.dataset.tool}`); face = 'surprise'; renderPanel(); }
+    } else if (act === 'photo') openPhoto();
+    else if (act === 'photo-close') closePhoto();
     else if (act === 'dial-in') { ps.dial.inWater = true; ps.fb = t('cl.dial.inDone'); updateProp(); renderPanel(); }
     else if (act === 'dial-wait') dialWait();
     else if (act === 'dial-change') dialChange();
@@ -464,6 +576,8 @@ async function start() {
       get state() { return { screen, ai, pi, id: pid(), ps }; },
       start: (a, p = 0) => { startArea(a); pi = p; startPuzzle(); },
       closeTut: () => closeTut(),
+      photo: () => openPhoto(), closePhoto: () => closePhoto(),
+      unlock: (n) => { const a = {}; AREAS.slice(0, n).forEach((A) => { a[A.id] = Date.now(); }); save({ areas: a }); renderTitle(); },
       grant: (n) => grant({ itemKey: 'ledger.item.founding', amount: n }),
     };
   }

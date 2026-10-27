@@ -29,6 +29,70 @@ export function pictureSvg(area, t) {
       <text x="80" y="146" class="cl-pic__s">${esc(t('cl.pic.brown.path'))}</text>
     </svg>`;
   }
+  if (area === 4) {
+    // 電気泳動：正の粒（＋）が陰極（−）へ動く
+    let dots = '';
+    for (let q = 0; q < 9; q++) dots += `<g class="cl-move" style="--d:${(q * 0.25).toFixed(2)}s"><circle class="cl-feoh" cx="${160 + (q % 3) * 34}" cy="${58 + Math.floor(q / 3) * 30}" r="10"/><text class="cl-pic__in" x="${160 + (q % 3) * 34}" y="${62 + Math.floor(q / 3) * 30}">＋</text></g>`;
+    return `<svg class="cl-pic" viewBox="0 0 300 160" role="img" aria-label="${esc(t('cl.pic.el.alt'))}">
+      <rect class="cl-water" x="30" y="34" width="240" height="112"/>
+      <rect class="cl-pole is-neg" x="34" y="30" width="10" height="120"/><rect class="cl-pole is-pos" x="256" y="30" width="10" height="120"/>
+      <text class="cl-pic__t" x="39" y="22">${esc(t('cl.pic.el.neg'))}</text><text class="cl-pic__t" x="261" y="22">${esc(t('cl.pic.el.pos'))}</text>
+      ${dots}
+      <text class="cl-pic__s" x="150" y="156">${esc(t('cl.pic.el.cap'))}</text>
+    </svg>`;
+  }
+  if (area === 5) {
+    // 凝析：正の粒のまわりに、反対の電荷のイオン（SO₄²⁻）が来て、電荷が打ち消されると、粒が集まって沈む
+    let p = '';
+    [[60, 50], [110, 70], [80, 100], [140, 44], [40, 92]].forEach(([x, y], i) => { p += `<g class="cl-sink" style="--tx:${(150 - x) * 0.5}px;--ty:${(130 - y) * 0.9}px;--d:${(i * 0.2).toFixed(1)}s"><circle class="cl-feoh" cx="${x}" cy="${y}" r="11"/><text class="cl-pic__in" x="${x}" y="${y + 4}">＋</text></g>`; });
+    let ions = '';
+    [[200, 50], [240, 80], [215, 112], [262, 44]].forEach(([x, y], i) => { ions += `<text class="cl-ion is-so4" x="${x}" y="${y}" style="--d:${(i * 0.5).toFixed(1)}s">SO₄²⁻</text>`; });
+    return `<svg class="cl-pic" viewBox="0 0 300 160" role="img" aria-label="${esc(t('cl.pic.co.alt'))}">
+      <rect class="cl-water" x="4" y="20" width="292" height="136"/>
+      ${p}${ions}
+      <text class="cl-pic__t" x="80" y="14">${esc(t('cl.pic.co.pos'))}</text><text class="cl-pic__t" x="230" y="14">${esc(t('cl.pic.co.ion'))}</text>
+      <text class="cl-pic__s" x="150" y="152">${esc(t('cl.pic.co.cap'))}</text>
+    </svg>`;
+  }
+  if (area === 6) {
+    // ゾル → ゲル → キセロゲル
+    const rnd = rand(6);
+    let sol = '', gel = '', xer = '';
+    for (let q = 0; q < 9; q++) sol += `<circle class="cl-solp" cx="${18 + rnd() * 64}" cy="${48 + rnd() * 70}" r="5" style="--d:${(rnd() * 1.2).toFixed(2)}s"/>`;
+    const net = (x0, y0, w, h, cls) => { let o = ''; const pts = []; for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++) pts.push([x0 + (i * w) / 2, y0 + (j * h) / 2]); pts.forEach(([x, y], i) => { if (i % 3 < 2) o += `<line class="${cls}" x1="${x}" y1="${y}" x2="${pts[i + 1][0]}" y2="${pts[i + 1][1]}"/>`; if (i < 6) o += `<line class="${cls}" x1="${x}" y1="${y}" x2="${pts[i + 3][0]}" y2="${pts[i + 3][1]}"/>`; o += `<circle class="cl-solp" cx="${x}" cy="${y}" r="5"/>`; }); return o; };
+    gel = net(122, 54, 56, 60, 'cl-net');
+    xer = net(232, 66, 40, 40, 'cl-net is-dry');
+    return `<svg class="cl-pic" viewBox="0 0 300 160" role="img" aria-label="${esc(t('cl.pic.sg.alt'))}">
+      <rect class="cl-water" x="6" y="36" width="88" height="96"/><rect class="cl-water" x="106" y="36" width="88" height="96"/><rect class="cl-box" x="206" y="36" width="88" height="96"/>
+      ${sol}${gel}${xer}
+      <text class="cl-pic__t" x="50" y="26">${esc(t('cl.term.sol'))}</text><text class="cl-pic__t" x="150" y="26">${esc(t('cl.term.gel'))}</text><text class="cl-pic__t" x="250" y="26">${esc(t('cl.term.xero'))}</text>
+      <text class="cl-pic__s" x="50" y="150">${esc(t('cl.pic.sg.a'))}</text><text class="cl-pic__s" x="150" y="150">${esc(t('cl.pic.sg.b'))}</text><text class="cl-pic__s" x="250" y="150">${esc(t('cl.pic.sg.c'))}</text>
+      <text class="cl-pic__arrow" x="100" y="88">▶</text><text class="cl-pic__arrow" x="200" y="88">▶</text>
+    </svg>`;
+  }
+  if (area === 7) {
+    // 保護コロイド：炭素の粒（疎水）を、にかわ（親水）が包む。塩のイオンが来ても集まらない
+    let ions = '';
+    for (let q = 0; q < 6; q++) ions += `<text class="cl-ion is-bounce" x="${30 + q * 46}" y="${q % 2 ? 40 : 140}" style="--d:${(q * 0.3).toFixed(1)}s">${q % 2 ? 'Na⁺' : 'Cl⁻'}</text>`;
+    return `<svg class="cl-pic" viewBox="0 0 300 160" role="img" aria-label="${esc(t('cl.pic.pr.alt'))}">
+      <rect class="cl-water" x="4" y="20" width="292" height="136"/>
+      <circle class="cl-shell" cx="100" cy="88" r="34"/><circle class="cl-carbon" cx="100" cy="88" r="20"/>
+      <circle class="cl-carbon" cx="220" cy="80" r="14"/><circle class="cl-carbon" cx="236" cy="96" r="14"/><circle class="cl-carbon" cx="214" cy="100" r="14"/>
+      ${ions}
+      <text class="cl-pic__t" x="100" y="14">${esc(t('cl.pic.pr.a'))}</text><text class="cl-pic__t" x="225" y="14">${esc(t('cl.pic.pr.b'))}</text>
+      <text class="cl-pic__s" x="100" y="150">${esc(t('cl.pic.pr.as'))}</text><text class="cl-pic__s" x="225" y="150">${esc(t('cl.pic.pr.bs'))}</text>
+    </svg>`;
+  }
+  if (area === 8) {
+    const icons = ['🔔', '🔍', '🛍', '⚡', '🧪', '💧', '🛡'];
+    let o = '';
+    icons.forEach((ic, i) => { const a = Math.PI * (0.05 + 0.9 * (i / 6)); o += `<text class="cl-pic__icon" x="${(150 - Math.cos(a) * 120).toFixed(1)}" y="${(140 - Math.sin(a) * 110).toFixed(1)}" style="--d:${(i * 0.25).toFixed(2)}s">${ic}</text>`; });
+    return `<svg class="cl-pic" viewBox="0 0 300 160" role="img" aria-label="${esc(t('cl.pic.sh.alt'))}">
+      <path class="cl-torii" d="M110 150 V70 M190 150 V70 M96 64 H204 M104 82 H196"/>
+      <circle class="cl-moon" cx="150" cy="110" r="22"/>
+      ${o}
+    </svg>`;
+  }
   if (area === 3) {
     // 透析：セロハンの袋の穴より小さいイオンは外へ出て、大きなコロイド粒子は残る
     const rnd = rand(9);
