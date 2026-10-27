@@ -1,7 +1,7 @@
 // freeze/src/config.js
 // ③ フリーズ・ガードの数値の設定（全体の仕様書 9章）。数値はここに集め、プログラムの中に直接書かない。
 
-export const VERSION = 'freeze v0.3.0';
+export const VERSION = 'freeze v0.4.0';
 
 // ── 計算に使う定数（教科書の値） ──
 export const CONST = {
@@ -25,6 +25,9 @@ export const SUBSTANCES = {
   glycerol: { formula: 'C₃H₈O₃', M: 92, i: 1, price: 0 },
   egly: { formula: 'C₂H₆O₂', M: 62, i: 1, price: 0 },
   naph: { formula: 'C₁₀H₈', M: 128, i: 1, price: 0 },
+  // 浸透圧の綱引きのカード（撒く物質ではない）
+  KCl: { formula: 'KCl', M: 74.5, i: 2, price: 0 },
+  MgCl2: { formula: 'MgCl₂', M: 95, i: 3, price: 0 },
 };
 
 // ── ステージ（各ステージ3夜）。kind で、1夜の中身が変わる ──
@@ -121,9 +124,18 @@ export const REWARD = {
   identify: 150,        // ステージ7：物質を1つ正しく特定した（その問題で初めてのとき）
 };
 
-// ── 解き方の説明（アニメーション） ──
-export const TUTORIAL = {
-  stepSec: 1.4,         // 1つの手順が出てくる間かく（秒）
+// ── 撒くアニメーション（v0.4）：「夜を迎える」を押したあと、撒いた量に合わせて粒が降り、凍る温度が下がっていくのを見せる ──
+export const SPREAD = {
+  sec: 3.6,             // 撒く時間（秒）。このあと夜になる
+  dotsPerMol: 12,       // 粒子 1 mol を、3D の粒いくつで表すか（電解質は分かれた粒も数える。同じ効き目なら、同じ数の粒になる）
+  maxDots: 150,         // 1区間の粒の上限
+  dropsPerKg: 24,       // ステージ4：真水 1 kg を、しずくいくつで表すか
+};
+
+// ── 目安メーター（v0.4）：準備のとき、撒く量を入れると、その量での凍る温度などを数直線で見せる ──
+export const ASSIST = {
+  meterNoBonus: true,   // メーターを使った夜は、予算ボーナス（★ 40 ヒヤマ）なし（自分で計算した人へのごほうびとして）
+  meterOnFirst: true,   // ステージ1の1夜めは、はじめからメーターをつけておく（しくみをつかむため）
 };
 
 // ── 朝の解説で、まき方の傾向を見分ける幅 ──
@@ -143,4 +155,44 @@ export const RENDER = {
   maxPixelRatio: 2,
   fov: 42,
   snow: 260,            // 降る雪の粒の数
+};
+
+// ── 対戦「寒波バトルロイヤル」（v0.4、全体の仕様書 9章・11章） ──
+//   各自が自分の3区間を守る。夜ごとに同じ区間（水と最低気温）が全員に出る。
+//   予算を cheapLeft 以上残して3区間とも守り切ると、寒波を1つ、選んだ相手に送れる。寒波を受けた人は、次の夜、区間が coldDrop ℃ 冷える。
+//   凍った区間の合計が outFrozen になると脱落。最後まで残った人の勝ち（何人も残ったら、凍った数が少ない順、次に残した予算が多い順）。
+export const WAVE = {
+  minPlayers: 2,
+  maxPlayers: 12,
+  nights: 5,
+  decideSec: 60,        // 撒く量を決める時間
+  nightSec: 14,         // 撒く → 夜 → 結果 を見せる時間（この間に寒波の相手を選ぶ）
+  substances: ['urea', 'glucose', 'NaCl', 'CaCl2'],
+  budgetPerMol: 9.6,    // 予算 ＝ 寒波なしで守るのに必要な粒子の物質量 × この数（ステージ2と同じ）
+  coldDrop: 2,          // 寒波1つで冷える温度（℃）
+  cheapLeft: 0.4,       // 予算のこの割合以上を残して守り切ると、寒波を1つ送れる
+  outFrozen: 3,         // 凍った区間の合計がこの数で脱落
+  idleNights: 2,        // 続けてこの夜の数、何も操作しないと放置（罰金）
+  waters: [1.0, 1.5, 2.0, 2.5, 3.0],
+  // 夜ごとの最低気温の範囲（℃）：[いちばん暖かい, いちばん寒い]。0.5℃ きざみで選ぶ
+  lows: [[-2, -4], [-3, -5], [-4, -6], [-5, -7], [-6, -8]],
+};
+
+// ── 対戦「浸透圧の綱引き」（v0.4） ──
+//   半透膜で仕切ったU字管の左右に、チームが物質を溶かす。粒子の多い側へ水が移り、液面が上がる。
+//   毎回、みんなに同じ3枚のカード（物質と質量）が出る。1人1枚選ぶ。チームの粒子の物質量は、メンバーの平均。
+//   液面の差 ＝ cmPerMol × （左の粒子の合計 − 右の粒子の合計）。先に goalCm まで上げたチームの勝ち。
+export const TUG = {
+  minPlayers: 2,
+  maxPlayers: 12,
+  teamMax: 6,
+  rounds: 6,
+  decideSec: 20,
+  revealSec: 8,
+  cmPerMol: 12,
+  goalCm: 8,
+  cards: ['NaCl', 'CaCl2', 'KCl', 'MgCl2', 'glucose', 'urea', 'sucrose'],
+  sameMassRounds: 4,    // はじめの何回は、3枚とも同じ質量（同じ質量で、どれがいちばん多くの粒子になるか）
+  sameMass: [5, 10],
+  mixMass: [5, 10, 15],
 };

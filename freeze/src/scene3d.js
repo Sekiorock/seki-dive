@@ -5,7 +5,7 @@
 //   ・指でなぞると回る、2本指で寄る・引く。下の操作盤より上の「見える場所」に、峠道全体が入るように距離を決める。
 // 軽く保つため、影は使わない。物体は60個まで。
 
-import { RENDER } from './config.js';
+import { RENDER, SPREAD } from './config.js';
 import { ACCENTS, hexToInt } from '../../shared/theme.js';
 
 const ACC = ACCENTS.freeze;
@@ -74,6 +74,7 @@ export function createScene(canvas) {
   // ── 峠道（6区間） ──
   const N = 3;          // 区間の数（v0.3 から3つ）
   const sections = [];
+  const posts = [];
   const tmpA = new THREE.Vector3(), tmpB = new THREE.Vector3();
   for (let k = 0; k < N; k++) {
     const steps = 10;
@@ -102,6 +103,7 @@ export function createScene(canvas) {
       const post = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.5, 0.06), new THREE.MeshBasicMaterial({ color: hexToInt(ACC.a2.neon), toneMapped: false }));
       post.position.set(edge.x, edge.y + 0.25, edge.z + 0.75);
       scene.add(post);
+      posts.push(post);
     }
     // 札（番号・予報・いまの気温）
     const c = document.createElement('canvas'); c.width = 256; c.height = 160;
@@ -172,6 +174,157 @@ export function createScene(canvas) {
     sections.push({ mesh, mat, label, c, tex, mid, frost: 0, goalFrost: 0, key: '', info: null, clothG, clothMat, cloth, potG, hotMat, fire, steam, stPos, stG, tankG, seaW, freshW, piston, freshM, flaskG, liqMat });
   }
 
+  // ── 撒く粒（v0.4）：区間ごとに点の集まり。粒が空から落ちて路面（釜・布）に着き、電解質は i 個の粒に分かれる ──
+  const SPM = SPREAD.maxDots;
+  const ION_COL = { cat: new THREE.Color(0xFFC074), an: new THREE.Color(0x8FF3FA) };
+  for (const sc of sections) {
+    const geo = new THREE.BufferGeometry();
+    const pos = new Float32Array(SPM * 3).fill(-50);
+    const col = new Float32Array(SPM * 3).fill(1);
+    geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
+    const pts = new THREE.Points(geo, new THREE.PointsMaterial({ size: 0.15, vertexColors: true, transparent: true, opacity: 0.95, depthWrite: false, toneMapped: false }));
+    pts.frustumCulled = false;
+    pts.renderOrder = 5;
+    scene.add(pts);
+    sc.sp = { geo, pos, col, pts, dots: [] };
+  }
+  let spreadT0 = -1;
+  function clearSpreadAll() {
+    spreadT0 = -1;
+    for (const sc of sections) { sc.sp.dots = []; sc.sp.pos.fill(-50); sc.sp.geo.attributes.position.needsUpdate = true; }
+  }
+  /** list：[{ dots, split, color, ions } | { drops }] */
+  function startSpread(list) {
+    const rr = rand(11);
+    sections.forEach((sc, k) => {
+      const it = list[k] || {};
+      const dots = [];
+      const mid = sc.mid;
+      if (it.drops) {
+        for (let q = 0; q < it.drops; q++) {
+          const lx = mid.x + (rr() - 0.5) * 0.7, ly = mid.y + 0.42 + rr() * 0.42, lz = mid.z + (rr() - 0.5) * 0.06;
+          dots.push({ sx: lx + (rr() - 0.5) * 0.3, sy: mid.y + 2.4 + rr() * 0.8, sz: lz, lx, ly, lz, ox: 0, oz: 0, d: rr() * 0.55, c: new THREE.Color(0x7fc4ff), c0: new THREE.Color(0x7fc4ff), vanish: true });
+        }
+      } else {
+        const split = Math.max(1, it.split || 1);
+        const grains = Math.ceil((it.dots || 0) / split);
+        const base = new THREE.Color(it.color || '#ffffff');
+        for (let gi = 0; gi < grains; gi++) {
+          let lx, ly, lz;
+          if (theme === 'boil') { const a = rr() * Math.PI * 2, r = Math.sqrt(rr()) * 0.32; lx = mid.x + Math.cos(a) * r; lz = mid.z + Math.sin(a) * r; ly = mid.y + 0.47; }
+          else {
+            const u = (k + 0.08 + rr() * 0.84) / N;
+            const p = roadPoint(u);
+            lx = p.x; lz = p.z + (rr() - 0.5) * 0.85; ly = p.y + 0.07;
+          }
+          const sx = lx + (rr() - 0.5) * 0.6, sy = mid.y + 2.6 + rr() * 1.2, sz = lz + (rr() - 0.5) * 0.6;
+          const d = rr() * 0.5;
+          for (let j = 0; j < split && dots.length < SPM; j++) {
+            const a = (j / split) * Math.PI * 2 + rr();
+            const ion = it.ions ? (j === 0 ? 'cat' : 'an') : null;
+            dots.push({ sx, sy, sz, lx, ly, lz, ox: split > 1 ? Math.cos(a) * 0.09 : 0, oz: split > 1 ? Math.sin(a) * 0.09 : 0, d, c0: base, c: ion ? ION_COL[ion] : base });
+          }
+        }
+      }
+      sc.sp.dots = dots;
+    });
+    spreadT0 = -2;   // 次の frame で、その時刻から始める
+  }
+  function stepSpread(now) {
+    if (spreadT0 === -1) return;
+    if (spreadT0 === -2) spreadT0 = now;
+    const p = (now - spreadT0) / SPREAD.sec;
+    for (const sc of sections) {
+      const { pos, col, dots, geo } = sc.sp;
+      dots.forEach((o, i) => {
+        const f = Math.max(0, Math.min(1, (p - o.d) / 0.32));
+        let x, y, z, c = o.c0;
+        if (f < 1) { x = o.sx + (o.lx - o.sx) * f; y = o.sy + (o.ly - o.sy) * f * f; z = o.sz + (o.lz - o.sz) * f; }
+        else if (o.vanish) { x = 0; y = -50; z = 0; }
+        else {
+          const q = Math.max(0, Math.min(1, (p - o.d - 0.32) / 0.14));
+          x = o.lx + o.ox * q; y = o.ly; z = o.lz + o.oz * q; c = q > 0.2 ? o.c : o.c0;
+        }
+        pos[i * 3] = x; pos[i * 3 + 1] = y; pos[i * 3 + 2] = z;
+        col[i * 3] = c.r; col[i * 3 + 1] = c.g; col[i * 3 + 2] = c.b;
+      });
+      for (let i = dots.length; i < SPM; i++) pos[i * 3 + 1] = -50;
+      geo.attributes.position.needsUpdate = true;
+      geo.attributes.color.needsUpdate = true;
+    }
+    if (p > 1.2) spreadT0 = -3;   // 止める（粒はそのまま残す）
+  }
+
+  // ── 浸透圧の綱引き（v0.4）：半透膜で仕切ったU字管。左がチームA（白群）、右がチームB（臙脂） ──
+  const tugG = new THREE.Group();
+  tugG.position.set(0, -0.3, 1.2);
+  tugG.scale.setScalar(1.75);
+  const TUBE_R = 0.5, BASE = 1.5, CM = 0.075;     // 液面の高さ（ふだん）、1 cm あたりの高さ
+  const tubeGlass = new THREE.MeshStandardMaterial({ color: 0xdfe8ff, transparent: true, opacity: 0.16, roughness: 0.05, metalness: 0.1, depthWrite: false, side: THREE.DoubleSide });
+  const tubeCol = {};
+  const liquid = {};
+  for (const [tm, x, col] of [['A', -1.4, ACC.a1.neon], ['B', 1.4, ACC.a2.neon]]) {
+    const g = new THREE.Mesh(new THREE.CylinderGeometry(TUBE_R + 0.06, TUBE_R + 0.06, 3.2, 24, 1, true), tubeGlass);
+    g.position.set(x, 1.75, 0);
+    const lm = new THREE.MeshStandardMaterial({ color: hexToInt(col), transparent: true, opacity: 0.55, emissive: hexToInt(col), emissiveIntensity: 0.35, roughness: 0.2 });
+    const liq = new THREE.Mesh(new THREE.CylinderGeometry(TUBE_R, TUBE_R, 1, 24), lm);
+    liq.position.set(x, 0.15 + BASE / 2, 0);
+    liq.scale.y = BASE;
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(TUBE_R + 0.08, 0.025, 6, 32), new THREE.MeshBasicMaterial({ color: 0xFFD86B, toneMapped: false }));
+    ring.rotation.x = Math.PI / 2;
+    tugG.add(g, liq, ring);
+    liquid[tm] = { liq, ring, x, lm };
+    tubeCol[tm] = col;
+  }
+  const bottom = new THREE.Mesh(new THREE.BoxGeometry(2.8 + TUBE_R * 2, 0.32, TUBE_R * 1.6), new THREE.MeshStandardMaterial({ color: 0x5aa8ff, transparent: true, opacity: 0.45, emissive: 0x1a3a7a, emissiveIntensity: 0.4 }));
+  bottom.position.set(0, 0.16, 0);
+  const memb = new THREE.Mesh(new THREE.PlaneGeometry(TUBE_R * 1.7, 0.5), new THREE.MeshBasicMaterial({ color: 0xFFC074, transparent: true, opacity: 0.85, side: THREE.DoubleSide, toneMapped: false }));
+  memb.rotation.y = Math.PI / 2; memb.position.set(0, 0.2, 0);
+  tugG.add(bottom, memb);
+  // 膜をこえて動く水の分子
+  const FLN = 40;
+  const flPos = new Float32Array(FLN * 3);
+  const flG = new THREE.BufferGeometry();
+  flG.setAttribute('position', new THREE.BufferAttribute(flPos, 3));
+  const flow = new THREE.Points(flG, new THREE.PointsMaterial({ color: 0xcfefff, size: 0.12, transparent: true, opacity: 0.9, depthWrite: false, toneMapped: false }));
+  tugG.add(flow);
+  // 札（チーム名）
+  function teamLabel(text, col) {
+    const c = document.createElement('canvas'); c.width = 256; c.height = 96;
+    const g = c.getContext('2d');
+    g.fillStyle = 'rgba(6,10,28,0.85)'; g.fillRect(0, 0, 256, 96);
+    g.strokeStyle = col; g.lineWidth = 6; g.strokeRect(3, 3, 250, 90);
+    g.fillStyle = '#fff'; g.font = `700 44px ${FONT}`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(text, 128, 50);
+    const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(c), transparent: true, depthTest: false, toneMapped: false }));
+    sp.scale.set(1.3, 0.49, 1);
+    sp.renderOrder = 10;
+    return sp;
+  }
+  const labA = teamLabel('A', ACC.a1.neon); labA.position.set(-1.4, 3.7, 0);
+  const labB = teamLabel('B', ACC.a2.neon); labB.position.set(1.4, 3.7, 0);
+  tugG.add(labA, labB);
+  tugG.visible = false;
+  scene.add(tugG);
+  const tug = { h: 0, shown: 0, goal: 10, flow: 0 };
+  function stepTug(now, dt) {
+    tug.shown += (tug.h - tug.shown) * (1 - Math.exp(-3 * dt));
+    for (const tm of ['A', 'B']) {
+      const L = liquid[tm];
+      const hh = Math.max(0.3, BASE + (tm === 'A' ? 1 : -1) * tug.shown * CM);
+      L.liq.scale.y = hh; L.liq.position.y = 0.15 + hh / 2;
+      L.ring.position.set(L.x, 0.15 + BASE + tug.goal * CM, 0);
+    }
+    const dir = tug.flow;
+    for (let q = 0; q < FLN; q++) {
+      const ph = ((now * 0.5 + q / FLN) % 1);
+      const x = dir ? (dir > 0 ? 1.4 - ph * 2.8 : -1.4 + ph * 2.8) : (q / FLN - 0.5) * 2.6 + Math.sin(now * 2 + q) * 0.05;
+      flPos[q * 3] = x; flPos[q * 3 + 1] = 0.12 + ((q * 37) % 10) / 40; flPos[q * 3 + 2] = (((q * 53) % 10) / 10 - 0.5) * 0.6;
+    }
+    flow.material.opacity = dir ? 0.95 : 0.35;
+    flG.attributes.position.needsUpdate = true;
+  }
+
   // ── 海（ステージ4：港） ──
   const sea = new THREE.Mesh(new THREE.PlaneGeometry(34, 7), new THREE.MeshStandardMaterial({ color: 0x0e2a5a, roughness: 0.25, metalness: 0.3, emissive: 0x061a3a, emissiveIntensity: 0.5 }));
   sea.rotation.x = -Math.PI / 2;
@@ -179,6 +332,7 @@ export function createScene(canvas) {
   sea.visible = false;
   scene.add(sea);
   let theme = 'freeze';
+  let labelsOn = true;
 
   // ── 雪 ──
   const SN = RENDER.snow;
@@ -287,7 +441,12 @@ export function createScene(canvas) {
     /** ステージの見た目：'freeze' | 'curve'（峠道）、'vapor'（港の物干し）、'boil'（温泉宿の釜） */
     setTheme(kind) {
       theme = kind;
+      clearSpreadAll();
       sea.visible = kind === 'vapor';
+      const isTug = kind === 'tug';
+      tugG.visible = isTug;
+      for (const s of sections) { s.mesh.visible = !isTug; s.label.visible = !isTug && labelsOn; }
+      for (const pst of posts) pst.visible = !isTug;
       for (const s of sections) { s.clothG.visible = kind === 'vapor'; s.potG.visible = kind === 'boil'; s.tankG.visible = kind === 'osmo'; s.flaskG.visible = kind === 'mm'; s.goalFrost = 0; s.frost = 0; s.key = ''; }
     },
     setSections(list) {
@@ -311,6 +470,15 @@ export function createScene(canvas) {
       hemi.intensity = 0.6 - depth * 0.25;
       moon.intensity = 0.7 - depth * 0.25;
     },
+    spread(list) { startSpread(list); },
+    /** 区間の札を見せるか（タイトル・対戦の入口では隠す） */
+    showLabels(v) { labelsOn = v; for (const sc of sections) sc.label.visible = v && theme !== 'tug'; labA.visible = v; labB.visible = v; },
+    /** 綱引き：h（cm、Aが高いと正）、goal（cm）、flow（水の動く向き：+ は A の側へ） */
+    setTug(o) {
+      if (theme !== 'tug') this.setTheme('tug');
+      tug.h = o.h; tug.goal = o.goal; tug.flow = o.flow || 0;
+    },
+    clearSpread() { clearSpreadAll(); },
     resetView() { user.az = 0; user.el = 0.62; user.zoom = 1; fit(); },
     frame(nowMs) {
       const now = nowMs / 1000;
@@ -358,6 +526,8 @@ export function createScene(canvas) {
           s.stG.attributes.position.needsUpdate = true;
         }
       }
+      if (spreadT0 !== -1 && spreadT0 !== -3) stepSpread(now);
+      if (theme === 'tug') stepTug(now, dt);
       for (let i = 0; i < SN; i++) {
         let y = snowPos[i * 3 + 1] - snowSpd[i] * snowRate * dt;
         if (y < 0) y += 7;

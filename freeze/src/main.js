@@ -9,9 +9,10 @@
 //   朝：守れた区間の数と残った予算で評価。凍った区間・むだの多い区間に、どこで計算がずれたかの解説。
 //   報酬：1夜を守り切ると 60 ヒヤマ、予算を半分以上残すと追加 40 ヒヤマ（どちらも、その夜で初めてのときだけ）。
 
-import { VERSION, SUBSTANCES, STAGES, LOCKED_STAGES, NIGHT, REWARD, CONST, TUTORIAL } from './config.js';
+import { VERSION, SUBSTANCES, STAGES, LOCKED_STAGES, NIGHT, REWARD, CONST, SPREAD, ASSIST, WAVE, TUG } from './config.js';
 import { nightOf, plan, judge, nightState, needed, coolingCurve, molarFrom } from './model.js';
-import { buildSteps, EXAMPLES } from './tutorial.js';
+import { chainOf, demoOf, pictureOf, EXAMPLES, SHOW_IONS } from './tutorial.js';
+import { pictureSvg, ionsHtml, lineBar } from './explain.js';
 import { createScene } from './scene3d.js';
 import { initI18n, t, onLangChange, applyToDom, getLang, setLang } from '../../shared/i18n.js';
 import { applyTheme, fx } from '../../shared/theme.js';
@@ -22,6 +23,7 @@ import { initNotices } from '../../shared/notices.js';
 import { openAvatarSelect } from '../../shared/avatar.js';
 import { standUrl, nameKey } from '../../shared/characters.js';
 import { createCalc } from '../../shared/calc.js';
+import * as battle from './battle.js';
 
 const $ = (id) => document.getElementById(id);
 const esc = (x) => String(x ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -43,6 +45,8 @@ let run = null;                  // 夜の進行 { t0, dur, frozenAt: [] }
 let result = null;               // 朝の判定
 let rewardText = '';
 let showTable = false;
+let meter = false;               // 目安メーターを表示しているか
+let meterUsed = false;           // この夜の準備で、目安メーターを使ったか
 
 function goHome() { location.href = '../'; }
 let toastTimer = 0;
@@ -55,7 +59,8 @@ function toast(msg, ms = 3600) {
 }
 function show(name) {
   screen = name;
-  for (const id of ['title', 'play']) $(id).hidden = id !== name;
+  for (const id of ['title', 'play', 'battle']) $(id).hidden = id !== name;
+  if (scene) scene.showLabels(name === 'play');
   updateViewport();
 }
 
@@ -112,6 +117,9 @@ function startNight(s, n, keepPicks = false) {
   night = nightOf(s, n);
   if (!keepPicks || picks.length !== night.sections.length) picks = night.sections.map(() => ({ sub: night.substances[0] || null, mass: '' }));
   phase = 'prep';
+  if (scene) scene.clearSpread();
+  if (!keepPicks) { meter = ASSIST.meterOnFirst && s === 0 && n === 0; meterUsed = meter; }
+  else meterUsed = meter;
   run = null; result = null; rewardText = '';
   scene.setTheme(night.kind);
   scene.setNight(0.2);
@@ -135,47 +143,160 @@ function setDawn(k) {
   if (scene) scene.setDawn(k);
 }
 
-// ───────────── 解き方の説明（アニメーション） ─────────────
-let tutMode = 'intro';
-let tutIdx = 0;
+// ───────────── 解き方の説明（v0.4：しくみ → ためしてみよう → 計算のレシピ） ─────────────
+const tut = { mode: 'intro', idx: 0, page: 0, shown: 0, demo: 0 };
 function closeTut() { const m = $('tut'); if (m) m.hidden = true; }
 function failRows() { return result ? result.rows.map((r, k) => ({ r, k })).filter((x) => x.r.fail) : []; }
-/** mode：'intro'（ステージのはじめの例）| 'recap'（失敗した区間の数値で） */
+function tutPages() { return tut.mode === 'recap' ? ['recipe'] : ['how', 'try', 'recipe']; }
+/** mode：'intro'（ステージのはじめ）| 'recap'（失敗した区間の数値で） */
 function openTut(mode, idx = 0) {
-  tutMode = mode;
-  tutIdx = idx;
-  let ex, title;
-  if (mode === 'recap') {
-    const fr = failRows();
-    if (!fr.length) return;
-    const { r, k } = fr[Math.min(idx, fr.length - 1)];
-    ex = { ...r };
-    if (night.kind !== 'vapor' && night.kind !== 'osmo' && night.kind !== 'mm') ex.sub = r.sub || night.substances[night.substances.length - 1];
-    title = t('fz.recapTitle', { n: night.kind === 'mm' ? t('fz.sampleN', { n: k + 1 }) : t('fz.secN', { n: k + 1 }) });
-  } else {
-    ex = EXAMPLES[night.stage];
-    title = t('fz.tutTitle', { s: night.stage, name: t(`fz.stage${night.stage}.name`) });
-  }
-  const kind = mode === 'recap' ? night.kind : ex.kind;
-  const { formula, steps } = buildSteps(t, kind, ex);
-  const m = $('tut');
-  m.hidden = false;
-  const lead = mode === 'recap' ? t('fz.recapLead') : t(`fz.tutLead${night.stage}`);
-  const more = mode === 'recap' && failRows().length > 1;
-  m.innerHTML = `<div class="fz-tut__card"><div class="fz-tut__bar"><b>${esc(title)}</b></div>`
-    + `<p class="fz-tut__lead">${esc(lead)}</p>`
-    + `<p class="fz-tut__formula"><span>${esc(formula)}</span></p>`
-    + `<ol class="fz-tut__steps">${steps.map((st, i) => `<li style="--i:${i}"><span class="fz-tut__no">${i + 1}</span><div><b>${esc(st.h)}</b><p class="fz-tut__eq">${st.eq}</p>${st.note ? `<small>${esc(st.note)}</small>` : ''}</div></li>`).join('')}</ol>`
-    + `<p class="fz-tut__legend"><i class="c-g">${esc(t('fz.tut.lgGiven'))}</i><i class="c-k">${esc(t('fz.tut.lgConst'))}</i><i class="c-a">${esc(t('fz.tut.lgAns'))}</i></p>`
-    + `<div class="fz-foot"><button type="button" class="btn" data-act="tut-replay">${esc(t('fz.tutReplay'))}</button>`
-    + (more ? `<button type="button" class="btn" data-act="tut-next">${esc(t('fz.tutNextFail'))}</button>` : '')
-    + `<button type="button" class="btn btn--primary" data-act="tut-close">${esc(t('fz.tutClose'))}</button></div></div>`;
-  m.style.setProperty('--step', `${TUTORIAL.stepSec}s`);
+  if (mode === 'recap' && !failRows().length) return;
+  tut.mode = mode; tut.idx = idx; tut.page = 0; tut.shown = 0;
+  const d = demoOf(EXAMPLES[night.stage].kind);
+  tut.demo = d.start;
+  if (mode === 'recap') tut.shown = 99;
+  renderTut();
   if (mode === 'intro') {
-    const d = getWorldData(WORLD);
-    setWorldData(WORLD, { ...d, tut: { ...(d.tut || {}), [night.stage]: Date.now() } });
+    const w = getWorldData(WORLD);
+    setWorldData(WORLD, { ...w, tut: { ...(w.tut || {}), [night.stage]: Date.now() } });
   }
 }
+/** 説明に使う数値（例、または失敗した区間） */
+function tutExample() {
+  if (tut.mode !== 'recap') return { ex: EXAMPLES[night.stage], kind: EXAMPLES[night.stage].kind, row: null, k: -1 };
+  const fr = failRows();
+  const { r, k } = fr[Math.min(tut.idx, fr.length - 1)];
+  const ex = { ...r };
+  if (['freeze', 'curve', 'boil'].includes(night.kind)) ex.sub = r.sub || night.substances[night.substances.length - 1];
+  return { ex, kind: night.kind, row: r, k };
+}
+function renderTut() {
+  const m = $('tut');
+  m.hidden = false;
+  const pages = tutPages();
+  const page = pages[tut.page];
+  const { ex, kind, row, k } = tutExample();
+  const stage = night.stage;
+  const title = tut.mode === 'recap'
+    ? t('fz.recapTitle', { n: kind === 'mm' ? t('fz.sampleN', { n: k + 1 }) : t('fz.secN', { n: k + 1 }) })
+    : t('fz.tutTitle', { s: stage, name: t(`fz.stage${stage}.name`) });
+  let body = '';
+  if (page === 'how') {
+    const pic = pictureOf(kind);
+    const subs = ['NaCl', 'CaCl2', 'urea'];
+    body = `<p class="fz-tut__big">${esc(t(`fz.how.${kind === 'curve' ? 'freeze' : kind}.head`))}</p>`
+      + pictureSvg(pic, t)
+      + `<p class="fz-tut__lead">${esc(t(`fz.how.${kind === 'curve' ? 'freeze' : kind}.text`))}</p>`
+      + (SHOW_IONS[stage] ? `<p class="fz-tut__sub">${esc(t('fz.how.ionHead'))}</p>${ionsHtml(t, subs)}` : '');
+  } else if (page === 'try') {
+    body = `<p class="fz-tut__big">${esc(t('fz.try.head'))}</p><div id="tut-demo">${demoHtml(kind)}</div>`;
+  } else {
+    body = recipeHtml(kind, ex, row);
+  }
+  const dots = pages.length > 1 ? `<span class="fz-tut__dots">${pages.map((p, i) => `<i class="${i === tut.page ? 'is-on' : ''}">${esc(t(`fz.tutPage.${p}`))}</i>`).join('')}</span>` : '';
+  const chain = chainOf(t, kind, ex);
+  const allShown = page !== 'recipe' || tut.shown >= chain.ops.length + 1;
+  const more = tut.mode === 'recap' && failRows().length > 1;
+  const last = tut.page >= pages.length - 1;
+  let foot = '';
+  if (tut.page > 0) foot += `<button type="button" class="btn" data-act="tut-prev">${esc(t('fz.tutPrev'))}</button>`;
+  if (page === 'recipe' && !allShown) foot += `<button type="button" class="btn btn--primary" data-act="tut-step">${esc(t('fz.tutStep'))}</button>`;
+  else if (!last) foot += `<button type="button" class="btn btn--primary" data-act="tut-nextp">${esc(t('fz.tutNextP'))}</button>`;
+  else {
+    if (more) foot += `<button type="button" class="btn" data-act="tut-next">${esc(t('fz.tutNextFail'))}</button>`;
+    foot += `<button type="button" class="btn btn--primary" data-act="tut-close">${esc(t('fz.tutClose'))}</button>`;
+  }
+  m.innerHTML = `<div class="fz-tut__card"><div class="fz-tut__bar"><b>${esc(title)}</b>${dots}<button type="button" class="fz-mini" data-act="tut-close" aria-label="${esc(t('calc.close'))}">×</button></div>`
+    + body + `<div class="fz-foot">${foot}</div></div>`;
+  m.scrollTop = 0;
+}
+/** ためしてみよう：スライダーで粒を動かす */
+function demoHtml(kind) {
+  const d = demoOf(kind);
+  return `<label class="fz-demo__in"><span>${esc(t(`fz.try.in.${d.outKey}`))}</span><output id="tut-demo-v">${esc(demoVal(d))}</output>`
+    + `<input type="range" data-tut="demo" min="${d.min}" max="${d.max}" step="${d.step}" value="${tut.demo}"></label>`
+    + `<div id="tut-demo-out">${demoOut(kind)}</div><p class="fz-tut__lead">${esc(t(`fz.try.note.${d.outKey}`))}</p>`;
+}
+function demoVal(d) { return d.outKey === 'mm' ? `${tut.demo}` : `${(Math.round(tut.demo * 100) / 100).toFixed(d.step < 0.1 ? 2 : 1)} ${d.inUnit}`; }
+function demoOut(kind) {
+  const d = demoOf(kind);
+  const o = d.compute(tut.demo);
+  const dots = Array.from({ length: Math.min(40, o.dots) }, (_, i) => `<i style="--i:${i}"></i>`).join('');
+  let bar;
+  if (d.outKey === 'fp') bar = lineBar({ min: -6, max: 2, zone: { from: -6, to: -CONST.Kf * tut.demo, cls: 'is-ice', label: t('fz.zone.ice') }, marks: [{ v: 0, cls: 'is-zero', label: '0℃' }, { v: -CONST.Kf * tut.demo, cls: 'is-fp', label: t('fz.mk.fp') }] });
+  else if (d.outKey === 'bp') bar = lineBar({ min: 99.8, max: 101.8, zone: { from: 100 + CONST.Kb * tut.demo, to: 101.8, cls: 'is-boil', label: t('fz.zone.boil') }, marks: [{ v: 100, cls: 'is-zero', label: '100℃' }, { v: 100 + CONST.Kb * tut.demo, cls: 'is-fp', label: t('fz.mk.bp') }] });
+  else if (d.outKey === 'vp') { const mm = 1.2 / (1 + tut.demo); bar = lineBar({ min: 0, max: 1.3, zone: { from: 0, to: 0.6, cls: 'is-dry', label: t('fz.zone.dry') }, marks: [{ v: mm, cls: 'is-fp', label: t('fz.mk.m') }] }); }
+  else if (d.outKey === 'os') bar = lineBar({ min: 0, max: 26, zone: { from: 0, to: (tut.demo * CONST.R * 298) / 1e5, cls: 'is-press', label: '' }, marks: [{ v: (tut.demo * CONST.R * 298) / 1e5, cls: 'is-fp', label: 'Π' }] });
+  else bar = lineBar({ min: -3.6, max: 0.4, zone: { from: -3.6, to: -(CONST.Kf * (9 / tut.demo) / 0.1), cls: 'is-ice', label: '' }, marks: [{ v: 0, cls: 'is-zero', label: '0℃' }, { v: -(CONST.Kf * (9 / tut.demo) / 0.1), cls: 'is-fp', label: t('fz.mk.fp') }] });
+  return `<div class="fz-demo__grains${d.outKey === 'vp' ? ' is-cloth' : ''}" style="--spread:${o.spread || 1}">${dots}</div>`
+    + `<p class="fz-demo__out"><span>${esc(t(`fz.try.out.${d.outKey}`))}</span><b class="${o.ok ? 'is-ok' : ''}">${esc(o.txt)}</b></p>${bar}`;
+}
+/** 計算のレシピ：矢印でつないだ「単位の変わり方」 */
+function recipeHtml(kind, ex, row) {
+  const c = chainOf(t, kind, ex);
+  const lead = tut.mode === 'recap' ? '' : `<p class="fz-tut__lead">${esc(t(`fz.tutLead${night.stage}`))}</p>`;
+  let cmp = '';
+  if (row) cmp = compareHtml(row);
+  const n = tut.shown;
+  let html = `${cmp}${lead}<p class="fz-tut__formula"><span>${esc(c.formula)}</span></p><ol class="fz-chain${tut.mode === 'recap' ? ' is-all' : ''}">`;
+  c.nodes.forEach((nd, i) => {
+    if (i > 0) {
+      const op = c.ops[i - 1];
+      html += `<li class="fz-chain__op${i <= n - 1 ? ' is-shown' : ''}" style="--i:${i}"><span class="fz-chain__arrow">▼</span><b class="fz-chain__opv">${op.op}</b><small>${esc(op.why)}</small></li>`;
+    }
+    html += `<li class="fz-chain__node${i <= n - 1 ? ' is-shown' : ''}${i === c.nodes.length - 1 ? ' is-last' : ''}" style="--i:${i}"><small>${esc(nd.label)}</small>`
+      + `<b>${esc(nd.val)}<em>${esc(nd.unit)}</em></b>${nd.calc ? `<span class="fz-chain__calc">${nd.calc}</span>` : ''}</li>`;
+  });
+  html += '</ol>';
+  if (n >= c.nodes.length && c.answer) html += `<p class="fz-chain__ans">${esc(c.answer.note)}</p>`;
+  html += `<p class="fz-tut__legend"><i class="c-g">${esc(t('fz.tut.lgGiven'))}</i><i class="c-k">${esc(t('fz.tut.lgConst'))}</i></p>`;
+  return html;
+}
+/** かんたん解説：自分の撒いた量と、ちょうどの量の比べ */
+function compareHtml(row) {
+  const kind = night.kind;
+  const S = row.sub ? SUBSTANCES[row.sub] : null;
+  let line, bar = '';
+  if (kind === 'freeze' || kind === 'curve') {
+    const fp = row.value;
+    line = t('fz.cmp.fp', { m: f1(row.mass || 0), f: S ? S.formula : '', fp: signed(fp), low: signed(row.low) });
+    bar = freezeBar(row, fp, row.low);
+  } else if (kind === 'boil') line = t('fz.cmp.bp', { m: f1(row.mass || 0), f: S ? S.formula : '', bp: fmtBp(row.value), target: fmtBp(row.target) });
+  else if (kind === 'vapor') line = t('fz.cmp.vp', { w: f2(row.mass || 0), m: f2(row.value), max: f2(row.mMax) });
+  else if (kind === 'osmo') line = t('fz.cmp.os', { p: f1(row.mass || 0), pi: f2(row.pi) });
+  else line = t('fz.cmp.mm', { f: S ? S.formula : '—', M: S ? S.M : '—' });
+  return `<div class="fz-cmp"><p>${esc(line)}</p>${bar}</div>`;
+}
+// ───────────── 数直線（準備の目安・撒く・夜・朝の解説で同じ形） ─────────────
+/** 凍結：凍るゾーン（凍る温度より低いところ）、凍る温度、予報、いまの気温。目盛りの幅は、区間の最終の値で決める */
+function freezeBar(row, fp, low, now = null) {
+  const min = Math.floor(Math.min(low, row.value ?? fp, fp) - 1), max = 2;
+  const marks = [{ v: low, cls: 'is-low', label: t('fz.mk.low') }, { v: fp, cls: 'is-fp', label: t('fz.mk.fp') }];
+  if (now !== null) marks.push({ v: now, cls: 'is-now', label: t('fz.mk.now') });
+  return lineBar({ min, max, zone: { from: min, to: fp, cls: 'is-ice', label: t('fz.zone.ice') }, marks });
+}
+function boilBar(bp, target, now = null) {
+  const min = 99.8, max = Math.max(bp, target) + 0.4;
+  const marks = [{ v: target, cls: 'is-low', label: t('fz.mk.target') }, { v: bp, cls: 'is-fp', label: t('fz.mk.bp') }];
+  if (now !== null) marks.push({ v: now, cls: 'is-now', label: t('fz.mk.now') });
+  return lineBar({ min, max, zone: { from: bp, to: max, cls: 'is-boil', label: t('fz.zone.boil') }, marks });
+}
+function vaporBar(m, max, top) {
+  return lineBar({ min: 0, max: top * 1.08, zone: { from: 0, to: max, cls: 'is-dry', label: t('fz.zone.dry') }, marks: [{ v: max, cls: 'is-low', label: t('fz.mk.max') }, { v: m, cls: 'is-fp', label: t('fz.mk.m') }] });
+}
+function osmoBar(p, pi) {
+  const max = Math.max(p, pi) * 1.25 + 0.5;
+  return lineBar({ min: 0, max, zone: { from: pi, to: max, cls: 'is-dry', label: t('fz.zone.press') }, marks: [{ v: pi, cls: 'is-low', label: 'Π' }, { v: p, cls: 'is-fp', label: t('fz.mk.p') }] });
+}
+/** 区間の数直線（準備の目安・朝） */
+function barOf(kind, row) {
+  if (kind === 'freeze' || kind === 'curve') return freezeBar(row, row.value, row.low);
+  if (kind === 'boil') return boilBar(row.value, row.target);
+  if (kind === 'vapor') { const S = SUBSTANCES[row.csub]; const m0 = ((row.cg / S.M) * S.i) / row.water; return vaporBar(row.value, row.mMax, m0); }
+  if (kind === 'osmo') return osmoBar(row.mass || 0, row.pi);
+  return '';
+}
+
 const fmtBp = (v) => `${(Math.round(v * 100) / 100).toFixed(2)}`;
 const isFreezing = () => night.kind === 'freeze' || night.kind === 'curve';
 
@@ -219,6 +340,7 @@ function renderPanel() {
       : `<div class="fz-table">${subs.map((id) => { const S = SUBSTANCES[id]; return `<b>${esc(S.formula)}</b><span>${esc(subName(id))}</span><span>${S.M} g/mol</span><span>${S.price} pt/mol　${esc(t(`fz.ion.${id}`))}</span>`; }).join('')}</div>`;
     box.innerHTML = head(tableBtn
       + `<button type="button" class="fz-mini fz-mini--hot" data-act="tut">${esc(t('fz.tutBtn'))}</button>`
+      + (kind === 'mm' ? '' : `<button type="button" class="fz-mini${meter ? ' is-on' : ''}" data-act="meter" aria-pressed="${meter}">${esc(t('fz.meterBtn'))}</button>`)
       + `<button type="button" class="fz-mini calc-btn" data-act="calc">${esc(t('calc.open'))}</button>`
       + `<button type="button" class="fz-mini" data-act="to-title">${esc(t('fz.toTitle'))}</button>`)
       + (kind === 'mm' ? '' : `<div class="fz-budget${p.over ? ' is-over' : ''}" id="budget"><span>${esc(t('fz.used'))} <b>${f1(p.used)}</b> / ${night.budget} pt</span>`
@@ -237,10 +359,15 @@ function renderPanel() {
         const lbl = kind === 'vapor' ? 'fz.addLabel' : kind === 'osmo' ? 'fz.pressLabel' : 'fz.massLabel';
         return `<li class="fz-row fz-row--${kind}"><b>${k + 1}</b>${condCells(sec, k)}${sel}`
           + `<input type="number" inputmode="decimal" step="any" min="0" data-k="${k}" data-f="mass" id="m${k}" value="${esc(pk.mass)}" placeholder="${unit}" aria-label="${esc(t(lbl, { n: k + 1 }))}">`
-          + `<span class="fz-cost" id="c${k}">${f1(p.rows[k].cost)} pt</span></li>`;
+          + `<span class="fz-cost" id="c${k}">${f1(p.rows[k].cost)} pt</span>`
+          + `<span class="fz-meter" id="mt${k}" ${meter ? '' : 'hidden'}>${meter ? barOf(kind, p.rows[k]) : ''}</span></li>`;
       }).join('')}</ol>`
       + `<p class="fz-note">${esc(t(`fz.colHelp.${kind}`))}</p>`
+      + (meter && ASSIST.meterNoBonus ? `<p class="fz-note fz-note--hot">${esc(t('fz.meterNote'))}</p>` : '')
       + `<div class="fz-foot"><button type="button" class="btn btn--primary" data-act="go-night" id="go-btn" ${p.over ? 'disabled' : ''}>${esc(t(p.over ? 'fz.overBudget' : `fz.go.${kind}`))}</button></div>`;
+  } else if (phase === 'spread') {
+    box.innerHTML = head('') + `<p class="fz-spread__cap">${esc(t(`fz.spread.${kind}`))}</p><ol class="fz-rows" id="spread-rows"></ol>`;
+    renderSpreadRows(0);
   } else if (phase === 'night') {
     box.innerHTML = head(`<b class="fz-clock" id="clock">${startHour()}:00</b><button type="button" class="fz-mini" data-act="fast">${esc(t('fz.fast'))}</button>`)
       + `<ol class="fz-rows" id="night-rows"></ol>`;
@@ -281,7 +408,8 @@ function diagLine(row, k) {
   if (kind === 'mm' && row.sub) { vars.sub = subName(row.sub); vars.f = SUBSTANCES[row.sub].formula; }
   const fam = kind === 'vapor' ? 'dv' : kind === 'boil' ? 'db' : kind === 'osmo' ? 'do' : kind === 'mm' ? 'dm' : 'diag';
   const cls = row.fail ? 'is-frozen' : ['waste', 'forgotIon', 'ignoredResidual', 'noSubtract'].includes(d.kind) ? 'is-waste' : '';
-  return `<li class="${cls}"><b>${k + 1}</b>${esc(t(`fz.${fam}.${d.kind}`, vars))}</li>`;
+  const bar = kind === 'mm' ? '' : barOf(kind, row);
+  return `<li class="${cls}"><b>${k + 1}</b>${esc(t(`fz.${fam}.${d.kind}`, vars))}${bar ? `<span class="fz-meter">${bar}</span>` : ''}</li>`;
 }
 
 function nextNight() {
@@ -293,7 +421,10 @@ function nextNight() {
 /** 準備のあいだ：入力が変わったら、費用と予算だけ書き直す（入力欄を作りなおすと、キーボードが閉じるため） */
 function refreshPrep() {
   const p = plan(night, cleanPicks());
-  p.rows.forEach((r, k) => { const el = $(`c${k}`); if (el) el.textContent = `${f1(r.cost)} pt`; });
+  p.rows.forEach((r, k) => {
+    const el = $(`c${k}`); if (el) el.textContent = `${f1(r.cost)} pt`;
+    const mt = $(`mt${k}`); if (mt && meter) mt.innerHTML = barOf(night.kind, r);
+  });
   const b = $('budget');
   if (b) {
     b.classList.toggle('is-over', p.over);
@@ -319,6 +450,12 @@ function updateSections(tNight = null) {
       return { title, big: `${signed(sec.low)}℃`, small: t('fz.waterKg', { w: f1(sec.water) }), progress: 0 };
     }
     const row = (result || judge(night, cleanPicks())).rows[k];
+    if (phase === 'spread') {
+      const v = spreadValue(row, spreadK(tNight || 0, k));
+      if (kind === 'vapor') return { title, big: `${f2(v)}`, small: t('fz.lbl.m'), progress: 0 };
+      if (kind === 'boil') return { title, big: `${fmtBp(v)}℃`, small: t('fz.lbl.bp'), progress: 0 };
+      return { title, big: `${signed(v)}℃`, small: t('fz.lbl.fp'), safe: v <= row.low + 1e-6 };
+    }
     const x = phase === 'night' ? tNight : 1;
     const ns = nightState(kind, row, x);
     if (kind === 'osmo') {
@@ -347,11 +484,72 @@ function goNight() {
   const p = plan(night, cleanPicks());
   if (p.over && night.kind !== 'mm') return;
   result = judge(night, cleanPicks());
-  run = { t0: performance.now(), dur: NIGHT.durSec * 1000, base: 0 };
-  phase = 'night';
   if (calc) calc.close();
   closeCurve();
+  // 撒く・足す物質があれば、まず撒くようすを見せる（粒の数 → 凍る温度が下がる）
+  if (['freeze', 'curve', 'boil', 'vapor'].includes(night.kind)) {
+    phase = 'spread';
+    run = { t0: performance.now(), dur: SPREAD.sec * 1000 };
+    scene.spread(spreadList());
+    renderPanel();
+    updateSections(0);
+    return;
+  }
+  beginNight();
+}
+function beginNight() {
+  run = { t0: performance.now(), dur: NIGHT.durSec * 1000, base: 0 };
+  phase = 'night';
   renderPanel();
+}
+
+/** 撒く粒（3D）：粒子の物質量に比例した数。電解質は、着地すると i 個の粒に分かれる */
+function particlesOf(row) {
+  if (night.kind === 'vapor') return 0;
+  const S = row.sub ? SUBSTANCES[row.sub] : null;
+  return S && row.mass > 0 ? (row.mass / S.M) * S.i : 0;
+}
+function spreadList() {
+  return result.rows.map((row) => {
+    if (night.kind === 'vapor') return { drops: Math.min(SPREAD.maxDots, Math.round((row.mass || 0) * SPREAD.dropsPerKg)) };
+    const S = row.sub ? SUBSTANCES[row.sub] : null;
+    const dots = Math.min(SPREAD.maxDots, Math.round(particlesOf(row) * SPREAD.dotsPerMol));
+    return { dots, split: S ? S.i : 1, color: S ? S.color : '#ffffff', ions: S && S.i > 1 };
+  });
+}
+/** 撒く間の進み方（区間ごとに少しずらす） */
+function spreadK(x, k) { const u = Math.max(0, Math.min(1, (x - k * 0.08) / 0.7)); return u * u * (3 - 2 * u); }
+/** 撒く間の、その区間の値（凍る温度・沸く温度・粒の濃さ） */
+function spreadValue(row, e) {
+  const kind = night.kind;
+  if (kind === 'freeze') return row.value * e;
+  if (kind === 'curve') return row.fp0 + (row.value - row.fp0) * e;
+  if (kind === 'boil') return 100 + (row.value - 100) * e;
+  const S = SUBSTANCES[row.csub];
+  return ((row.cg / S.M) * S.i) / (row.water + (row.mass || 0) * e);
+}
+function renderSpreadRows(x) {
+  const box = $('spread-rows');
+  if (!box) return;
+  const kind = night.kind;
+  box.innerHTML = result.rows.map((row, k) => {
+    const e = spreadK(x, k);
+    const v = spreadValue(row, e);
+    let a, bar;
+    if (kind === 'vapor') {
+      const S = SUBSTANCES[row.csub];
+      const m0 = ((row.cg / S.M) * S.i) / row.water;
+      a = t('fz.sp.vapor', { w: f2((row.mass || 0) * e), m: f2(v) });
+      bar = vaporBar(v, row.mMax, m0);
+    } else if (kind === 'boil') {
+      a = t('fz.sp.boil', { n: f2(particlesOf(row) * e), bp: fmtBp(v) });
+      bar = boilBar(v, row.target);
+    } else {
+      a = t('fz.sp.freeze', { n: f2(particlesOf(row) * e), fp: signed(v) });
+      bar = freezeBar(row, v, row.low);
+    }
+    return `<li class="fz-row fz-row--spread"><b>${k + 1}</b><span class="fz-sp">${esc(a)}</span><span class="fz-meter">${bar}</span></li>`;
+  }).join('');
 }
 
 function renderNightRows(x) {
@@ -386,8 +584,12 @@ function renderNightRows(x) {
       b = `${esc(t('fz.fpShort'))} ${signed(row.value)}<small>℃</small>`;
       c = t(bad ? 'fz.frozen' : 'fz.guarding');
     }
+    let bar = '';
+    if (kind === 'freeze' || kind === 'curve') bar = freezeBar(row, row.value, row.low, ns.shown);
+    else if (kind === 'boil') bar = boilBar(row.value, row.target, ns.shown);
+    else if (kind === 'osmo') bar = osmoBar(row.mass || 0, row.pi);
     return `<li class="fz-row fz-row--night${bad ? ' is-frozen' : ' is-safe'}${ok ? ' is-ok' : ''}"><b>${k + 1}</b>`
-      + `<span class="fz-v">${a}</span><span class="fz-v">${b}</span><span>${esc(c)}</span></li>`;
+      + `<span class="fz-v">${a}</span><span class="fz-v">${b}</span><span>${esc(c)}</span>${bar ? `<span class="fz-meter">${bar}</span>` : ''}</li>`;
   }).join('');
 }
 
@@ -444,8 +646,9 @@ async function morning() {
   const k = key(si, ni);
   const prev = nights[k] || {};
   const firstClear = r.all && !prev.cleared && night.kind !== 'mm';
-  const firstBonus = r.all && r.half && !prev.bonus && night.kind !== 'mm';
-  nights[k] = { cleared: prev.cleared || r.all, bonus: prev.bonus || (r.all && r.half), best: Math.max(prev.best || 0, r.safe), at: Date.now() };
+  const noBonus = ASSIST.meterNoBonus && meterUsed;
+  const firstBonus = r.all && r.half && !prev.bonus && night.kind !== 'mm' && !noBonus;
+  nights[k] = { cleared: prev.cleared || r.all, bonus: prev.bonus || (r.all && r.half && !noBonus), best: Math.max(prev.best || 0, r.safe), at: Date.now() };
   setWorldData(WORLD, { ...d, nights });
   if (r.all) fx.celebrate();
   renderPanel();
@@ -475,7 +678,8 @@ async function morning() {
     const e = await pay('ledger.item.fzBonus', { s: night.stage, n: night.night }, REWARD.bonus);
     lines.push(e ? t('fz.rewardBonus', { gross: formatHiyama(e.gross), net: formatHiyama(e.amount) }) : t('fz.cap'));
   }
-  if (r.all && !firstClear && !firstBonus) lines.push(t('fz.already'));
+  if (r.all && r.half && noBonus && !prev.bonus) lines.push(t('fz.noBonusMeter'));
+  else if (r.all && !firstClear && !firstBonus) lines.push(t('fz.already'));
   rewardText = lines.join(' ／ ');
   if (phase === 'morning') renderPanel();
   // 失敗した区間があれば、少し待ってから「かんたん解説」
@@ -492,6 +696,12 @@ let lastDraw = 0;
 let lastRowsTick = -1;
 function loop(nowMs) {
   requestAnimationFrame(loop);
+  if (phase === 'spread' && run && screen === 'play') {
+    const x = Math.min(1, (nowMs - run.t0) / run.dur);
+    const tick = Math.floor(x * 40);
+    if (tick !== lastRowsTick) { lastRowsTick = tick; renderSpreadRows(x); updateSections(x); }
+    if (x >= 1) beginNight();
+  }
   if (phase === 'night' && run && screen === 'play') {
     const x = Math.min(1, run.base + (nowMs - run.t0) / run.dur);
     scene.setNight(Math.min(1, x / NIGHT.lowAt));
@@ -504,6 +714,7 @@ function loop(nowMs) {
     if (tick !== lastRowsTick) { lastRowsTick = tick; renderNightRows(x); updateSections(x); }
     if (x >= 1) morning();
   }
+  if (phase === 'battle') battle.frame();
   if (scene && (!LITE_MS || nowMs - lastDraw >= LITE_MS)) { lastDraw = nowMs; scene.frame(nowMs); }
 }
 
@@ -515,19 +726,24 @@ function setupInput() {
     if (act === 'stage') { si = Number(b.dataset.i); ni = 0; for (let n = STAGES[si].nights.length - 1; n >= 0; n--) if (nightOpen(si, n)) { ni = n; break; } renderTitle(); }
     else if (act === 'night') { ni = Number(b.dataset.i); renderTitle(); }
     else if (act === 'start') { if (nightOpen(si, ni)) startNight(si, ni); }
-    else if (act === 'to-title') { phase = 'prep'; run = null; if (calc) calc.close(); closeTut(); setDawn(0); renderTitle(); show('title'); scene.setNight(0.2); }
+    else if (act === 'to-title') { phase = 'prep'; run = null; scene.clearSpread(); if (calc) calc.close(); closeTut(); setDawn(0); renderTitle(); show('title'); scene.setNight(0.2); }
+    else if (act.startsWith('b-')) battle.onClick(act, b);
+    else if (act === 'battle') battle.openBattle(b.dataset.mode);
     else if (act === 'calc') calc.toggle();
     else if (act === 'table') { showTable = !showTable; renderPanel(); }
     else if (act === 'go-night') goNight();
+    else if (act === 'meter') { meter = !meter; if (meter) meterUsed = true; renderPanel(); }
     else if (act === 'curve') openCurve(Number(b.dataset.k));
     else if (act === 'tut') openTut('intro');
     else if (act === 'recap') openTut('recap');
     else if (act === 'tut-close') closeTut();
-    else if (act === 'tut-replay') openTut(tutMode, tutIdx);
-    else if (act === 'tut-next') openTut('recap', (tutIdx + 1) % Math.max(1, failRows().length));
+    else if (act === 'tut-next') openTut('recap', (tut.idx + 1) % Math.max(1, failRows().length));
+    else if (act === 'tut-step') { tut.shown = Math.max(2, tut.shown + 1); renderTut(); }
+    else if (act === 'tut-nextp') { tut.page += 1; tut.shown = 1; renderTut(); }
+    else if (act === 'tut-prev') { tut.page = Math.max(0, tut.page - 1); tut.shown = tutPages()[tut.page] === 'recipe' ? 1 : 0; renderTut(); }
     else if (act === 'curve-close') closeCurve();
     else if (act === 'fast') {
-      if (run) {
+      if (run && phase === 'night') {
         // 残りを早送りの長さで進める
         const now = performance.now();
         const x = Math.min(1, run.base + (now - run.t0) / run.dur);
@@ -539,6 +755,14 @@ function setupInput() {
   });
   const onField = (e) => {
     const el = e.target;
+    if (el.dataset && el.dataset.bk) { battle.onInput(el); return; }
+    if (el.dataset && el.dataset.tut === 'demo') {
+      const kind = tutExample().kind;
+      tut.demo = Number(el.value);
+      $('tut-demo-v').textContent = demoVal(demoOf(kind));
+      $('tut-demo-out').innerHTML = demoOut(kind);
+      return;
+    }
     if (!el.dataset || el.dataset.k === undefined || phase !== 'prep') return;
     const k = Number(el.dataset.k);
     if (el.dataset.f === 'sub') picks[k].sub = el.value;
@@ -581,8 +805,9 @@ async function start() {
     setUserLang(lang);
     applyToDom();
     if (screen === 'title') renderTitle();
-    if (screen === 'play') { renderPanel(); updateSections(); if (!$('tut').hidden) openTut(tutMode, tutIdx); }
+    if (screen === 'play') { renderPanel(); updateSections(); if (!$('tut').hidden) renderTut(); }
     if (calc) calc.redraw();
+    battle.redraw();
   });
 
   createTopbar({ mount: $('topbar'), showQR: false, onHome: () => goHome() });
@@ -611,10 +836,15 @@ async function start() {
   outer: for (let s = STAGES.length - 1; s >= 0; s--) for (let n = STAGES[s].nights.length - 1; n >= 0; n--) if (nightOpen(s, n)) { si = s; ni = n; break outer; }
   renderTitle();
   show('title');
+  battle.initBattle({
+    $, toast, show, scene, updateViewport, screen: () => screen, calc: () => calc,
+    enterBattle: () => { phase = 'battle'; run = null; closeTut(); closeCurve(); setDawn(0); scene.clearSpread(); show('play'); },
+    toTitle: () => { phase = 'prep'; run = null; if (calc) calc.close(); scene.setTheme('freeze'); scene.setNight(0.2); setDawn(0); renderTitle(); show('title'); },
+  });
   requestAnimationFrame(loop);
 
   if (params.has('debug')) {
-    if (params.has('fast')) NIGHT.durSec = 6;
+    if (params.has('fast')) { NIGHT.durSec = 6; WAVE.decideSec = 32; TUG.decideSec = 14; }
     window.__fz = {
       get phase() { return phase; }, get night() { return night; }, get result() { return result; }, get screen() { return screen; },
       start: (s, n) => startNight(s, n),
@@ -624,6 +854,7 @@ async function start() {
       go: () => goNight(),
       grant: (n) => grant({ itemKey: 'ledger.item.founding', amount: n }),
       calc: () => calc,
+      battle: battle.debug,
     };
   }
 }

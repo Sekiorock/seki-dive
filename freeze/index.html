@@ -36,6 +36,11 @@
     <h2 class="fz-sec" id="nights-title"></h2>
     <div class="fz-nights" id="nights"></div>
     <button type="button" class="btn btn--primary fz-start" data-act="start" id="start-btn"></button>
+    <h2 class="fz-sec" data-i18n="fz.b.head"></h2>
+    <div class="fz-bbtns">
+      <button type="button" class="btn fz-bbtn" data-act="battle" data-mode="wave"><b data-i18n="fz.b.wave.title"></b><small data-i18n="fz.b.wave.sub"></small></button>
+      <button type="button" class="btn fz-bbtn" data-act="battle" data-mode="tug"><b data-i18n="fz.b.tug.title"></b><small data-i18n="fz.b.tug.sub"></small></button>
+    </div>
     <p class="fz-note" data-i18n="hiyama.disclaimer"></p>
   </section>
 
@@ -45,6 +50,9 @@
       <div class="fz-panel" id="panel"></div>
     </div>
   </section>
+
+  <!-- 対戦（入口・部屋・結果）。中身は battle.js で作る -->
+  <section id="battle" class="fz-screen fz-title fz-battle" hidden></section>
 
   <!-- 解き方の説明（アニメーション）。中身は main.js で作る -->
   <div class="fz-tut" id="tut" role="dialog" hidden></div>
