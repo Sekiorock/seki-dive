@@ -111,8 +111,45 @@ export function createScene(canvas) {
     label.position.set(mid.x, mid.y + 1.3, mid.z);
     label.renderOrder = 10;
     scene.add(label);
-    sections.push({ mesh, mat, label, c, tex, mid, frost: 0, goalFrost: 0, key: '', info: null });
+    // ステージ4：物干しの竿と布
+    const clothG = new THREE.Group();
+    clothG.position.set(mid.x, mid.y, mid.z);
+    const postMat = new THREE.MeshStandardMaterial({ color: 0x6b7590, roughness: 0.6 });
+    for (const dx of [-0.45, 0.45]) { const pst = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.95, 6), postMat); pst.position.set(dx, 0.47, 0); clothG.add(pst); }
+    const rope = new THREE.Mesh(new THREE.BoxGeometry(0.95, 0.015, 0.015), postMat); rope.position.y = 0.92; clothG.add(rope);
+    const clothMat = new THREE.MeshStandardMaterial({ color: 0x3a4a6a, roughness: 0.9, side: THREE.DoubleSide, emissive: 0x0c1430, emissiveIntensity: 0.4 });
+    const cloth = new THREE.Mesh(new THREE.PlaneGeometry(0.78, 0.55, 6, 4), clothMat);
+    cloth.position.y = 0.64;
+    clothG.add(cloth);
+    clothG.visible = false;
+    scene.add(clothG);
+    // ステージ5：湯の釜と湯気
+    const potG = new THREE.Group();
+    potG.position.set(mid.x, mid.y, mid.z);
+    const pot = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.34, 0.42, 16, 1, true), new THREE.MeshStandardMaterial({ color: 0x2b2f3a, metalness: 0.7, roughness: 0.35, side: THREE.DoubleSide }));
+    pot.position.y = 0.32;
+    const hotMat = new THREE.MeshStandardMaterial({ color: 0x9fd8ff, emissive: 0x1E4060, emissiveIntensity: 0.4, roughness: 0.2 });
+    const hotWater = new THREE.Mesh(new THREE.CircleGeometry(0.4, 16), hotMat);
+    hotWater.rotation.x = -Math.PI / 2; hotWater.position.y = 0.48;
+    const fire = new THREE.Mesh(new THREE.ConeGeometry(0.22, 0.25, 6), new THREE.MeshBasicMaterial({ color: 0xff7a3a, toneMapped: false, transparent: true, opacity: 0.85 }));
+    fire.position.y = 0.06;
+    const stG = new THREE.BufferGeometry();
+    const stPos = new Float32Array(24 * 3);
+    stG.setAttribute('position', new THREE.BufferAttribute(stPos, 3));
+    const steam = new THREE.Points(stG, new THREE.PointsMaterial({ color: 0xffffff, size: 0.16, transparent: true, opacity: 0, depthWrite: false }));
+    potG.add(pot, hotWater, fire, steam);
+    potG.visible = false;
+    scene.add(potG);
+    sections.push({ mesh, mat, label, c, tex, mid, frost: 0, goalFrost: 0, key: '', info: null, clothG, clothMat, cloth, potG, hotMat, fire, steam, stPos, stG });
   }
+
+  // ── 海（ステージ4：港） ──
+  const sea = new THREE.Mesh(new THREE.PlaneGeometry(34, 7), new THREE.MeshStandardMaterial({ color: 0x0e2a5a, roughness: 0.25, metalness: 0.3, emissive: 0x061a3a, emissiveIntensity: 0.5 }));
+  sea.rotation.x = -Math.PI / 2;
+  sea.position.set(0, 0.0, 5.2);
+  sea.visible = false;
+  scene.add(sea);
+  let theme = 'freeze';
 
   // ── 雪 ──
   const SN = RENDER.snow;
@@ -136,8 +173,8 @@ export function createScene(canvas) {
     s.key = key;
     const g = s.c.getContext('2d');
     g.clearRect(0, 0, 256, 160);
-    const col = inf.frozen ? '#ffffff' : inf.safe ? ACC.a1.neon : ACC.a2.neon;
-    g.fillStyle = inf.frozen ? 'rgba(180,220,255,0.9)' : 'rgba(6,10,28,0.85)';
+    const col = inf.frozen ? '#ffffff' : inf.bad ? ACC.a2.neon : inf.ok ? '#E6B422' : inf.safe === false ? ACC.a2.neon : ACC.a1.neon;
+    g.fillStyle = inf.frozen ? 'rgba(180,220,255,0.9)' : inf.bad ? 'rgba(60,10,20,0.88)' : 'rgba(6,10,28,0.85)';
     g.beginPath(); g.moveTo(14, 0); g.lineTo(256, 0); g.lineTo(256, 132); g.lineTo(242, 146); g.lineTo(140, 146); g.lineTo(128, 160); g.lineTo(116, 146); g.lineTo(0, 146); g.lineTo(0, 14); g.closePath(); g.fill();
     g.strokeStyle = col; g.lineWidth = 5; g.stroke();
     g.textAlign = 'center'; g.textBaseline = 'middle';
@@ -218,6 +255,12 @@ export function createScene(canvas) {
     /**
      * 区間の見た目。list：[{ title, big, small, frozen, safe }]、frost：0〜1（凍り方）
      */
+    /** ステージの見た目：'freeze' | 'curve'（峠道）、'vapor'（港の物干し）、'boil'（温泉宿の釜） */
+    setTheme(kind) {
+      theme = kind;
+      sea.visible = kind === 'vapor';
+      for (const s of sections) { s.clothG.visible = kind === 'vapor'; s.potG.visible = kind === 'boil'; s.goalFrost = 0; s.frost = 0; s.key = ''; }
+    },
     setSections(list) {
       list.forEach((inf, k) => {
         const s = sections[k];
@@ -245,6 +288,28 @@ export function createScene(canvas) {
         s.mat.emissiveIntensity = 0.6 + s.frost * 0.5 + (s.frost > 0.5 ? Math.sin(now * 4 + s.mid.x) * 0.1 : 0);
         s.mat.roughness = 0.35 - s.frost * 0.25;
         drawLabel(s);
+        const inf = s.info || {};
+        if (theme === 'vapor') {
+          const p = inf.progress || 0;
+          s.clothMat.color.copy(new THREE.Color(0x2a3a5c).lerp(new THREE.Color(0xf4f8ff), p));
+          s.clothMat.emissiveIntensity = 0.4 + p * 0.3;
+          const pa = s.cloth.geometry.attributes.position;
+          for (let v = 0; v < pa.count; v++) { const x = pa.getX(v), y = pa.getY(v); pa.setZ(v, Math.sin(now * 2.2 + x * 5 + s.mid.x) * 0.05 * (0.6 - y)); }
+          pa.needsUpdate = true;
+        } else if (theme === 'boil') {
+          const p = inf.progress || 0;
+          s.fire.scale.setScalar(0.6 + p * 0.5 + Math.sin(now * 12 + s.mid.x) * 0.08);
+          s.hotMat.emissive.copy(new THREE.Color(0x1E4060).lerp(new THREE.Color(inf.bad ? 0x602020 : 0x5fd6ff), p));
+          const on = inf.boiling ? 1 : p * 0.3;
+          s.steam.material.opacity = 0.65 * on;
+          for (let q = 0; q < 24; q++) {
+            const ph = (now * 0.6 + q / 24) % 1;
+            s.stPos[q * 3] = Math.sin(q * 2.3 + now) * 0.2 * (1 + ph);
+            s.stPos[q * 3 + 1] = 0.5 + ph * 1.1;
+            s.stPos[q * 3 + 2] = Math.cos(q * 1.7) * 0.2 * (1 + ph);
+          }
+          s.stG.attributes.position.needsUpdate = true;
+        }
       }
       for (let i = 0; i < SN; i++) {
         let y = snowPos[i * 3 + 1] - snowSpd[i] * snowRate * dt;

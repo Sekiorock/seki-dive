@@ -1,5 +1,6 @@
 // freeze/src/main.js
 // ③ フリーズ・ガード：画面の切り替えと1夜の進行（全体の仕様書 9章）。
+// v0.2：ステージ3（冷却曲線から凝固点を読む）、4（蒸気圧降下：真水で薄めて乾かす）、5（沸点上昇：釜の湯を煮立たせる）。
 // v0.1：1夜の流れ（準備 → 夜 → 朝）と、ステージ1（凍結の峠：非電解質）・ステージ2（電解質の峠：電離で粒子が増える）。
 //   準備：6つの区間ごとに、撒く物質と質量を決める（予算の中で）。凝固点は自分で計算する（電卓あり）。
 //   夜：約40秒の早回し。区間の気温がその区間の溶液の凝固点を下回ると、路面が凍る。
@@ -7,7 +8,7 @@
 //   報酬：1夜を守り切ると 60 ヒヤマ、予算を半分以上残すと追加 40 ヒヤマ（どちらも、その夜で初めてのときだけ）。
 
 import { VERSION, SUBSTANCES, STAGES, LOCKED_STAGES, NIGHT, REWARD, CONST } from './config.js';
-import { nightOf, plan, judge, tempAt, neededMass } from './model.js';
+import { nightOf, plan, judge, nightState, needed, coolingCurve } from './model.js';
 import { createScene } from './scene3d.js';
 import { initI18n, t, onLangChange, applyToDom, getLang, setLang } from '../../shared/i18n.js';
 import { applyTheme, fx } from '../../shared/theme.js';
@@ -106,48 +107,71 @@ function updateViewport() {
 function startNight(s, n, keepPicks = false) {
   si = s; ni = n;
   night = nightOf(s, n);
-  if (!keepPicks || picks.length !== night.sections.length) picks = night.sections.map(() => ({ sub: night.substances[0], mass: '' }));
+  if (!keepPicks || picks.length !== night.sections.length) picks = night.sections.map(() => ({ sub: night.substances[0] || null, mass: '' }));
   phase = 'prep';
   run = null; result = null; rewardText = '';
+  scene.setTheme(night.kind);
   scene.setNight(0.2);
+  closeCurve();
   show('play');
   renderPanel();
   updateSections();
 }
 
 function subName(id) { return t(`fz.sub.${id}`); }
+const fmtBp = (v) => `${(Math.round(v * 100) / 100).toFixed(2)}`;
+const isFreezing = () => night.kind === 'freeze' || night.kind === 'curve';
+
+/** 準備の行の、区間の条件の部分（kind ごと） */
+function condCells(sec, k) {
+  if (night.kind === 'vapor') {
+    const S = SUBSTANCES[sec.csub];
+    return `<span class="fz-v fz-cloth">${esc(S.formula)} ${sec.cg}<small>g</small><br>${esc(t('fz.waterShort'))} ${f1(sec.water)}<small>kg</small></span>`
+      + `<span class="fz-v fz-low">≦${f2(sec.mMax)}<small>mol/kg</small></span>`;
+  }
+  if (night.kind === 'boil') return `<span class="fz-v">${f1(sec.water)}<small>kg</small></span><span class="fz-v fz-low">${fmtBp(sec.target)}<small>℃</small></span>`;
+  const graph = night.kind === 'curve' ? `<button type="button" class="fz-graph" data-act="curve" data-k="${k}" aria-label="${esc(t('fz.curveOpen', { n: k + 1 }))}">📈</button>` : '';
+  return `<span class="fz-v">${f1(sec.water)}<small>kg</small></span><span class="fz-v fz-low">${signed(sec.low)}<small>℃</small></span>${graph}`;
+}
 
 function renderPanel() {
   const box = $('panel');
   const head = (extra) => `<div class="fz-head"><b>${esc(t('fz.nightTitle', { s: night.stage, n: night.night }))}</b>${extra}</div>`;
+  const kind = night.kind;
   if (phase === 'prep') {
-    const p = plan(night, picks.map((x) => ({ sub: x.sub, mass: Number(x.mass) || 0 })));
+    const p = plan(night, cleanPicks());
     const ratio = Math.min(1, p.used / night.budget);
     const subs = night.substances;
-    box.innerHTML = head(`<button type="button" class="fz-mini" data-act="table">${esc(t('fz.table'))}</button>`
+    const tableBtn = kind === 'vapor' ? '' : `<button type="button" class="fz-mini" data-act="table">${esc(t('fz.table'))}</button>`;
+    const table = kind === 'vapor'
+      ? `<div class="fz-table">${['NaCl', 'CaCl2', 'urea', 'glucose'].map((id) => { const S = SUBSTANCES[id]; return `<b>${esc(S.formula)}</b><span>${esc(subName(id))}</span><span>${S.M} g/mol</span><span>${esc(t(`fz.ion.${id}`))}</span>`; }).join('')}</div>`
+      : `<div class="fz-table">${subs.map((id) => { const S = SUBSTANCES[id]; return `<b>${esc(S.formula)}</b><span>${esc(subName(id))}</span><span>${S.M} g/mol</span><span>${S.price} pt/mol　${esc(t(`fz.ion.${id}`))}</span>`; }).join('')}</div>`;
+    box.innerHTML = head(tableBtn
       + `<button type="button" class="fz-mini calc-btn" data-act="calc">${esc(t('calc.open'))}</button>`
       + `<button type="button" class="fz-mini" data-act="to-title">${esc(t('fz.toTitle'))}</button>`)
       + `<div class="fz-budget${p.over ? ' is-over' : ''}" id="budget"><span>${esc(t('fz.used'))} <b>${f1(p.used)}</b> / ${night.budget} pt</span>`
       + `<span>${esc(t('fz.left'))} <b>${f1(p.left)}</b> pt</span><span class="fz-budget__bar"><i style="width:${(ratio * 100).toFixed(1)}%"></i></span></div>`
-      + `<p class="fz-hint">${esc(t(`fz.hint${night.stage}`, { kf: CONST.Kf }))}</p>`
-      + (showTable ? `<div class="fz-table">${subs.map((id) => { const S = SUBSTANCES[id]; return `<b>${esc(S.formula)}</b><span>${esc(subName(id))}</span><span>${S.M} g/mol</span><span>${S.price} pt/mol　${esc(t(`fz.ion.${id}`))}</span>`; }).join('')}</div>` : '')
-      + `<ol class="fz-rows">${night.sections.map((sec, k) => {
+      + `<p class="fz-hint">${esc(t(`fz.hint${night.stage}`, { kf: CONST.Kf, kb: CONST.Kb, wp: CONST.waterPrice }))}</p>`
+      + (showTable || kind === 'vapor' ? table : '')
+      + `<ol class="fz-rows fz-rows--${kind}">${night.sections.map((sec, k) => {
         const pk = picks[k];
-        return `<li class="fz-row"><b>${k + 1}</b><span class="fz-v">${f1(sec.water)}<small>kg</small></span><span class="fz-v fz-low">${signed(sec.low)}<small>℃</small></span>`
-          + `<select data-k="${k}" data-f="sub" aria-label="${esc(t('fz.subLabel'))}">${subs.map((id) => `<option value="${id}" ${pk.sub === id ? 'selected' : ''}>${esc(SUBSTANCES[id].formula)} ${esc(subName(id))}</option>`).join('')}</select>`
-          + `<input type="number" inputmode="decimal" step="any" min="0" data-k="${k}" data-f="mass" id="m${k}" value="${esc(pk.mass)}" placeholder="g" aria-label="${esc(t('fz.massLabel', { n: k + 1 }))}">`
+        const sel = kind === 'vapor' ? ''
+          : `<select data-k="${k}" data-f="sub" aria-label="${esc(t('fz.subLabel'))}">${subs.map((id) => `<option value="${id}" ${pk.sub === id ? 'selected' : ''}>${esc(SUBSTANCES[id].formula)}</option>`).join('')}</select>`;
+        const unit = kind === 'vapor' ? 'kg' : 'g';
+        return `<li class="fz-row fz-row--${kind}"><b>${k + 1}</b>${condCells(sec, k)}${sel}`
+          + `<input type="number" inputmode="decimal" step="any" min="0" data-k="${k}" data-f="mass" id="m${k}" value="${esc(pk.mass)}" placeholder="${unit}" aria-label="${esc(t(kind === 'vapor' ? 'fz.addLabel' : 'fz.massLabel', { n: k + 1 }))}">`
           + `<span class="fz-cost" id="c${k}">${f1(p.rows[k].cost)} pt</span></li>`;
       }).join('')}</ol>`
-      + `<p class="fz-note">${esc(t('fz.colHelp'))}</p>`
-      + `<div class="fz-foot"><button type="button" class="btn btn--primary" data-act="go-night" id="go-btn" ${p.over ? 'disabled' : ''}>${esc(t(p.over ? 'fz.overBudget' : 'fz.goNight'))}</button></div>`;
+      + `<p class="fz-note">${esc(t(`fz.colHelp.${kind}`))}</p>`
+      + `<div class="fz-foot"><button type="button" class="btn btn--primary" data-act="go-night" id="go-btn" ${p.over ? 'disabled' : ''}>${esc(t(p.over ? 'fz.overBudget' : `fz.go.${kind}`))}</button></div>`;
   } else if (phase === 'night') {
-    box.innerHTML = head(`<b class="fz-clock" id="clock">22:00</b><button type="button" class="fz-mini" data-act="fast">${esc(t('fz.fast'))}</button>`)
+    box.innerHTML = head(`<b class="fz-clock" id="clock">${kind === 'boil' ? '16:00' : kind === 'vapor' ? '18:00' : '22:00'}</b><button type="button" class="fz-mini" data-act="fast">${esc(t('fz.fast'))}</button>`)
       + `<ol class="fz-rows" id="night-rows"></ol>`;
     renderNightRows(0);
   } else {
     const r = result;
     box.innerHTML = head(`<button type="button" class="fz-mini calc-btn" data-act="calc">${esc(t('calc.open'))}</button>`)
-      + `<div class="fz-sum"><p class="fz-sum__big ${r.all ? 'is-ok' : 'is-ng'}">${esc(t(r.all ? 'fz.allSafe' : 'fz.someFrozen', { n: r.safe, total: r.rows.length }))}</p>`
+      + `<div class="fz-sum"><p class="fz-sum__big ${r.all ? 'is-ok' : 'is-ng'}">${esc(t(r.all ? `fz.all.${kind}` : `fz.some.${kind}`, { n: r.safe, total: r.rows.length }))}</p>`
       + `<p class="fz-sum__sub">${esc(t('fz.budgetLeft', { left: f1(r.left), budget: r.budget }))}${r.half ? ` ${esc(t('fz.halfLeft'))}` : ''}</p>`
       + (rewardText ? `<p class="fz-sum__reward">${esc(rewardText)}</p>` : '') + '</div>'
       + `<ul class="fz-diag">${r.rows.map((row, k) => diagLine(row, k)).join('')}</ul>`
@@ -160,13 +184,20 @@ function renderPanel() {
 
 function diagLine(row, k) {
   const d = row.diag;
+  const kind = night.kind;
   const S = row.sub ? SUBSTANCES[row.sub] : null;
+  const C = kind === 'vapor' ? SUBSTANCES[row.csub] : null;
   const vars = {
-    n: k + 1, fp: signed(row.fp), low: signed(row.low), need: d.need ? f1(d.need) : '', mass: f1(row.mass || 0),
-    sub: row.sub ? subName(row.sub) : '', f: S ? S.formula : '', i: S ? S.i : 1, wi: d.wrongI || '', r: d.ratio ? f1(d.ratio) : '',
+    n: k + 1, fp: signed(row.value), low: kind === 'boil' || kind === 'vapor' ? '' : signed(row.low), need: d.need !== undefined ? (kind === 'vapor' ? f2(d.need) : f1(d.need)) : '',
+    mass: kind === 'vapor' ? f2(row.mass || 0) : f1(row.mass || 0),
+    sub: S ? subName(row.sub) : C ? subName(row.csub) : '', f: S ? S.formula : C ? C.formula : '', i: S ? S.i : C ? C.i : 1, wi: d.wrongI || '', r: d.ratio ? f1(d.ratio) : '',
+    read: d.read !== undefined ? signed(d.read) : '', fp0: kind === 'curve' ? signed(row.fp0) : '', min: kind === 'curve' ? signed(row.fp0 - row.sc) : '',
+    bp: kind === 'boil' ? fmtBp(row.value) : '', target: kind === 'boil' ? fmtBp(row.target) : '',
+    m: kind === 'vapor' ? f2(row.value) : '', max: kind === 'vapor' ? f2(row.mMax) : '',
   };
-  const cls = row.frozen ? 'is-frozen' : d.kind === 'waste' || d.kind === 'forgotIon' ? 'is-waste' : '';
-  return `<li class="${cls}"><b>${k + 1}</b>${esc(t(`fz.diag.${d.kind}`, vars))}</li>`;
+  const fam = kind === 'vapor' ? 'dv' : kind === 'boil' ? 'db' : 'diag';
+  const cls = row.fail ? 'is-frozen' : ['waste', 'forgotIon', 'ignoredResidual', 'noSubtract'].includes(d.kind) ? 'is-waste' : '';
+  return `<li class="${cls}"><b>${k + 1}</b>${esc(t(`fz.${fam}.${d.kind}`, vars))}</li>`;
 }
 
 function nextNight() {
@@ -177,7 +208,7 @@ function nextNight() {
 
 /** 準備のあいだ：入力が変わったら、費用と予算だけ書き直す（入力欄を作りなおすと、キーボードが閉じるため） */
 function refreshPrep() {
-  const p = plan(night, picks.map((x) => ({ sub: x.sub, mass: Number(x.mass) || 0 })));
+  const p = plan(night, cleanPicks());
   p.rows.forEach((r, k) => { const el = $(`c${k}`); if (el) el.textContent = `${f1(r.cost)} pt`; });
   const b = $('budget');
   if (b) {
@@ -187,21 +218,32 @@ function refreshPrep() {
     b.querySelector('i').style.width = `${(Math.min(1, p.used / night.budget) * 100).toFixed(1)}%`;
   }
   const go = $('go-btn');
-  if (go) { go.disabled = p.over; go.textContent = t(p.over ? 'fz.overBudget' : 'fz.goNight'); }
+  if (go) { go.disabled = p.over; go.textContent = t(p.over ? 'fz.overBudget' : `fz.go.${night.kind}`); }
 }
 
+/** 3D の札 */
 function updateSections(tNight = null) {
   if (!night) return;
+  const kind = night.kind;
   const list = night.sections.map((sec, k) => {
     const title = t('fz.secN', { n: k + 1 });
-    if (phase === 'prep') return { title, big: `${signed(sec.low)}℃`, small: t('fz.waterKg', { w: f1(sec.water) }), frozen: false, safe: true };
-    const row = (result || judge(night, cleanPicks())).rows[k];
-    if (phase === 'night') {
-      const T = tempAt(sec.low, tNight, NIGHT);
-      const frozen = run.frozenAt[k] !== null && tNight >= run.frozenAt[k];
-      return { title, big: `${signed(T)}℃`, small: t('fz.fpIs', { fp: signed(row.fp) }), frozen, safe: T >= row.fp };
+    if (phase === 'prep') {
+      if (kind === 'vapor') return { title, big: `≦${f2(sec.mMax)}`, small: `${SUBSTANCES[sec.csub].formula} ${sec.cg} g`, progress: 0 };
+      if (kind === 'boil') return { title, big: `${fmtBp(sec.target)}℃`, small: t('fz.waterKg', { w: f1(sec.water) }), progress: 0 };
+      return { title, big: `${signed(sec.low)}℃`, small: t('fz.waterKg', { w: f1(sec.water) }), progress: 0 };
     }
-    return { title, big: row.frozen ? t('fz.frozen') : t('fz.safe'), small: t('fz.fpIs', { fp: signed(row.fp) }), frozen: row.frozen, safe: !row.frozen };
+    const row = (result || judge(night, cleanPicks())).rows[k];
+    const x = phase === 'night' ? tNight : 1;
+    const ns = nightState(kind, row, x);
+    if (kind === 'vapor') {
+      const pct = Math.round(ns.progress * 100);
+      return { title, big: phase === 'morning' ? t(row.fail ? 'fz.wet' : 'fz.dry') : `${pct}%`, small: `${f2(row.value)} mol/kg`, bad: ns.failNow, ok: !row.fail && ns.progress >= 1, progress: ns.progress };
+    }
+    if (kind === 'boil') {
+      return { title, big: phase === 'morning' ? t(row.fail ? 'fz.notBoil' : 'fz.boiled') : `${fmtBp(ns.shown)}℃`, small: t('fz.bpIs', { bp: fmtBp(row.value) }), bad: ns.failNow, ok: ns.boiling && !row.fail, progress: ns.progress, boiling: ns.boiling };
+    }
+    if (phase === 'night') return { title, big: `${signed(ns.shown)}℃`, small: t('fz.fpIs', { fp: signed(row.value) }), frozen: ns.failNow, safe: ns.shown >= row.value };
+    return { title, big: row.fail ? t('fz.frozen') : t('fz.safe'), small: t('fz.fpIs', { fp: signed(row.value) }), frozen: row.fail, safe: !row.fail };
   });
   scene.setSections(list);
 }
@@ -212,30 +254,81 @@ function goNight() {
   const p = plan(night, cleanPicks());
   if (p.over) return;
   result = judge(night, cleanPicks());
-  // それぞれの区間が凍りはじめる時刻（0〜1）。凍らないなら null
-  const frozenAt = result.rows.map((r) => {
-    if (!r.frozen) return null;
-    for (let k = 0; k <= 400; k++) { const x = k / 400; if (tempAt(r.low, x, NIGHT) < r.fp) return x; }
-    return NIGHT.lowAt;
-  });
-  run = { t0: performance.now(), dur: NIGHT.durSec * 1000, frozenAt, base: 0 };
+  run = { t0: performance.now(), dur: NIGHT.durSec * 1000, base: 0 };
   phase = 'night';
   if (calc) calc.close();
+  closeCurve();
   renderPanel();
 }
 
 function renderNightRows(x) {
   const box = $('night-rows');
   if (!box) return;
-  box.innerHTML = night.sections.map((sec, k) => {
-    const row = result.rows[k];
-    const T = tempAt(sec.low, x, NIGHT);
-    const frozen = run.frozenAt[k] !== null && x >= run.frozenAt[k];
-    return `<li class="fz-row fz-row--night${frozen ? ' is-frozen' : ' is-safe'}"><b>${k + 1}</b>`
-      + `<span class="fz-v">${esc(t('fz.now'))} ${signed(T)}<small>℃</small></span>`
-      + `<span class="fz-v">${esc(t('fz.fpShort'))} ${signed(row.fp)}<small>℃</small></span>`
-      + `<span>${esc(frozen ? t('fz.frozen') : t('fz.guarding'))}</span></li>`;
+  const kind = night.kind;
+  box.innerHTML = result.rows.map((row, k) => {
+    const ns = nightState(kind, row, x);
+    let a, b, c, bad = ns.failNow, ok = false;
+    if (kind === 'vapor') {
+      a = `${esc(t('fz.dryness'))} ${Math.round(ns.progress * 100)}<small>%</small>`;
+      b = `${f2(row.value)}<small>/${f2(row.mMax)}</small>`;
+      ok = !row.fail && ns.progress >= 1;
+      c = t(bad ? 'fz.wet' : ok ? 'fz.dry' : 'fz.drying');
+    } else if (kind === 'boil') {
+      a = `${esc(t('fz.now'))} ${fmtBp(ns.shown)}<small>℃</small>`;
+      b = `${esc(t('fz.bpShort'))} ${fmtBp(row.value)}<small>℃</small>`;
+      ok = ns.boiling && !row.fail;
+      c = t(bad ? 'fz.notBoil' : ns.boiling ? (row.fail ? 'fz.boilLow' : 'fz.boiled') : 'fz.heating');
+    } else {
+      a = `${esc(t('fz.now'))} ${signed(ns.shown)}<small>℃</small>`;
+      b = `${esc(t('fz.fpShort'))} ${signed(row.value)}<small>℃</small>`;
+      c = t(bad ? 'fz.frozen' : 'fz.guarding');
+    }
+    return `<li class="fz-row fz-row--night${bad ? ' is-frozen' : ' is-safe'}${ok ? ' is-ok' : ''}"><b>${k + 1}</b>`
+      + `<span class="fz-v">${a}</span><span class="fz-v">${b}</span><span>${esc(c)}</span></li>`;
   }).join('');
+}
+
+// ───────────── ステージ3：冷却曲線 ─────────────
+function closeCurve() { const m = $('curve'); if (m) m.hidden = true; }
+function openCurve(k) {
+  const sec = night.sections[k];
+  const m = $('curve');
+  m.hidden = false;
+  m.querySelector('.fz-curve__title').textContent = t('fz.curveTitle', { n: k + 1 });
+  m.querySelector('.fz-curve__how').textContent = t('fz.curveHow');
+  const cv = m.querySelector('canvas');
+  const dpr = Math.min(2, window.devicePixelRatio || 1);
+  const W = cv.clientWidth || 330, H = cv.clientHeight || 250;
+  cv.width = W * dpr; cv.height = H * dpr;
+  const g = cv.getContext('2d');
+  g.setTransform(dpr, 0, 0, dpr, 0, 0);
+  g.clearRect(0, 0, W, H);
+  const c = coolingCurve(sec);
+  const L = 42, R = W - 10, T = 12, B = H - 30;
+  const yMax = 2.2, yMin = Math.floor((sec.fp0 - sec.sc - 0.8) * 2) / 2;
+  const xMax = Math.ceil(c.tEnd);
+  const X = (x) => L + ((R - L) * x) / xMax;
+  const Y = (y) => B - ((B - T) * (y - yMin)) / (yMax - yMin);
+  g.fillStyle = 'rgba(5,8,26,0.9)'; g.fillRect(0, 0, W, H);
+  // 目盛り：0.1℃ ごとに細い線、0.5℃ ごとに数字
+  for (let y = Math.ceil(yMin * 10) / 10; y <= yMax + 1e-9; y = Math.round((y + 0.1) * 10) / 10) {
+    const major = Math.abs(y * 2 - Math.round(y * 2)) < 1e-6;
+    g.strokeStyle = major ? 'rgba(143,243,250,0.32)' : 'rgba(255,255,255,0.08)';
+    g.lineWidth = 1;
+    g.beginPath(); g.moveTo(L, Y(y)); g.lineTo(R, Y(y)); g.stroke();
+    if (major) { g.fillStyle = 'rgba(220,230,255,0.85)'; g.font = '600 10px Chakra Petch, sans-serif'; g.textAlign = 'right'; g.textBaseline = 'middle'; g.fillText(y.toFixed(1), L - 4, Y(y)); }
+  }
+  for (let x = 0; x <= xMax; x += 1) {
+    const major = x % 5 === 0;
+    g.strokeStyle = major ? 'rgba(143,243,250,0.25)' : 'rgba(255,255,255,0.06)';
+    g.beginPath(); g.moveTo(X(x), T); g.lineTo(X(x), B); g.stroke();
+    if (major) { g.fillStyle = 'rgba(220,230,255,0.85)'; g.textAlign = 'center'; g.textBaseline = 'top'; g.fillText(String(x), X(x), B + 4); }
+  }
+  g.fillStyle = 'rgba(220,230,255,0.85)'; g.textAlign = 'center'; g.textBaseline = 'top'; g.font = '600 10px M PLUS 1p, sans-serif';
+  g.fillText(t('fz.curveX'), (L + R) / 2, B + 16);
+  g.save(); g.translate(10, (T + B) / 2); g.rotate(-Math.PI / 2); g.fillText(t('fz.curveY'), 0, 0); g.restore();
+  g.strokeStyle = '#ffffff'; g.lineWidth = 2.2;
+  g.beginPath(); c.pts.forEach(([x, y], i) => g[i ? 'lineTo' : 'moveTo'](X(x), Y(y))); g.stroke();
 }
 
 async function morning() {
@@ -281,7 +374,8 @@ function loop(nowMs) {
   if (phase === 'night' && run && screen === 'play') {
     const x = Math.min(1, run.base + (nowMs - run.t0) / run.dur);
     scene.setNight(Math.min(1, x / NIGHT.lowAt));
-    const hour = (NIGHT.startHour + x * NIGHT.hours) % 24;
+    const startH = night.kind === 'boil' ? 16 : night.kind === 'vapor' ? 18 : NIGHT.startHour;
+    const hour = (startH + x * (night.kind === 'boil' ? 3 : night.kind === 'vapor' ? 12 : NIGHT.hours)) % 24;
     const el = $('clock');
     if (el) el.textContent = `${String(Math.floor(hour)).padStart(2, '0')}:${String(Math.floor((hour % 1) * 60)).padStart(2, '0')}`;
     const tick = Math.floor(x * 80);
@@ -303,6 +397,8 @@ function setupInput() {
     else if (act === 'calc') calc.toggle();
     else if (act === 'table') { showTable = !showTable; renderPanel(); }
     else if (act === 'go-night') goNight();
+    else if (act === 'curve') openCurve(Number(b.dataset.k));
+    else if (act === 'curve-close') closeCurve();
     else if (act === 'fast') {
       if (run) {
         // 残りを早送りの長さで進める
@@ -381,7 +477,7 @@ async function start() {
   if (document.fonts && document.fonts.ready) await Promise.race([document.fonts.ready, new Promise((r) => setTimeout(r, 1500))]);
   scene = createScene($('scene'));
   night = nightOf(0, 0);
-  picks = night.sections.map(() => ({ sub: night.substances[0], mass: '' }));
+  picks = night.sections.map(() => ({ sub: night.substances[0] || null, mass: '' }));
   updateSections();
   setupInput();
   // はじめは、開いているいちばん先の夜を選んでおく
@@ -396,7 +492,7 @@ async function start() {
       get phase() { return phase; }, get night() { return night; }, get result() { return result; }, get screen() { return screen; },
       start: (s, n) => startNight(s, n),
       fill: (list) => { list.forEach((x, k) => { picks[k] = { sub: x.sub, mass: String(x.mass) }; }); renderPanel(); },
-      need: (sub, k) => neededMass(sub, night.sections[k].water, night.sections[k].low),
+      need: (sub, k) => needed(night.kind, night.sections[k], sub),
       go: () => goNight(),
       grant: (n) => grant({ itemKey: 'ledger.item.founding', amount: n }),
       calc: () => calc,

@@ -45,6 +45,13 @@
     </div>
   </section>
 
+  <!-- ステージ3：冷却曲線の小窓 -->
+  <div class="fz-curve" id="curve" role="dialog" hidden>
+    <div class="fz-curve__bar"><b class="fz-curve__title"></b><button type="button" class="fz-mini" data-act="curve-close" data-i18n="calc.close"></button></div>
+    <canvas class="fz-curve__cv"></canvas>
+    <p class="fz-curve__how"></p>
+  </div>
+
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
   <p id="loading" class="fz-loading" role="status" hidden></p>
   <div id="version" class="version"></div>
