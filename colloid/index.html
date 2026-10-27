@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+  <meta name="theme-color" content="#05081A">
+  <title>セキオダイブ</title>
+  <!-- 文字：日本語は M PLUS 1p、英語と数字はゲームらしい Chakra Petch -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=M+PLUS+1p:wght@400;700;800&family=Chakra+Petch:wght@500;700&display=swap">
+  <link rel="stylesheet" href="../shared/base.css">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body data-title-key="cl.title">
+  <header id="topbar"></header>
+
+  <!-- 3Dの霧の湖 -->
+  <canvas id="scene" aria-hidden="true"></canvas>
+  <div class="cl-frame" aria-hidden="true"></div>
+
+  <!-- のぞき窓（限外の眼鏡で見たようす） -->
+  <div class="cl-scope" id="scope-box" hidden>
+    <canvas id="scope" aria-hidden="true"></canvas>
+    <p id="scope-cap"></p>
+  </div>
+
+  <!-- タイトル -->
+  <section id="title" class="cl-screen cl-title" hidden>
+    <div class="cl-logo">
+      <p class="cl-logo__layer" data-i18n="cl.layer"></p>
+      <h1 class="cl-logo__name" data-i18n="cl.title"></h1>
+      <p class="cl-logo__tag" data-i18n="cl.tagline"></p>
+    </div>
+    <div class="cl-guide">
+      <img class="cl-guide__stand" alt="" width="1024" height="1536">
+      <p class="cl-guide__line"></p>
+    </div>
+    <h2 class="cl-sec" data-i18n="cl.areas"></h2>
+    <div class="cl-areas" id="areas"></div>
+    <h2 class="cl-sec" data-i18n="cl.toolsHead"></h2>
+    <div class="cl-toolrow" id="tools"></div>
+    <button type="button" class="btn btn--primary cl-start" data-act="start" id="start-btn"></button>
+    <p class="cl-note" data-i18n="hiyama.disclaimer"></p>
+  </section>
+
+  <!-- 探検（謎）。操作盤の中身は main.js で作る -->
+  <section id="play" class="cl-screen cl-play" hidden>
+    <div class="cl-bottom" id="bottom">
+      <div class="cl-panel" id="panel"></div>
+    </div>
+  </section>
+
+  <!-- しくみ・エリアを抜けたとき。中身は main.js で作る -->
+  <div class="cl-tut" id="tut" role="dialog" hidden></div>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <p id="loading" class="cl-loading" role="status" hidden></p>
+  <div id="version" class="version"></div>
+
+  <!-- 3Dの描画（Three.js r128、ほかのワールドと同じ版）。cdnjs から -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script type="module" src="src/main.js"></script>
+</body>
+</html>
