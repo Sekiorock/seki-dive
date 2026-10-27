@@ -1,7 +1,7 @@
 // crystal/src/config.js
 // ② クリスタル・ラボの数値の設定。数値はここに集め、プログラムの中に直接書かない。
 
-export const VERSION = 'crystal v0.2.0';
+export const VERSION = 'crystal v0.3.0';
 
 // 実験台の並び
 export const BENCHES = ['solid', 'gas', 'conc'];
@@ -117,4 +117,28 @@ export const CAMERA = {
   rotateSpeed: 0.007,
   ease: 7,              // 視点が新しい位置に近づく速さ
   doubleTapMs: 320,     // ダブルタップで視点を元に戻す
+};
+
+// ── 注文モード（全体の仕様書 8章：予想を数値で入れてから実験し、予想と結果の差で報酬が決まる） ──
+export const ORDER = {
+  rewards: [150, 80, 20],     // 差が tol[0] 以内／tol[1] 以内／それ以外（g の問題は 0.5 g と 2 g）
+  durMs: 2800,                // 実験の動き（温度を下げる、水を蒸発させる など）の長さ
+};
+
+// ── 精製モード（全体の仕様書 8章：KNO₃ と CuSO₄·5H₂O の混合物から、指定の純度と質量の KNO₃ を取り出す） ──
+export const REFINE = {
+  reward: 120,                // その段階を初めて達成したときの報酬
+  adhere: 0.15,               // ろ過したあと、結晶にしみこんで残る液（母液）の割合（結晶の質量に対して）
+  washTemp: 0,                // 洗うのに使う冷水の温度（℃）
+  washEff: 0.5,               // 洗う水が、どれだけ結晶を溶かしてしまうか（溶解度いっぱいを 1 とする）
+  washMax: 3,                 // 洗える回数
+  wash: { min: 0, max: 50, step: 5, start: 20 },   // 1回に使う冷水（g）
+  // 段階：混合物の中身（g）と、目標（取り出す KNO₃ の質量 g 以上、純度 % 以上）
+  levels: [
+    { kno3: 90, cuh: 10, mass: 50, purity: 99.0 },
+    { kno3: 80, cuh: 20, mass: 45, purity: 99.0 },
+    { kno3: 70, cuh: 30, mass: 38, purity: 99.5 },
+    { kno3: 60, cuh: 40, mass: 28, purity: 99.5 },
+    { kno3: 100, cuh: 20, mass: 70, purity: 99.8 },
+  ],
 };

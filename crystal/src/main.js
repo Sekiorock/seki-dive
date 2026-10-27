@@ -4,6 +4,7 @@
 // v0.2：気体の実験台（ヘンリーの法則）と濃度の実験台（3つの濃度）。カメラを指で自由に動かせるように
 //       （1本指で回す・ピンチで寄る・2本指で動かす・ダブルタップで戻る・視点のボタン）。操作盤をたためる。
 //       結晶の形を本物に寄せた。
+// v0.3：注文モード（24段階。予想を入れてから実験し、予想と結果の差で報酬）と精製モード（混合物から KNO₃ を取り出す）。
 // 画面：タイトル → 実験台（自由実験） ／ 発見の一覧。ワールドに入るときは、毎回アバター選択の画面を通る。
 
 import {
@@ -15,6 +16,7 @@ import { createLab } from './lab.js';
 import { createGasLab, dissolve } from './gas.js';
 import { createConcLab } from './conc.js';
 import { createScene } from './scene3d.js';
+import { createModes } from './modes.js';
 import { initI18n, t, onLangChange, applyToDom, getLang, setLang } from '../../shared/i18n.js';
 import { applyTheme, fx } from '../../shared/theme.js';
 import { createTopbar } from '../../shared/topbar.js';
@@ -37,6 +39,9 @@ let lab = null;                // 固体
 let gasLab = null;             // 気体
 let concLab = null;            // 濃度
 let bench = 'solid';
+let mode = 'free';              // タイトルで選んだモード：'free' | 'order' | 'refine'
+let modes = null;
+let menuKind = 'order';
 let folded = false;
 let avatar = null;
 let backTo = 'title';
@@ -54,7 +59,8 @@ function toast(msg, ms = 3600) {
 
 function show(name) {
   screen = name;
-  for (const id of ['title', 'lab', 'found']) $(id).hidden = id !== name;
+  for (const id of ['title', 'lab', 'found', 'menu']) $(id).hidden = id !== name;
+  if (name !== 'lab' && modes) modes.leave();
   document.body.classList.toggle('is-lab', name === 'lab');
   if (scene) scene.showPanel(name === 'lab');
   if (name === 'found') $('discover').hidden = true;
@@ -117,7 +123,9 @@ function renderTitle() {
   st.querySelector('.cr-guide__stand').alt = t(nameKey(GUIDE));
   st.querySelector('.cr-guide__line').textContent = t('quote', { line: t('cr.guide1') });
   st.querySelectorAll('[data-act="pick-bench"]').forEach((b) => b.classList.toggle('is-on', b.dataset.bench === bench));
-  st.querySelector('[data-act="free"]').classList.add('is-on');
+  st.querySelectorAll('[data-act="pick-mode"]').forEach((b) => b.classList.toggle('is-on', b.dataset.mode === mode));
+  st.querySelectorAll('[data-act="pick-bench"]').forEach((b) => b.classList.toggle('is-dim', mode !== 'free'));
+  $('start-btn').textContent = t(mode === 'order' ? 'cr.start.order' : mode === 'refine' ? 'cr.start.refine' : 'cr.start');
   renderFoundButtons();
 }
 
@@ -169,11 +177,15 @@ const cell = (k, v, sub = '') => `<div class="cr-cell"><dt>${esc(t(k))}</dt><dd>
 // ───────────── 固体 ─────────────
 function renderSolid() {
   const s = lab.state;
-  const e = s.eq;
   $('s-temp').value = s.temp; $('s-water').value = s.water; $('s-mass').value = s.mass;
   $('v-temp').textContent = `${s.temp} ℃`;
   $('v-water').textContent = `${s.water} g`;
   $('v-mass').textContent = `${s.mass} g`;
+  readoutSolid(s);
+  scene.setState('solid', s);
+}
+function readoutSolid(s) {
+  const e = s.eq;
   const g = (x) => `${x.toFixed(1)}<small>g</small>`;
   const multi = e.parts.length > 1;
   const name = (id) => (id === 'KNO3' ? 'KNO₃' : 'CuSO₄·5H₂O');
@@ -185,8 +197,7 @@ function renderSolid() {
   ];
   const hydr = e.parts.some((p) => p.id === 'CuSO4' && p.crystal > 0.05) ? `<p class="cr-note">${esc(t('cr.r.hydrateNote'))}</p>` : '';
   $('readout').innerHTML = `<div class="cr-readout__row"><dl>${cells.join('')}</dl><p class="cr-state is-${e.state}">${esc(t(`cr.state.${e.state}`))}</p></div>${hydr}`;
-  $('seed-btn').hidden = e.state !== 'supersaturated';
-  scene.setState('solid', s);
+  $('seed-btn').hidden = e.state !== 'supersaturated' || mode !== 'free';
 }
 
 // ───────────── 気体 ─────────────
@@ -208,6 +219,11 @@ function renderGas() {
   $('v-gv').textContent = `${s.volume.toFixed(1)} L`;
   $('open-btn').disabled = !e.henry || s.pressure <= GAS_RANGE.pressure.min;
   const unit = gasUnit(s.gas);
+  readoutGas(s, unit);
+  scene.setState('gas', s, unit);
+}
+function readoutGas(s, unit) {
+  const e = s.eq;
   let html;
   if (!e.henry) {
     html = `<p class="cr-warn">${esc(t('cr.g.hclNote'))}</p>`;
@@ -229,7 +245,6 @@ function renderGas() {
   }
   $('readout').innerHTML = html;
   $('seed-btn').hidden = true;
-  scene.setState('gas', s, unit);
 }
 
 // ───────────── 濃度 ─────────────
@@ -248,13 +263,17 @@ function renderConc() {
   $('v-cs').textContent = `${s.solute_g} g`;
   $('v-cw').textContent = `${s.solvent} g`;
   $('v-cd').textContent = `${s.density.toFixed(2)} g/cm³`;
-  const f1 = `${s.solute_g} ÷ ${e.mass} × 100`;
+  readoutConc(s);
+  scene.setState('conc', s);
+}
+function readoutConc(s) {
+  const e = s.eq;
+  const f1 = `${+s.solute_g.toFixed(1)} ÷ ${+e.mass.toFixed(1)} × 100`;
   const f2 = `${e.n.toFixed(3)} mol ÷ ${(e.volMl / 1000).toFixed(3)} L`;
   const f3 = `${e.n.toFixed(3)} mol ÷ ${(s.solvent / 1000).toFixed(3)} kg`;
   $('readout').innerHTML = meter('percent', e.percent, '%', esc(f1)) + meter('molarity', e.molarity, 'mol/L', esc(f2)) + meter('molality', e.molality, 'mol/kg', esc(f3))
-    + `<p class="cr-note cr-note--unit">${esc(t('cr.c.volLine', { m: e.mass, d: s.density.toFixed(2), v: e.volMl.toFixed(1), n: e.n.toFixed(3), M: e.M }))}</p>`;
+    + `<p class="cr-note cr-note--unit">${esc(t('cr.c.volLine', { m: +e.mass.toFixed(1), d: s.density.toFixed(2), v: e.volMl.toFixed(1), n: e.n.toFixed(3), M: e.M }))}</p>`;
   $('seed-btn').hidden = true;
-  scene.setState('conc', s);
 }
 
 function renderBench() {
@@ -278,9 +297,28 @@ function setBench(name) {
   renderBench();
 }
 
+/** 実験台の画面に入る。kind：'free'（自由実験の操作盤）| 'order' | 'refine' */
+function enterLab(kind) {
+  show('lab');
+  $('panel').hidden = kind !== 'free';
+  $('order-panel').hidden = kind !== 'order';
+  $('refine-panel').hidden = kind !== 'refine';
+  $('readout').hidden = false;
+  $('seed-btn').hidden = true;
+  $('discover').hidden = true;
+  renderViews();
+  updateViewport();
+}
+
+function openMenu(which) {
+  menuKind = which;
+  modes.renderMenu(which);
+  show('menu');
+}
+
 function openLab() {
   scene.setBench(bench);
-  show('lab');
+  enterLab('free');
   renderBench();
   // はじめて実験台を開いたときだけ、指の使い方を知らせる
   let seen = false;
@@ -291,6 +329,7 @@ function openLab() {
 // ───────────── 毎回の描き直し ─────────────
 function loop(nowMs) {
   requestAnimationFrame(loop);
+  if (modes) modes.frame(nowMs);
   if (scene) scene.frame(nowMs);
 }
 
@@ -299,7 +338,10 @@ function setupInput() {
     const b = e.target.closest('[data-act]');
     if (!b || b.disabled) return;
     const act = b.dataset.act;
+    if (modes && modes.onClick(act, b)) return;
     if (act === 'free') openLab();
+    else if (act === 'pick-mode') { mode = b.dataset.mode; renderTitle(); }
+    else if (act === 'start') { if (mode === 'free') openLab(); else openMenu(mode); }
     else if (act === 'pick-bench') { bench = b.dataset.bench; scene.setBench(bench); renderTitle(); }
     else if (act === 'bench') setBench(b.dataset.bench);
     else if (act === 'fold') { folded = !folded; renderBench(); }
@@ -319,6 +361,8 @@ function setupInput() {
     else if (act === 'found-close') { if (backTo === 'lab') openLab(); else { renderTitle(); show('title'); } }
   });
   $('discover').addEventListener('click', () => { $('discover').hidden = true; });
+  document.body.addEventListener('input', (e) => { if (modes && e.target.matches('input[data-rk]')) modes.onInput(e.target); });
+  document.body.addEventListener('keydown', (e) => { if (modes) modes.onKey(e); });
   window.addEventListener('resize', updateViewport);
   if (window.ResizeObserver) new ResizeObserver(updateViewport).observe($('bottom'));
 }
@@ -353,7 +397,8 @@ async function start() {
     setUserLang(lang);
     applyToDom();
     if (screen === 'title') renderTitle();
-    if (screen === 'lab') renderBench();
+    if (screen === 'lab') { if (modes && modes.kind) modes.rerender(); else renderBench(); }
+    if (screen === 'menu') modes.renderMenu(menuKind);
     if (screen === 'found') renderFound();
     renderFoundButtons();
     if (scene && lab) scene.redraw('solid', lab.state);
@@ -383,6 +428,17 @@ async function start() {
   scene.setState('gas', gasLab.state, gasUnit(gasLab.state.gas));
   scene.setState('conc', concLab.state);
   scene.onView(() => { if (screen === 'lab') renderViews(); });
+  modes = createModes({
+    $, t, esc, scene, faceUrl, guide: GUIDE,
+    getData: () => getWorldData(WORLD),
+    setData: (d) => setWorldData(WORLD, d),
+    gasUnit,
+    readout: { solid: readoutSolid, gas: readoutGas, conc: readoutConc },
+    enterLab, openMenu, updateViewport, toast,
+    celebrate: () => fx.celebrate(),
+    money: formatHiyama,
+    pay: async (itemKey, vars, gross) => { try { return await reward({ itemKey, itemVars: vars, gross }); } catch (e) { return null; } },
+  });
   setupSliders();
   setupInput();
   renderTitle();
@@ -393,7 +449,9 @@ async function start() {
   if (params.has('debug')) {
     window.__cr = {
       get lab() { return lab; }, get gas() { return gasLab; }, get conc() { return concLab; },
-      get screen() { return screen; }, get scene() { return scene; },
+      get screen() { return screen; }, get scene() { return scene; }, get modes() { return modes.debug; },
+      order: (i) => modes.onClick('order-open', { dataset: { i } }),
+      refine: (i) => modes.onClick('refine-open', { dataset: { i } }),
       bench: (b) => setBench(b),
       view: (v) => { scene.setView(v); renderViews(); },
       fold: (on) => { folded = !!on; renderBench(); },

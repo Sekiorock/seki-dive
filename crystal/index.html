@@ -38,11 +38,11 @@
     </div>
     <h2 class="cr-sec" data-i18n="cr.modes"></h2>
     <div class="cr-cards">
-      <button type="button" class="cr-card is-on" data-act="free"><b data-i18n="cr.mode.free"></b><span data-i18n="cr.mode.freeSub"></span></button>
-      <button type="button" class="cr-card" disabled><b data-i18n="cr.mode.order"></b><span data-i18n="cr.soon3"></span></button>
-      <button type="button" class="cr-card" disabled><b data-i18n="cr.mode.refine"></b><span data-i18n="cr.soon3"></span></button>
+      <button type="button" class="cr-card" data-act="pick-mode" data-mode="free"><b data-i18n="cr.mode.free"></b><span data-i18n="cr.mode.freeSub"></span></button>
+      <button type="button" class="cr-card" data-act="pick-mode" data-mode="order"><b data-i18n="cr.mode.order"></b><span data-i18n="cr.mode.orderSub"></span></button>
+      <button type="button" class="cr-card" data-act="pick-mode" data-mode="refine"><b data-i18n="cr.mode.refine"></b><span data-i18n="cr.mode.refineSub"></span></button>
     </div>
-    <button type="button" class="btn btn--primary cr-start" data-act="free" data-i18n="cr.start"></button>
+    <button type="button" class="btn btn--primary cr-start" data-act="start" id="start-btn"></button>
     <button type="button" class="btn cr-sub" data-act="found" id="found-btn"></button>
     <p class="cr-note" data-i18n="hiyama.disclaimer"></p>
   </section>
@@ -102,7 +102,18 @@
           </div>
         </div>
       </div>
+      <!-- 注文モード・精製モードの操作盤（中身は main.js で作る） -->
+      <div class="cr-panel cr-mpanel" id="order-panel" hidden></div>
+      <div class="cr-panel cr-mpanel" id="refine-panel" hidden></div>
     </div>
+  </section>
+
+  <!-- 注文の一覧／精製の段階の一覧 -->
+  <section id="menu" class="cr-screen cr-found" hidden>
+    <h2 class="cr-found__title" id="menu-title"></h2>
+    <p class="cr-note" id="menu-lead"></p>
+    <div class="cr-menu" id="menu-list"></div>
+    <button type="button" class="btn" data-act="to-title" data-i18n="cr.back"></button>
   </section>
 
   <!-- 発見の一覧 -->
