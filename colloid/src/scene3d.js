@@ -264,8 +264,11 @@ export function createScene(canvas) {
   let flash = 0;
   const decor = createDecor(scene, { a: glowA, b: glowB, flash: (k) => { flash = k; } });
   decor.setLevel(1);
-  let photo = false;
 
+  // ── 標本を見つけたときの光の玉 ──
+  const orbSp = new THREE.Sprite(new THREE.SpriteMaterial({ map: puffTex, color: 0xFFE7A0, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, opacity: 0, fog: false }));
+  orbSp.scale.set(1.2, 1.2, 1); scene.add(orbSp);
+  let orbT = -1;
   let prop = 'pool';
   let fogDone = 0, fogGoal = 0, stoneN = 0, doorOpen = 0, doorGoal = 0;
   const bagState = { inWater: 0, goal: 0, clean: 0, cloud: 0 };
@@ -291,7 +294,7 @@ export function createScene(canvas) {
   // ── カメラ ──
   const camera = new THREE.PerspectiveCamera(RENDER.fov, 1, 0.1, 90);
   const port = { top: 0, bottom: 1, w: 1, h: 1 };
-  const user = { az: 0, el: 0.32, zoom: 1 };
+  const user = { az: 0, el: 0.32, zoom: 1, lift: 0 };   // lift：2本指で上下になぞると、見上げる・見下ろす
   const cur = { az: 0, el: 0.32, dist: 9 };
   const target = new THREE.Vector3(0, 0.8, 0);
   let goalDist = 9;
@@ -323,14 +326,19 @@ export function createScene(canvas) {
     if (!p) return;
     const dx = e.clientX - p.x, dy = e.clientY - p.y;
     p.x = e.clientX; p.y = e.clientY;
-    if (pts.size === 1) { user.az = clamp(user.az - dx * 0.006, -0.9, 0.9); user.el = clamp(user.el + dy * 0.004, 0.08, 1.2); }
-    else if (pts.size === 2) { const [a, b] = [...pts.values()]; const d = Math.hypot(a.x - b.x, a.y - b.y) || 1; user.zoom = clamp(user.zoom * (pinch / d), 0.45, 1.6); pinch = d; fit(); }
+    if (pts.size === 1) { user.az = clamp(user.az - dx * 0.006, -1.45, 1.45); user.el = clamp(user.el + dy * 0.004, 0.02, 1.3); }
+    else if (pts.size === 2) {
+      const [a, b] = [...pts.values()]; const d = Math.hypot(a.x - b.x, a.y - b.y) || 1;
+      user.zoom = clamp(user.zoom * (pinch / d), 0.3, 2.2); pinch = d;
+      user.lift = clamp(user.lift + (dy / 2) * 0.012, -0.6, 4.5);   // 2本指を下へ → 空を見上げる
+      fit();
+    }
   });
   const up = (e) => { pts.delete(e.pointerId); };
   canvas.addEventListener('pointerup', up);
   canvas.addEventListener('pointercancel', up);
-  canvas.addEventListener('wheel', (e) => { e.preventDefault(); user.zoom = clamp(user.zoom * Math.exp(e.deltaY * 0.0012), 0.45, 1.6); fit(); }, { passive: false });
-  canvas.addEventListener('dblclick', () => { user.az = 0; user.el = 0.32; user.zoom = 1; fit(); });
+  canvas.addEventListener('wheel', (e) => { e.preventDefault(); user.zoom = clamp(user.zoom * Math.exp(e.deltaY * 0.0012), 0.3, 2.2); fit(); }, { passive: false });
+  canvas.addEventListener('dblclick', () => { user.az = 0; user.el = 0.32; user.zoom = 1; user.lift = 0; fit(); });
   resize();
   cur.dist = goalDist;
 
@@ -393,11 +401,11 @@ export function createScene(canvas) {
     setTrough(o) { Object.assign(tr, o); tr.pileGoal = o.pile ? 1 : 0; },
     /** 湖の社：灯った数、すべて解けたか */
     setAltar(n, done) { altar.lit = n; altar.done = done ? 1 : 0; },
+    /** 標本を見つけた：光の玉が、ふわっと浮かんで消える */
+    orb() { orbT = 0; },
     /** 映え：エリアの番号（1〜8）で、景色の豪華さが変わる */
     setAmbience(n) { decor.setLevel(n); document.body.dataset.amb = String(n); },
-    /** 映えスポット：写真向きのカメラにする */
-    setPhoto(v) { photo = v; },
-    resetView() { user.az = 0; user.el = 0.32; user.zoom = 1; fit(); },
+    resetView() { user.az = 0; user.el = 0.32; user.zoom = 1; user.lift = 0; fit(); },
     frame(nowMs) {
       const now = nowMs / 1000;
       const dt = Math.min(0.1, Math.max(0, now - last));
@@ -456,6 +464,14 @@ export function createScene(canvas) {
         doorL.position.x = -0.73 - doorOpen * 1.2; doorR.position.x = 0.73 + doorOpen * 1.2;
       }
       decor.step(now, dt);
+      if (orbT >= 0) {
+        orbT += dt;
+        const k = orbT / 1.8;
+        orbSp.position.set(Math.sin(orbT * 3) * 0.3, 0.8 + k * 2.4, 0.8);
+        orbSp.material.opacity = k < 0.2 ? k * 5 : Math.max(0, 1 - (k - 0.2) / 0.8);
+        orbSp.scale.setScalar(0.8 + Math.sin(orbT * 10) * 0.15 + k * 0.6);
+        if (k >= 1) { orbT = -1; orbSp.material.opacity = 0; }
+      }
       hemi.intensity = 0.8 + flash;
       if (prop === 'trough') {
         drawPole('L'); drawPole('R');
@@ -484,11 +500,10 @@ export function createScene(canvas) {
         doorGlowMat.opacity = 0.2 + altar.doneNow * 0.75;
       }
       fit();
-      const want = photo ? { az: 0.22, el: 0.05, dist: goalDist * 1.3 } : { az: user.az, el: user.el, dist: goalDist };
-      target.y += ((photo ? 2.6 : 0.8) - target.y) * ease(3);
-      cur.dist += (want.dist - cur.dist) * ease(photo ? 2 : 6);
-      cur.az += (want.az - cur.az) * ease(photo ? 2 : 6);
-      cur.el += (want.el - cur.el) * ease(photo ? 2 : 6);
+      target.y += (0.8 + user.lift - target.y) * ease(5);
+      cur.dist += (goalDist - cur.dist) * ease(6);
+      cur.az += (user.az - cur.az) * ease(6);
+      cur.el += (user.el - cur.el) * ease(6);
       const ce = Math.cos(cur.el);
       camera.position.set(target.x + Math.sin(cur.az) * ce * cur.dist, target.y + Math.sin(cur.el) * cur.dist, target.z + Math.cos(cur.az) * ce * cur.dist);
       camera.lookAt(target);

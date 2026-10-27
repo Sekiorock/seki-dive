@@ -1,7 +1,7 @@
 // colloid/src/config.js
 // ④ コロイド・ミストの数値の設定（全体の仕様書 10章）。数値はここに集め、プログラムの中に直接書かない。
 
-export const VERSION = 'colloid v0.2.0';
+export const VERSION = 'colloid v0.3.0';
 
 // ── エリア：入るときに道具を1つ受け取り、謎を順に解く。全部解くとエリアを抜ける ──
 export const AREAS = [
@@ -88,7 +88,32 @@ export const DIALYSIS = {
 export const REWARD = {
   area: 100,            // エリアを抜ける（はじめてのとき）
   shrine: 300,          // 湖の社の仕掛けを解く（はじめてのとき）
+  place: 20,            // 標本を正しく置く（その標本で、はじめてのとき）
+  full: 300,            // 9マスが全部うまる（はじめてのとき）
 };
+
+// ── 分散系の標本集め（v0.3、教科書 p.81 図19） ──
+//   謎を解くと、その場所で標本が見つかる（from）。標本箱の9マスの表（分散質 × 分散媒）に置く。
+//   phase：[分散質, 分散媒]（'gas' | 'liquid' | 'solid'）。none：コロイドにならない（気体どうしは均一にまざる）
+//   fuda：正しく置くと、名前の札の問いが出る（エーロゾル・乳濁液・懸濁液）。phase がないものは、札の問いだけ（分子コロイド・会合コロイド）
+export const PHASES = ['gas', 'liquid', 'solid'];
+export const SPECIMENS = {
+  mist: { from: '1-1', phase: ['liquid', 'gas'], fuda: 'aerosol', icon: '🌫' },
+  cloud: { from: '1-2', phase: ['liquid', 'gas'], icon: '☁️' },
+  soap: { from: '1-3', fuda: 'assoc', icon: '🧼' },
+  milk: { from: '2-1', phase: ['liquid', 'liquid'], fuda: 'emulsion', icon: '🥛' },
+  smoke: { from: '2-2', phase: ['solid', 'gas'], icon: '💨' },
+  mud: { from: '2-3', phase: ['solid', 'liquid'], fuda: 'suspension', icon: '🟤' },
+  gelatin: { from: '3-1', fuda: 'molecular', icon: '🧪' },
+  air: { from: '3-3', phase: ['gas', 'gas'], none: true, icon: '🌬' },
+  mayo: { from: '4-1', phase: ['liquid', 'liquid'], icon: '🥚' },
+  foam: { from: '4-3', phase: ['gas', 'liquid'], icon: '🫧' },
+  jelly: { from: '6-1', phase: ['liquid', 'solid'], icon: '🍮' },
+  marsh: { from: '6-2', phase: ['gas', 'solid'], icon: '🍬' },
+  sumi: { from: '7-1', phase: ['solid', 'liquid'], icon: '🖌' },
+  glass: { from: '8-7', phase: ['solid', 'solid'], icon: '🔮' },
+};
+export const FUDA = ['aerosol', 'emulsion', 'suspension', 'molecular', 'assoc'];
 
 // ── 映え（v0.2）：エリアが進むほど、景色が豪華になる。数字は「このエリアから出る」 ──
 //   霧の色・光の色もエリアごとに変わる（藍の霧 → 若竹 → 菫 → 雷の紫 → 金の灯 → 桜 → 墨と金 → 夜明けのオーロラ）

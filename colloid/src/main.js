@@ -10,6 +10,9 @@
 import { VERSION, AREAS, LOCKED_AREAS, PUZZLES, LIQUIDS, DIALYSIS, REWARD, TOOLS } from './config.js';
 import { createScene } from './scene3d.js';
 import { createScope } from './scope.js';
+import { cheer } from './cheer.js';
+import { initBox, openBox, closeBox, onClick as boxClick, redraw as boxRedraw, specimenOf, syncFound, find as findSpecimen, filled, newCount } from './box.js';
+import { sfx } from '../../shared/sfx.js';
 import { pictureSvg, rulerHtml } from './explain.js';
 import { initI18n, t, onLangChange, applyToDom, getLang, setLang } from '../../shared/i18n.js';
 import { applyTheme, fx } from '../../shared/theme.js';
@@ -27,6 +30,7 @@ const WORLD = 'colloid';
 const GUIDE = 'kasumi';          // 湖の神主
 const MARK = ['①', '②', '③'];
 const TOOL_ICON = { bell: '🔔', glasses: '🔍', bag: '🛍', pole: '⚡', vial: '🧪', nigari: '💧', shield: '🛡' };
+const KANJI = { 1: '光', 2: '揺', 3: '膜', 4: '雷', 5: '凝', 6: '固', 7: '墨', 8: '社' };
 const AREA_ICON = (A) => (A.tool ? TOOL_ICON[A.tool] : '⛩');
 
 let screen = 'loading';
@@ -77,6 +81,7 @@ function renderTitle() {
   const owned = AREAS.filter((A) => A.tool && r.areas[A.id]).map((A) => A.tool);
   $('tools').innerHTML = TOOLS.map((x) => `<span class="cl-tool${owned.includes(x) ? ' is-on' : ''}" title="${esc(t(`cl.tool.${x}`))}">${TOOL_ICON[x]}<small>${esc(t(`cl.tool.${x}`))}</small></span>`).join('');
   if (scene) scene.setAmbience(furthest());
+  $('box-btn').innerHTML = `${esc(t('cl.box.title'))} <b>${filled()} / 9</b>${newCount() ? `<em>${esc(t('cl.box.new', { n: newCount() }))}</em>` : ''}`;
   $('start-btn').textContent = t(areaDone(ai) ? 'cl.replay' : 'cl.start', { n: AREAS[ai].id, name: t(`cl.area${AREAS[ai].id}.name`) });
   $('start-btn').disabled = !areaOpen(ai);
 }
@@ -102,6 +107,7 @@ function startArea(a) {
   const r = rec();
   pi = Math.max(0, area().puzzles.findIndex((id) => !r.solved[id]));
   if (areaDone(a)) pi = 0;
+  closeBox();
   show('play');
   scene.setAmbience(area().id);
   startPuzzle();
@@ -172,8 +178,24 @@ function itemLabel(k) {
   return `${MARK[k]} ${t(`cl.liq.${liq}`)}`;
 }
 
-function guideBox(line) {
-  return `<div class="cl-say"><img src="${faceUrl(GUIDE)}" alt="" width="40" height="40" class="cl-say__face is-${face}"><p>${esc(line)}</p></div>`;
+function guideBox(line, f = face) {
+  return `<div class="cl-say"><img src="${faceUrl(GUIDE)}" alt="" width="40" height="40" class="cl-say__face is-${f}"><p>${esc(line)}</p></div>`;
+}
+
+// ───────────── 正解・おしいの演出（光・動き・音） ─────────────
+let combo = 0;
+function okFx() {
+  combo += 1;
+  sfx.correct(combo);
+  cheer.ok({ text: t('cl.cheer.ok'), sub: 'CORRECT', combo, comboText: t('cl.cheer.combo', { n: combo }) });
+}
+function ngFx() {
+  face = 'surprise';
+  combo = 0;
+  sfx.wrong();
+  cheer.ng({ text: t('cl.cheer.ng') });
+  const pn = $('panel');
+  if (pn) { pn.classList.remove('is-ng'); void pn.offsetWidth; pn.classList.add('is-ng'); }
 }
 
 function renderPanel() {
@@ -181,10 +203,11 @@ function renderPanel() {
   const p = P();
   const id = pid();
   const A = area();
-  const head = `<div class="cl-head"><b>${esc(t('cl.areaHead', { n: A.id, name: t(`cl.area${A.id}.name`) }))}</b>`
+  const head = `<div class="cl-head"><b>${A.tool ? A.id : '⛩'} ${esc(t(`cl.area${A.id}.name`))}</b>`
     + `<span class="cl-steps">${A.puzzles.map((x, i) => `<i class="${rec().solved[x] ? 'is-done' : ''}${i === pi ? ' is-now' : ''}"></i>`).join('')}</span>`
     + `<button type="button" class="cl-mini cl-mini--hot" data-act="tut">${esc(t('cl.tutBtn'))}</button>`
-    + `<button type="button" class="cl-mini cl-mini--photo" data-act="photo" aria-label="${esc(t('cl.photo'))}">📸</button>`
+    + `<button type="button" class="cl-mini cl-mini--box" data-act="box">${esc(t('cl.box.btn'))}${newCount() ? `<em>${newCount()}</em>` : ''}</button>`
+    + `<button type="button" class="cl-mini cl-mini--snd" data-act="snd" aria-label="${esc(t('cl.sound'))}">${sfx.on ? '🔊' : '🔇'}</button>`
     + `<button type="button" class="cl-mini" data-act="to-title">${esc(t('cl.toTitle'))}</button></div>`;
   let line = ps.fb ? ps.fb : t(`cl.q.${id}`, { n: DIALYSIS.clean });
   let body = '';
@@ -199,7 +222,9 @@ function renderPanel() {
     else body = dialysisHtml();
   } else {
     line = ps.fb || t(`cl.ok.${id}`);
+    const sp = specimenOf(id);
     body = `<div class="cl-learn"><b>${esc(t('cl.learned'))}</b><p>${esc(t(`cl.learn.${id}`))}</p></div>`
+      + (sp ? `<button type="button" class="cl-found" data-act="box">✦ ${esc(t('cl.found', { name: t(`cl.sp.${sp}`) }))}<span>${esc(t('cl.foundGo'))}</span></button>` : '')
       + `<div class="cl-foot"><button type="button" class="btn btn--primary" data-act="next">${esc(t(pi + 1 < A.puzzles.length ? 'cl.nextQ' : 'cl.clearArea'))}</button></div>`;
   }
   box.innerHTML = head + guideBox(line) + body;
@@ -295,7 +320,7 @@ function answer() {
   // 調べていないものを選んだら、まず調べるように
   if (p.type === 'probe' && wrong && !ps.probed[wrong]) key = 'cl.why.probeFirst';
   ps.fb = t(key);
-  face = 'surprise';
+  ngFx();
   renderPanel();
 }
 function solve() {
@@ -305,7 +330,9 @@ function solve() {
   const r = rec();
   save({ solved: { ...r.solved, [pid()]: Date.now() } });
   if (P().type === 'probe' && P().tools.includes('bell')) { ps.tool = 'bell'; ps.shown = P().items.indexOf(P().answer[0]); }
-  if (P().type === 'tool') fx.celebrate();
+  okFx();
+  const sp = specimenOf(pid());
+  if (sp && findSpecimen(sp)) setTimeout(() => { sfx.find(); scene.orb(); }, 650);
   updateProp();
   if (P().prop === 'shoal') scene.setStones(area().puzzles.filter((x) => rec().solved[x]).length * 2);
   renderPanel();
@@ -317,6 +344,8 @@ async function next() {
   const first = !r.areas[area().id];
   save({ areas: { ...r.areas, [area().id]: Date.now() } });
   fx.celebrate();
+  sfx.clear();
+  cheer.big({ text: t('cl.cheer.clear'), sub: 'AREA CLEAR' });
   let line = '';
   if (first) {
     try {
@@ -344,8 +373,8 @@ function renderTut(first = false) {
   const hi = { 3: 'ion' }[A.id] || 'colloid';
   const pages = [
     `${A.tool ? `<p class="cl-gift">${TOOL_ICON[A.tool]} ${esc(t('cl.gift', { tool: t(`cl.tool.${A.tool}`) }))}</p>` : ''}`
-      + `<p class="cl-tut__big">${esc(t(`cl.how${A.id}.head`))}</p>${pictureSvg(A.id, t)}<p class="cl-tut__lead">${esc(t(`cl.how${A.id}.text`))}</p>`,
-    `<p class="cl-tut__big">${esc(t('cl.ruler.head'))}</p>${rulerHtml(t, hi, marks)}<p class="cl-tut__lead">${esc(t(`cl.how${A.id}.size`))}</p>`,
+      + `<p class="cl-tut__big">${esc(t(`cl.how${A.id}.head`))}</p><div class="cl-picbox" data-k="${KANJI[A.id]}"><i class="cl-picbox__mist"></i>${pictureSvg(A.id, t)}</div><p class="cl-tut__lead">${esc(t(`cl.how${A.id}.text`))}</p>`,
+    `<p class="cl-tut__big">${esc(t('cl.ruler.head'))}</p><div class="cl-picbox is-ruler" data-k="粒">${rulerHtml(t, hi, marks)}</div><p class="cl-tut__lead">${esc(t(`cl.how${A.id}.size`))}</p>`,
   ];
   const last = tutPage >= pages.length - 1;
   m.innerHTML = `<div class="cl-tut__card"><div class="cl-tut__bar"><b>${esc(t('cl.tutTitle', { n: A.id, name: t(`cl.area${A.id}.name`) }))}</b>`
@@ -366,7 +395,6 @@ function openClear(line) {
     + `<p class="cl-gift">${AREA_ICON(A)} ${esc(A.tool ? t('cl.toolMine', { tool: t(`cl.tool.${A.tool}`) }) : t('cl.shrineDone'))}</p>`
     + guideBox(t(`cl.bye${A.id}`)) + `<p class="cl-reward">${esc(line)}</p>`
     + `<div class="cl-foot"><button type="button" class="btn" data-act="to-title">${esc(t('cl.toTitle'))}</button>`
-    + `<button type="button" class="btn" data-act="photo">📸 ${esc(t('cl.photo'))}</button>`
     + (nx >= 0 ? `<button type="button" class="btn btn--primary" data-act="go-area" data-i="${nx}">${esc(t('cl.nextArea', { n: AREAS[nx].id }))}</button>` : '')
     + `</div></div>`;
 }
@@ -398,7 +426,7 @@ function dialKey() {
   const d = ps.dial;
   if (d.inside <= DIALYSIS.clean) { solve(); return; }
   ps.fb = t('cl.dial.notYet', { n: Math.round(d.inside) });
-  face = 'surprise';
+  ngFx();
   renderPanel();
 }
 
@@ -410,34 +438,10 @@ function electroGo() {
   setTimeout(() => {
     if (!ps || pid() !== '4-2') return;
     if (ps.pol === 'L-') { solve(); return; }
-    ps.fb = t('cl.el.wrong'); face = 'surprise';
+    ps.fb = t('cl.el.wrong'); ngFx();
     ps.run = false; ps.pol = null;
     updateProp(); renderPanel();
   }, 2600);
-}
-
-// ───────────── 映えスポット（写真向きの画面） ─────────────
-function openPhoto() {
-  const A = screen === 'play' ? area() : AREAS[Math.max(0, furthest() - 1)];
-  const n = screen === 'play' ? A.id : furthest();
-  const box = $('photo');
-  const stars = Math.min(5, Math.ceil(n * 5 / 8));
-  const d = new Date();
-  box.innerHTML = `<div class="cl-photo__frame"><i class="cl-photo__c is-tl"></i><i class="cl-photo__c is-tr"></i><i class="cl-photo__c is-bl"></i><i class="cl-photo__c is-br"></i></div>`
-    + `<p class="cl-photo__title">${esc(t(`cl.area${A.id}.name`))}</p>`
-    + `<p class="cl-photo__sub">${esc(t('cl.title'))}　·　${esc(t(`cl.spot${A.id}`))}</p>`
-    + `<p class="cl-photo__hae">${esc(t('cl.hae'))} ${'★'.repeat(stars)}${'☆'.repeat(5 - stars)}</p>`
-    + `<div class="cl-photo__seal"><b>${esc(t('cl.sealChar'))}</b></div>`
-    + `<p class="cl-photo__who">${esc(getUser().nickname || t('topbar.guest'))}　${d.getFullYear()}.${d.getMonth() + 1}.${d.getDate()}</p>`
-    + `<button type="button" class="cl-photo__close" data-act="photo-close">${esc(t('cl.photoClose'))}</button>`;
-  box.hidden = false;
-  document.body.classList.add('is-photo');
-  if (scene) { scene.setAmbience(n); scene.setPhoto(true); scene.showLabels(false); }
-}
-function closePhoto() {
-  $('photo').hidden = true;
-  document.body.classList.remove('is-photo');
-  if (scene) { scene.setPhoto(false); scene.showLabels(screen === 'play'); if (screen === 'play') scene.setAmbience(area().id); }
 }
 
 // ───────────── 毎回の描き直し ─────────────
@@ -452,11 +456,13 @@ function setupInput() {
   document.body.addEventListener('click', (e) => {
     const b = e.target.closest('[data-act]');
     if (!b || b.disabled) return;
+    if (boxClick(b.dataset.act, b)) { if (b.dataset.act === 'box') sfx.tap(); return; }
+    if (b.dataset.act === 'snd') { sfx.setOn(!sfx.on); if (sfx.on) sfx.tap(); renderPanel(); return; }
     const act = b.dataset.act;
     if (act === 'area') { ai = Number(b.dataset.i); renderTitle(); }
     else if (act === 'start') { if (areaOpen(ai)) startArea(ai); }
     else if (act === 'go-area') { closeTut(); startArea(Number(b.dataset.i)); }
-    else if (act === 'to-title') { closeTut(); closePhoto(); renderTitle(); show('title'); $('scope-box').hidden = true; }
+    else if (act === 'to-title') { closeTut(); closeBox(); renderTitle(); show('title'); $('scope-box').hidden = true; }
     else if (act === 'tut') openTut();
     else if (act === 'tut-next') { tutPage += 1; renderTut(); }
     else if (act === 'tut-prev') { tutPage = Math.max(0, tutPage - 1); renderTut(); }
@@ -484,7 +490,7 @@ function setupInput() {
       ps.fb = null;
       if (ps.order.length === P().items.length) {
         if (ps.order.every((x, i) => x === P().answer[i])) { solve(); return; }
-        ps.fb = t('cl.ng.2-2.order'); face = 'surprise'; ps.order = [];
+        ps.fb = t('cl.ng.2-2.order'); ngFx(); ps.order = [];
       }
       renderPanel();
     } else if (act === 'ord-reset') { ps.order = []; renderPanel(); }
@@ -495,12 +501,11 @@ function setupInput() {
     else if (act === 'match-go') {
       const p = P();
       const wrong = p.items.findIndex((it, i) => ps.match[it] !== p.answer[i]);
-      if (wrong < 0) solve(); else { ps.fb = t(`cl.ng.6-1.${p.items[wrong]}`); face = 'surprise'; renderPanel(); }
+      if (wrong < 0) solve(); else { ps.fb = t(`cl.ng.6-1.${p.items[wrong]}`); ngFx(); renderPanel(); }
     } else if (act === 'use-tool') {
       if (b.dataset.tool === P().answer) solve();
-      else { ps.fb = t(`cl.ng8.${b.dataset.tool}`); face = 'surprise'; renderPanel(); }
-    } else if (act === 'photo') openPhoto();
-    else if (act === 'photo-close') closePhoto();
+      else { ps.fb = t(`cl.ng8.${b.dataset.tool}`); ngFx(); renderPanel(); }
+    }
     else if (act === 'dial-in') { ps.dial.inWater = true; ps.fb = t('cl.dial.inDone'); updateProp(); renderPanel(); }
     else if (act === 'dial-wait') dialWait();
     else if (act === 'dial-change') dialChange();
@@ -541,6 +546,7 @@ async function start() {
   onLangChange((lang) => {
     setUserLang(lang);
     applyToDom();
+    boxRedraw();
     if (screen === 'title') renderTitle();
     if (screen === 'play') { updateProp(); renderPanel(); if (!$('tut').hidden && $('tut').querySelector('.cl-clear') === null) renderTut(); }
   });
@@ -564,6 +570,15 @@ async function start() {
   scene = createScene($('scene'));
   scope = createScope($('scope'));
   scene.setProp('pool', [{ liquid: 'water', label: '' }, { liquid: 'starch', label: '' }, { liquid: 'sugar', label: '' }]);
+  initBox({
+    $, t, getData: () => getWorldData(WORLD), setData: (patch) => save(patch), guideBox,
+    correct: () => okFx(), wrong: () => { combo = 0; sfx.wrong(); cheer.ng({ text: t('cl.cheer.ng') }); }, tap: () => sfx.tap(),
+    big: (text, sub) => { sfx.clear(); cheer.big({ text, sub }); },
+    pay: async (itemKey, itemVars, gross) => { try { return await reward({ itemKey, itemVars, gross }); } catch (e) { return null; } },
+    fmt: formatHiyama,
+    refresh: () => { if (screen === 'title') renderTitle(); else if (ps) renderPanel(); },
+  });
+  syncFound(rec().solved);
   setupInput();
   for (let a = AREAS.length - 1; a >= 0; a--) if (areaOpen(a)) { ai = a; break; }
   renderTitle();
@@ -576,7 +591,8 @@ async function start() {
       get state() { return { screen, ai, pi, id: pid(), ps }; },
       start: (a, p = 0) => { startArea(a); pi = p; startPuzzle(); },
       closeTut: () => closeTut(),
-      photo: () => openPhoto(), closePhoto: () => closePhoto(),
+      solveAll: () => { const sv = {}; const ar = {}; AREAS.forEach((A) => { ar[A.id] = Date.now(); A.puzzles.forEach((x) => { sv[x] = Date.now(); }); }); save({ solved: sv, areas: ar }); syncFound(sv); renderTitle(); },
+      box: () => getWorldData(WORLD),
       unlock: (n) => { const a = {}; AREAS.slice(0, n).forEach((A) => { a[A.id] = Date.now(); }); save({ areas: a }); renderTitle(); },
       grant: (n) => grant({ itemKey: 'ledger.item.founding', amount: n }),
     };

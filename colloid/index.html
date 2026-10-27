@@ -41,7 +41,7 @@
     <div class="cl-areas" id="areas"></div>
     <h2 class="cl-sec" data-i18n="cl.toolsHead"></h2>
     <div class="cl-toolrow" id="tools"></div>
-    <button type="button" class="btn cl-photo-btn" data-act="photo">📸 <span data-i18n="cl.photo"></span></button>
+    <button type="button" class="btn cl-box-btn" data-act="box" id="box-btn"></button>
     <button type="button" class="btn btn--primary cl-start" data-act="start" id="start-btn"></button>
     <p class="cl-note" data-i18n="hiyama.disclaimer"></p>
   </section>
@@ -56,8 +56,8 @@
   <!-- しくみ・エリアを抜けたとき。中身は main.js で作る -->
   <div class="cl-tut" id="tut" role="dialog" hidden></div>
 
-  <!-- 映えスポット（写真向きの画面）。中身は main.js で作る -->
-  <div class="cl-photo" id="photo" hidden></div>
+  <!-- 標本箱（分散系の9マスの表）。中身は box.js で作る -->
+  <div class="cl-tut cl-boxwrap" id="box" role="dialog" hidden></div>
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
   <p id="loading" class="cl-loading" role="status" hidden></p>

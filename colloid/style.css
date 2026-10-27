@@ -218,26 +218,6 @@ body[data-amb="8"] { --amb-a: #5CF2A8; --amb-b: #ff9ac8; --amb-k: 0.8; }
 @keyframes cl-drift { from { transform: translateX(0); } to { transform: translateX(25%); } }
 .cl-panel { box-shadow: inset 0 0 0 1px var(--stroke-strong), inset 0 2px 0 var(--amb-a), 0 0 calc(30px * var(--amb-k)) color-mix(in srgb, var(--amb-a) 40%, transparent); }
 .cl-frame::before { filter: drop-shadow(0 0 6px var(--amb-a)); }
-.cl-mini--photo { color: #05081A; background: linear-gradient(135deg, var(--amb-a), var(--amb-b)); box-shadow: none; }
-.cl-photo-btn { min-height: 46px; background: linear-gradient(135deg, color-mix(in srgb, var(--amb-a) 30%, #0a1420), color-mix(in srgb, var(--amb-b) 30%, #0a1420)); }
-/* 映えスポット（写真向きの画面） */
-body.is-photo #title, body.is-photo #play, body.is-photo #topbar, body.is-photo .cl-frame, body.is-photo .cl-scope, body.is-photo #tut { visibility: hidden; }
-.cl-photo { position: fixed; inset: 0; z-index: 80; pointer-events: none; }
-.cl-photo[hidden] { display: none; }
-.cl-photo__frame { position: absolute; inset: 18px 14px 40px; border: 1px solid color-mix(in srgb, var(--amb-a) 50%, transparent); box-shadow: inset 0 0 40px color-mix(in srgb, var(--amb-a) 25%, transparent); }
-.cl-photo__c { position: absolute; width: 34px; height: 34px; border: 3px solid var(--amb-a); filter: drop-shadow(0 0 6px var(--amb-a)); }
-.cl-photo__c.is-tl { left: -2px; top: -2px; border-right: 0; border-bottom: 0; }
-.cl-photo__c.is-tr { right: -2px; top: -2px; border-left: 0; border-bottom: 0; border-color: var(--amb-b); }
-.cl-photo__c.is-bl { left: -2px; bottom: -2px; border-right: 0; border-top: 0; border-color: var(--amb-b); }
-.cl-photo__c.is-br { right: -2px; bottom: -2px; border-left: 0; border-top: 0; }
-.cl-photo__title { position: absolute; right: 30px; top: 46px; margin: 0; writing-mode: vertical-rl; font-size: 34px; font-weight: 800; letter-spacing: 0.25em; color: #fff;
-  text-shadow: 0 0 10px var(--amb-a), 0 0 24px var(--amb-b); animation: cl-pop .8s ease-out; }
-.cl-photo__sub { position: absolute; left: 30px; top: 40px; margin: 0; font-size: 11px; letter-spacing: 0.2em; color: var(--amb-a); text-shadow: 0 0 6px var(--amb-a); }
-.cl-photo__hae { position: absolute; left: 30px; top: 58px; margin: 0; font: 700 14px var(--font-en); color: #FFD86B; text-shadow: 0 0 8px #FFD86B; }
-.cl-photo__seal { position: absolute; right: 30px; bottom: 96px; width: 54px; height: 54px; display: grid; place-items: center; background: #c8102e; border-radius: 6px; transform: rotate(-6deg); box-shadow: 0 0 14px rgba(200, 16, 46, 0.7); }
-.cl-photo__seal b { color: #fff; font-size: 30px; font-weight: 800; }
-.cl-photo__who { position: absolute; left: 30px; bottom: 60px; margin: 0; font: 600 12px var(--font-en); color: rgba(255, 255, 255, 0.85); letter-spacing: 0.12em; }
-.cl-photo__close { pointer-events: auto; position: absolute; left: 30px; bottom: 82px; appearance: none; border: 0; font: inherit; font-size: 11px; color: rgba(255, 255, 255, 0.7); padding: 6px 12px; background: rgba(0, 0, 0, 0.35); clip-path: var(--chamfer-s); cursor: pointer; }
 /* 新しい謎の部品 */
 .cl-vial { display: block; font: 700 15px var(--font-en); }
 .cl-opt small { display: block; font-size: 10px; color: var(--dim); font-family: var(--font-en); }
@@ -268,4 +248,113 @@ body.is-photo #title, body.is-photo #play, body.is-photo #topbar, body.is-photo 
 .cl-pic__icon { font-size: 22px; text-anchor: middle; animation: cl-twinkle 2.2s ease-in-out infinite; animation-delay: var(--d); }
 .cl-torii { fill: none; stroke: #ff3a5a; stroke-width: 7; stroke-linecap: round; filter: drop-shadow(0 0 6px #ff3a5a); }
 .cl-moon { fill: #fffaf0; filter: drop-shadow(0 0 14px #fff); }
-html[lang="en"] .cl-photo__title { writing-mode: horizontal-tb; top: auto; bottom: 160px; right: 30px; left: 30px; text-align: right; font-size: 28px; letter-spacing: 0.06em; font-family: var(--font-en); }
+
+/* ── v0.3：正解の演出（光と動き） ── */
+.cl-cheer { position: fixed; inset: 0; z-index: 90; pointer-events: none; display: grid; place-items: center; overflow: hidden; }
+.cl-cheer > i, .cl-cheer > div { grid-area: 1 / 1; }
+.cl-cheer__flash { width: 100%; height: 100%; background: radial-gradient(60% 45% at 50% 45%, rgba(255, 250, 220, 0.55), rgba(92, 242, 168, 0.18) 45%, transparent 75%); animation: cl-flash .7s ease-out forwards; }
+@keyframes cl-flash { 0% { opacity: 0; } 15% { opacity: 1; } 100% { opacity: 0; } }
+.cl-cheer__ring { width: 120px; height: 120px; border-radius: 50%; margin-top: -60px;
+  background: conic-gradient(from 0deg, #5CF2A8, #A985FF, #FFD86B, #ff9ac8, #5CF2A8);
+  -webkit-mask: radial-gradient(circle, transparent 58%, #000 60%, #000 66%, transparent 68%); mask: radial-gradient(circle, transparent 58%, #000 60%, #000 66%, transparent 68%);
+  filter: drop-shadow(0 0 12px #5CF2A8); animation: cl-ring .9s cubic-bezier(.2, .8, .2, 1) forwards; }
+.cl-cheer__ring.is-2 { animation-delay: .12s; opacity: 0; filter: drop-shadow(0 0 12px #A985FF); }
+.cl-cheer__ring.is-big { width: 200px; height: 200px; margin-top: -80px; animation-duration: 1.4s; }
+@keyframes cl-ring { 0% { transform: scale(0.2) rotate(0deg); opacity: 1; } 100% { transform: scale(3.2) rotate(140deg); opacity: 0; } }
+.cl-cheer__shard, .cl-cheer__petal { width: 10px; height: 10px; margin-top: -60px; background: var(--c); box-shadow: 0 0 10px var(--c);
+  clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%); animation: cl-burst .95s cubic-bezier(.15, .7, .3, 1) forwards; animation-delay: var(--d); opacity: 0; }
+.cl-cheer__petal { width: 12px; height: 8px; background: #ffd0e4; box-shadow: 0 0 6px #ff9ac8; clip-path: ellipse(50% 40% at 50% 50%); }
+@keyframes cl-burst { 0% { transform: translate(0, 0) rotate(0) scale(0.4); opacity: 1; } 80% { opacity: 1; } 100% { transform: translate(var(--x), calc(var(--y) + 40px)) rotate(var(--r)) scale(1); opacity: 0; } }
+.cl-cheer__stamp { margin-top: -60px; display: flex; flex-direction: column; align-items: center; gap: 2px; animation: cl-stamp 1.4s cubic-bezier(.2, 1.4, .3, 1) forwards; }
+.cl-cheer__stamp b { font: 800 64px var(--font-ja); line-height: 1; color: #fff; letter-spacing: 0.06em;
+  -webkit-text-stroke: 2px rgba(92, 242, 168, 0.9); text-shadow: 0 0 12px #5CF2A8, 0 0 28px #A985FF, 0 0 44px rgba(255, 216, 107, 0.6); }
+.cl-cheer__stamp small { font: 700 13px var(--font-en); letter-spacing: 0.5em; color: #FFD86B; text-shadow: 0 0 8px #FFD86B; }
+.cl-cheer__stamp em { margin-top: 4px; font: 800 16px var(--font-ja); font-style: normal; color: #05081A; padding: 2px 12px; background: linear-gradient(90deg, #FFD86B, #ff9ac8); clip-path: var(--chamfer-s); }
+.cl-cheer__stamp.is-big { margin-top: -80px; }
+.cl-cheer__stamp.is-big b { font-size: 78px; }
+@keyframes cl-stamp { 0% { transform: scale(2.4) rotate(-8deg); opacity: 0; filter: blur(6px); } 22% { transform: scale(0.94) rotate(-3deg); opacity: 1; filter: blur(0); } 32% { transform: scale(1) rotate(-3deg); } 80% { opacity: 1; } 100% { transform: scale(1.04) rotate(-3deg); opacity: 0; } }
+.cl-cheer.is-big .cl-cheer__stamp { animation-duration: 2.4s; }
+.cl-cheer__lantern { width: 14px; height: 18px; align-self: end; justify-self: start; margin-left: var(--x); border-radius: 4px; background: #ffc070; box-shadow: 0 0 14px #ffa040, 0 0 30px rgba(255, 160, 64, 0.6);
+  transform: scale(var(--s)); animation: cl-rise 2.4s ease-out forwards; animation-delay: var(--d); opacity: 0; }
+@keyframes cl-rise { 0% { transform: translateY(20px) scale(var(--s)); opacity: 0; } 15% { opacity: 1; } 100% { transform: translateY(-80vh) scale(var(--s)); opacity: 0; } }
+.cl-cheer__edge { width: 100%; height: 100%; box-shadow: inset 0 0 40px 6px rgba(169, 133, 255, 0.8); animation: cl-flash .6s ease-out forwards; }
+.cl-cheer__oshii { margin-top: -40px; font: 800 30px var(--font-ja); color: #fff; text-shadow: 0 0 10px #A985FF, 0 0 20px #ff5e70; animation: cl-oshii .85s ease-out forwards; }
+@keyframes cl-oshii { 0% { transform: scale(1.4); opacity: 0; } 20% { transform: scale(1) translateX(-6px); opacity: 1; } 35% { transform: translateX(6px); } 50% { transform: translateX(-3px); } 65% { transform: none; opacity: 1; } 100% { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .cl-cheer * { animation-duration: .01s !important; } }
+.cl-panel.is-ng { animation: cl-shake .35s; }
+.cl-learn { animation: cl-in .5s ease-out; }
+.cl-combo { margin-left: 4px; font: 800 11px var(--font-ja); color: #05081A; padding: 1px 6px; background: linear-gradient(90deg, #FFD86B, #ff9ac8); clip-path: var(--chamfer-s); flex: none; }
+.cl-mini--snd { min-width: 34px; }
+
+/* ── v0.3：説明の絵を、和風ゲーミング映えに（ネオンの縁が回る・霧が流れる・大きな漢字が透ける） ── */
+.cl-tut__card { position: relative; overflow: hidden; }
+.cl-tut__card::before { content: ""; position: absolute; left: -40%; top: 0; width: 40%; height: 2px; background: linear-gradient(90deg, transparent, var(--amb-a), #fff, var(--amb-b), transparent); animation: cl-sweep 3.2s ease-in-out infinite; pointer-events: none; }
+@keyframes cl-sweep { 0% { left: -40%; } 60%, 100% { left: 110%; } }
+.cl-tut__big { background: linear-gradient(90deg, #ffffff, var(--amb-a), #ffffff, var(--amb-b), #ffffff); background-size: 300% 100%; -webkit-background-clip: text; background-clip: text; color: transparent;
+  filter: drop-shadow(0 0 8px color-mix(in srgb, var(--amb-a) 60%, transparent)); animation: cl-shimmer 6s linear infinite, cl-in .5s ease-out; }
+@keyframes cl-shimmer { to { background-position: -300% 0; } }
+.cl-picbox { position: relative; padding: 8px; isolation: isolate; clip-path: var(--chamfer-s);
+  background: radial-gradient(120% 90% at 50% 0%, rgba(30, 60, 70, 0.6), rgba(4, 10, 16, 0.95)), var(--asanoha); animation: cl-picin .7s cubic-bezier(.2, .8, .2, 1); }
+@keyframes cl-picin { from { opacity: 0; transform: translateY(10px) scale(0.97); filter: blur(4px); } to { opacity: 1; transform: none; filter: none; } }
+.cl-picbox::before { content: ""; position: absolute; inset: 0; z-index: -1; padding: 2px;
+  background: conic-gradient(from var(--spin, 0deg), var(--amb-a), transparent 25%, var(--amb-b) 50%, transparent 75%, var(--amb-a));
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+  animation: cl-spin 5s linear infinite; }
+@property --spin { syntax: '<angle>'; inherits: false; initial-value: 0deg; }
+@keyframes cl-spin { to { --spin: 360deg; } }
+.cl-picbox::after { content: attr(data-k); position: absolute; right: 6px; bottom: -14px; z-index: -1; font: 800 110px var(--font-ja); line-height: 1; color: transparent;
+  -webkit-text-stroke: 1px color-mix(in srgb, var(--amb-a) 45%, transparent); text-shadow: 0 0 24px color-mix(in srgb, var(--amb-a) 35%, transparent); opacity: 0.55; animation: cl-breathe 4s ease-in-out infinite alternate; pointer-events: none; }
+@keyframes cl-breathe { from { opacity: 0.3; transform: translateY(4px); } to { opacity: 0.7; transform: none; } }
+.cl-picbox__mist { position: absolute; inset: -20% -50%; z-index: 1; pointer-events: none; background:
+  radial-gradient(30% 25% at 20% 60%, rgba(220, 245, 240, 0.16), transparent 70%), radial-gradient(25% 20% at 70% 30%, color-mix(in srgb, var(--amb-b) 18%, transparent), transparent 70%);
+  filter: blur(8px); animation: cl-drift 14s linear infinite; mix-blend-mode: screen; }
+.cl-picbox .cl-pic { position: relative; z-index: 0; }
+.cl-pic .cl-pic__t { filter: drop-shadow(0 0 4px var(--amb-a)); }
+.cl-pic .cl-pic__s { filter: drop-shadow(0 0 5px #FFD86B); }
+.cl-pic .cl-feoh, .cl-pic .cl-big, .cl-pic .cl-solp { filter: drop-shadow(0 0 4px rgba(255, 200, 120, 0.8)); }
+.cl-pic .cl-ion { filter: drop-shadow(0 0 4px currentColor); }
+.cl-pic .cl-beaker, .cl-pic .cl-box, .cl-pic .cl-bag { filter: drop-shadow(0 0 3px var(--amb-a)); }
+.cl-picbox.is-ruler::after { font-size: 80px; bottom: -10px; }
+.cl-say p { position: relative; overflow: hidden; }
+.cl-say p::after { content: ""; position: absolute; inset: 0; background: linear-gradient(100deg, transparent 30%, rgba(255, 255, 255, 0.12) 50%, transparent 70%); transform: translateX(-100%); animation: cl-gloss 2.4s ease-out .2s 1 forwards; pointer-events: none; }
+@keyframes cl-gloss { to { transform: translateX(100%); } }
+
+/* ── v0.3：標本箱（分散系の9マス） ── */
+.cl-mini--box { position: relative; }
+.cl-mini em, .cl-box-btn em { position: absolute; top: -2px; right: -2px; min-width: 16px; height: 16px; padding: 0 4px; font: 700 10px/16px var(--font-en); font-style: normal; color: #fff; background: #ff5e70; border-radius: 8px; }
+.cl-box-btn { position: relative; min-height: 48px; background: linear-gradient(135deg, color-mix(in srgb, var(--amb-a) 25%, #0a1420), color-mix(in srgb, var(--amb-b) 25%, #0a1420)); }
+.cl-box-btn b { font-family: var(--font-en); color: #FFD86B; margin-left: 6px; }
+.cl-box-btn em { position: static; margin-left: 8px; display: inline-block; height: auto; padding: 1px 8px; border-radius: 9px; }
+.cl-found { appearance: none; border: 0; font: inherit; cursor: pointer; text-align: left; padding: 8px 10px; display: flex; flex-direction: column; gap: 2px; color: #05081A; font-size: 13px; font-weight: 800;
+  background: linear-gradient(90deg, #FFD86B, #fff3c0, #FFD86B); background-size: 200% 100%; clip-path: var(--chamfer-s); animation: cl-pop .5s ease-out .6s both, cl-shimmer 3s linear infinite; }
+.cl-found span { font-size: 11px; font-weight: 700; opacity: 0.75; }
+.cl-box__count { margin-left: auto; font: 700 14px var(--font-en); color: #FFD86B; }
+.cl-grid { display: grid; grid-template-columns: 3.4em repeat(3, 1fr); gap: 4px; }
+.cl-grid__corner { font-style: normal; font-size: 8px; line-height: 1.3; color: var(--dim); display: flex; flex-direction: column; justify-content: space-between; }
+.cl-grid__head { font-size: 11px; text-align: center; color: var(--neon-1); align-self: end; padding-bottom: 2px; }
+.cl-grid__head.is-row { align-self: center; text-align: right; padding-right: 4px; }
+.cl-cell { appearance: none; border: 0; font: inherit; color: #fff; cursor: pointer; min-height: 64px; padding: 4px 2px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+  clip-path: var(--chamfer-s); background: rgba(255, 255, 255, 0.04); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.15); }
+.cl-cell__q { font: 700 18px var(--font-en); color: rgba(255, 255, 255, 0.25); }
+.cl-cell__icons { font-size: 18px; letter-spacing: 1px; }
+.cl-cell small { font-size: 9px; color: #FFD86B; line-height: 1.2; text-align: center; }
+.cl-cell.is-on { background: color-mix(in srgb, var(--amb-a) 14%, rgba(8, 20, 28, 0.9)); box-shadow: inset 0 0 0 1px var(--amb-a), inset 0 0 14px color-mix(in srgb, var(--amb-a) 30%, transparent); animation: cl-pop .4s ease-out; }
+.cl-cell.is-none small { color: #b8c4d8; }
+.cl-cell.is-target { box-shadow: inset 0 0 0 1px rgba(255, 216, 107, 0.6); animation: cl-glow 1s ease-in-out infinite alternate; }
+.cl-tray { display: flex; flex-wrap: wrap; gap: 5px; }
+.cl-spec { appearance: none; border: 0; font: inherit; color: #fff; cursor: pointer; min-height: 38px; padding: 4px 10px; display: flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 700;
+  clip-path: var(--chamfer-s); background: rgba(255, 255, 255, 0.07); box-shadow: inset 0 0 0 1px var(--stroke-strong); }
+.cl-spec span { font-size: 18px; }
+.cl-spec em { font-style: normal; font-size: 9px; color: #05081A; background: #FFD86B; padding: 0 4px; }
+.cl-spec.is-sel { color: #05081A; background: linear-gradient(90deg, #FFD86B, #fff3c0); box-shadow: 0 0 12px rgba(255, 216, 107, 0.6); transform: translateY(-2px); }
+.cl-fudas { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; }
+.cl-fuda { min-height: 54px; display: grid; place-items: center; text-align: center; padding: 4px 2px; font-size: 11px; font-weight: 800; writing-mode: vertical-rl; letter-spacing: 0.1em; color: rgba(255, 255, 255, 0.25);
+  background: rgba(255, 255, 255, 0.04); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12); }
+html[lang="en"] .cl-fuda { writing-mode: horizontal-tb; font-size: 9px; letter-spacing: 0; }
+.cl-fuda.is-on { color: #3a1004; background: linear-gradient(180deg, #fff3c0, #FFD86B); box-shadow: 0 0 10px rgba(255, 216, 107, 0.5); animation: cl-pop .5s ease-out; }
+.cl-quiz { padding: 8px; clip-path: var(--chamfer-s); background: rgba(255, 216, 107, 0.08); box-shadow: inset 3px 0 0 #FFD86B; animation: cl-in .4s ease-out; }
+.cl-quiz p { margin: 0 0 6px; font-size: 13px; font-weight: 700; line-height: 1.5; }
+.cl-sub { margin: 2px 0 0; font-size: 12px; font-weight: 700; color: var(--neon-1); }
+.cl-cheer__stamp b { white-space: nowrap; }
+.cl-cheer__stamp.is-big b { font-size: clamp(44px, 15vw, 72px); }
+.cl-head > b { font-size: 12px; }
