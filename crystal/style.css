@@ -257,3 +257,39 @@ html[lang="en"] .cr-logo__name { font-family: var(--font-en); font-weight: 700; 
 .cr-cell.is-hot dd { color: #FF8D9A; }
 .cr-readout[hidden] { display: none; }
 .cr-panel[hidden] { display: none; }
+
+/* ── v0.4：対戦「析出ニアピン」 ── */
+.cr-battle-btn { box-shadow: inset 0 0 0 1px var(--neon-2), inset 0 0 14px rgba(255, 192, 116, 0.25); }
+.cr-rules { margin: 0; padding: 0 0 0 1.2em; font-size: 12px; line-height: 1.7; }
+.cr-wide { min-height: 56px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; }
+.cr-wide small { font-size: 11px; opacity: 0.85; font-weight: 400; }
+.cr-join { display: flex; gap: 8px; }
+.cr-join input {
+  flex: 1; min-width: 0; height: 48px; text-align: center; font: 700 24px var(--font-en); letter-spacing: 0.3em; color: #fff;
+  background: rgba(255, 255, 255, 0.07); border: 0; box-shadow: inset 0 0 0 2px var(--neon-1); clip-path: var(--chamfer-s);
+}
+.cr-join .btn { min-height: 48px; }
+.cr-code { margin: 0; text-align: center; }
+.cr-code span { display: block; font-size: 12px; color: var(--dim); }
+.cr-code b { font: 700 44px var(--font-en); letter-spacing: 0.25em; color: var(--neon-2); text-shadow: 0 0 14px rgba(255, 192, 116, 0.6); }
+.cr-bplayers { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; }
+.cr-bp { display: flex; align-items: center; gap: 6px; padding: 6px 8px; clip-path: var(--chamfer-s); background: rgba(255, 255, 255, 0.06); }
+.cr-bp img { width: 36px; height: 36px; flex: none; clip-path: polygon(25% 0, 75% 0, 100% 50%, 75% 100%, 25% 100%, 0 50%); background: #fff; }
+.cr-bp b { flex: 1; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cr-bp span { font-size: 10px; color: var(--neon-2); }
+.cr-bcount { margin: 6px 0; text-align: center; font-size: 15px; }
+.cr-bcount b { display: block; font: 700 44px var(--font-en); color: var(--neon-2); }
+.cr-btimer { margin-left: auto; font: 700 24px var(--font-en); color: var(--neon-2); min-width: 1.6em; text-align: right; }
+.cr-bbar { height: 6px; background: rgba(255, 255, 255, 0.08); }
+.cr-bbar i { display: block; height: 100%; background: linear-gradient(90deg, #FF5E70, var(--neon-2), var(--neon-1)); transition: width .2s linear; }
+.cr-brows { list-style: none; margin: 0; padding: 0; display: grid; gap: 3px; max-height: 34vh; overflow-y: auto; }
+.cr-brows li { display: grid; grid-template-columns: 1.6em 1fr auto; grid-template-rows: auto auto; align-items: center; gap: 0 6px; padding: 4px 8px; font-size: 12px; clip-path: var(--chamfer-s); background: rgba(255, 255, 255, 0.05); }
+.cr-brows li span { grid-row: 1 / 3; font: 700 16px var(--font-en); color: var(--neon-2); text-align: center; }
+.cr-brows li b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cr-brows li small { grid-column: 2; font-size: 10px; color: var(--dim); }
+.cr-brows li em { grid-row: 1 / 3; grid-column: 3; font-style: normal; font-family: var(--font-en); font-size: 12px; text-align: right; }
+.cr-brows li.is-me { box-shadow: inset 0 0 0 1px var(--neon-1); background: rgba(76, 134, 255, 0.2); }
+.cr-brows li.is-out { opacity: 0.5; }
+.cr-brows--final { max-height: none; }
+.cr-brows--final li { padding: 8px 10px; font-size: 14px; }
+.cr-brank { margin: 0; text-align: center; font-size: 22px; font-weight: 800; color: var(--hiyama); }

@@ -43,6 +43,7 @@
       <button type="button" class="cr-card" data-act="pick-mode" data-mode="refine"><b data-i18n="cr.mode.refine"></b><span data-i18n="cr.mode.refineSub"></span></button>
     </div>
     <button type="button" class="btn btn--primary cr-start" data-act="start" id="start-btn"></button>
+    <button type="button" class="btn cr-sub cr-battle-btn" data-act="battle" data-i18n="cr.b.open"></button>
     <button type="button" class="btn cr-sub" data-act="found" id="found-btn"></button>
     <p class="cr-note" data-i18n="hiyama.disclaimer"></p>
   </section>
@@ -105,8 +106,12 @@
       <!-- 注文モード・精製モードの操作盤（中身は main.js で作る） -->
       <div class="cr-panel cr-mpanel" id="order-panel" hidden></div>
       <div class="cr-panel cr-mpanel" id="refine-panel" hidden></div>
+      <div class="cr-panel cr-mpanel" id="battle-panel" hidden></div>
     </div>
   </section>
+
+  <!-- 対戦「析出ニアピン」：入口・部屋・最後の結果（中身は battle.js で作る） -->
+  <section id="battle" class="cr-screen cr-found" hidden></section>
 
   <!-- 注文の一覧／精製の段階の一覧 -->
   <section id="menu" class="cr-screen cr-found" hidden>

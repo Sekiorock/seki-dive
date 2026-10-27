@@ -4,12 +4,13 @@
 // v0.2：気体の実験台（ヘンリーの法則）と濃度の実験台（3つの濃度）。カメラを指で自由に動かせるように
 //       （1本指で回す・ピンチで寄る・2本指で動かす・ダブルタップで戻る・視点のボタン）。操作盤をたためる。
 //       結晶の形を本物に寄せた。
+// v0.4：対戦「析出ニアピン」（battle.js）。
 // v0.3：注文モード（24段階。予想を入れてから実験し、予想と結果の差で報酬）と精製モード（混合物から KNO₃ を取り出す）。
 // 画面：タイトル → 実験台（自由実験） ／ 発見の一覧。ワールドに入るときは、毎回アバター選択の画面を通る。
 
 import {
   VERSION, RANGE, SOLUTE_ORDER, DISCOVERY, DISCOVERIES, DISCOVERY_GROUPS, BENCHES,
-  GAS_RANGE, GAS_ORDER, GASES, GAS_VIEW, CONC_RANGE, CONC_ORDER, CONC_SOLUTES,
+  GAS_RANGE, GAS_ORDER, GASES, GAS_VIEW, CONC_RANGE, CONC_ORDER, CONC_SOLUTES, NEARPIN,
 } from './config.js';
 import { SOLUTES } from './solubility.js';
 import { createLab } from './lab.js';
@@ -17,11 +18,12 @@ import { createGasLab, dissolve } from './gas.js';
 import { createConcLab } from './conc.js';
 import { createScene } from './scene3d.js';
 import { createModes } from './modes.js';
+import * as battle from './battle.js';
 import { initI18n, t, onLangChange, applyToDom, getLang, setLang } from '../../shared/i18n.js';
 import { applyTheme, fx } from '../../shared/theme.js';
 import { createTopbar } from '../../shared/topbar.js';
 import { initBackend, getUser, setUserLang, getAvatar, getWorldData, setWorldData } from '../../shared/auth.js';
-import { initEconomy, isWorldOpen, onSettingsChange, formatHiyama, reward } from '../../shared/economy.js';
+import { initEconomy, isWorldOpen, onSettingsChange, formatHiyama, reward, grant } from '../../shared/economy.js';
 import { initNotices } from '../../shared/notices.js';
 import { openAvatarSelect } from '../../shared/avatar.js';
 import { standUrl, faceUrl, nameKey } from '../../shared/characters.js';
@@ -59,7 +61,7 @@ function toast(msg, ms = 3600) {
 
 function show(name) {
   screen = name;
-  for (const id of ['title', 'lab', 'found', 'menu']) $(id).hidden = id !== name;
+  for (const id of ['title', 'lab', 'found', 'menu', 'battle']) $(id).hidden = id !== name;
   if (name !== 'lab' && modes) modes.leave();
   document.body.classList.toggle('is-lab', name === 'lab');
   if (scene) scene.showPanel(name === 'lab');
@@ -303,7 +305,8 @@ function enterLab(kind) {
   $('panel').hidden = kind !== 'free';
   $('order-panel').hidden = kind !== 'order';
   $('refine-panel').hidden = kind !== 'refine';
-  $('readout').hidden = false;
+  $('battle-panel').hidden = kind !== 'battle';
+  $('readout').hidden = kind === 'battle';
   $('seed-btn').hidden = true;
   $('discover').hidden = true;
   renderViews();
@@ -327,10 +330,14 @@ function openLab() {
 }
 
 // ───────────── 毎回の描き直し ─────────────
+// 確かめるとき（?debug=1&lite）は、3Dの描き直しを間引いて、1台のパソコンで何人分も動かせるようにする
+const LITE_MS = params.has('lite') ? 400 : 0;
+let lastDraw = 0;
 function loop(nowMs) {
   requestAnimationFrame(loop);
   if (modes) modes.frame(nowMs);
-  if (scene) scene.frame(nowMs);
+  battle.frame();
+  if (scene && (!LITE_MS || nowMs - lastDraw >= LITE_MS)) { lastDraw = nowMs; scene.frame(nowMs); }
 }
 
 function setupInput() {
@@ -339,6 +346,8 @@ function setupInput() {
     if (!b || b.disabled) return;
     const act = b.dataset.act;
     if (modes && modes.onClick(act, b)) return;
+    if (battle.onClick(act)) return;
+    if (act === 'battle') { battle.openBattle(); return; }
     if (act === 'free') openLab();
     else if (act === 'pick-mode') { mode = b.dataset.mode; renderTitle(); }
     else if (act === 'start') { if (mode === 'free') openLab(); else openMenu(mode); }
@@ -361,7 +370,10 @@ function setupInput() {
     else if (act === 'found-close') { if (backTo === 'lab') openLab(); else { renderTitle(); show('title'); } }
   });
   $('discover').addEventListener('click', () => { $('discover').hidden = true; });
-  document.body.addEventListener('input', (e) => { if (modes && e.target.matches('input[data-rk]')) modes.onInput(e.target); });
+  document.body.addEventListener('input', (e) => {
+    if (modes && e.target.matches('input[data-rk]')) modes.onInput(e.target);
+    if (e.target.matches('input[data-bk]')) battle.onInput(e.target);
+  });
   document.body.addEventListener('keydown', (e) => { if (modes) modes.onKey(e); });
   window.addEventListener('resize', updateViewport);
   if (window.ResizeObserver) new ResizeObserver(updateViewport).observe($('bottom'));
@@ -399,6 +411,8 @@ async function start() {
     if (screen === 'title') renderTitle();
     if (screen === 'lab') { if (modes && modes.kind) modes.rerender(); else renderBench(); }
     if (screen === 'menu') modes.renderMenu(menuKind);
+    battle.redraw();
+    if (scene) scene.redraw('arena');
     if (screen === 'found') renderFound();
     renderFoundButtons();
     if (scene && lab) scene.redraw('solid', lab.state);
@@ -428,6 +442,13 @@ async function start() {
   scene.setState('gas', gasLab.state, gasUnit(gasLab.state.gas));
   scene.setState('conc', concLab.state);
   scene.onView(() => { if (screen === 'lab') renderViews(); });
+  battle.initBattle({
+    $, toast, scene, guide: GUIDE, updateViewport,
+    show: (n) => show(n),
+    screen: () => screen,
+    toTitle: () => { scene.setBench(bench); renderTitle(); show('title'); },
+    enterBattleLab: () => { scene.setBench('solid'); enterLab('battle'); },
+  });
   modes = createModes({
     $, t, esc, scene, faceUrl, guide: GUIDE,
     getData: () => getWorldData(WORLD),
@@ -447,9 +468,10 @@ async function start() {
 
   // 確かめるための入口（住所に ?debug=1 を付けたときだけ）
   if (params.has('debug')) {
+    if (params.has('fast')) { NEARPIN.decideSec = 20; NEARPIN.revealSec = 16; NEARPIN.coolSec = 3; }
     window.__cr = {
       get lab() { return lab; }, get gas() { return gasLab; }, get conc() { return concLab; },
-      get screen() { return screen; }, get scene() { return scene; }, get modes() { return modes.debug; },
+      get screen() { return screen; }, get scene() { return scene; }, get modes() { return modes.debug; }, battle: battle.debug, grant: (n) => grant({ itemKey: 'ledger.item.founding', amount: n }),
       order: (i) => modes.onClick('order-open', { dataset: { i } }),
       refine: (i) => modes.onClick('refine-open', { dataset: { i } }),
       bench: (b) => setBench(b),

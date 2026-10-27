@@ -1,7 +1,7 @@
 // crystal/src/config.js
 // ② クリスタル・ラボの数値の設定。数値はここに集め、プログラムの中に直接書かない。
 
-export const VERSION = 'crystal v0.3.0';
+export const VERSION = 'crystal v0.4.0';
 
 // 実験台の並び
 export const BENCHES = ['solid', 'gas', 'conc'];
@@ -140,5 +140,27 @@ export const REFINE = {
     { kno3: 70, cuh: 30, mass: 38, purity: 99.5 },
     { kno3: 60, cuh: 40, mass: 28, purity: 99.5 },
     { kno3: 100, cuh: 20, mass: 70, purity: 99.8 },
+  ],
+};
+
+// ── 対戦「析出ニアピン」（全体の仕様書 8章・11章） ──
+export const NEARPIN = {
+  minPlayers: 2,
+  maxPlayers: 12,
+  rounds: 5,                  // 5回戦。合計の誤差が小さい順に順位
+  decideSec: 30,              // 水の質量と温度を決める時間（秒）
+  revealSec: 10,              // 一斉に冷やして結果を見せる時間（秒）
+  coolSec: 4.5,               // そのうち、冷やしていく動きの時間（秒）
+  startTemp: 80,              // 冷やしはじめる温度（℃）
+  water: { min: 50, max: 300, step: 1, start: 100 },
+  temp: { min: 0, max: 80, step: 1, start: 20 },
+  idleRounds: 2,              // 続けてこの回数、何も操作しなかったら「放置」（途中退出と同じ罰金）
+  // お題：溶質と、使う質量（g）の候補、ねらう析出量（g）の範囲（その溶質で届く範囲から、0.5 g きざみで選ぶ）
+  tasks: [
+    { solute: 'KNO3', mass: [60, 80, 100, 120] },
+    { solute: 'KNO3', mass: [60, 80, 100, 120] },
+    { solute: 'KCl', mass: [40, 50, 60] },
+    { solute: 'KNO3', mass: [70, 90, 110] },
+    { solute: 'CuSO4H', mass: [40, 50, 60] },
   ],
 };

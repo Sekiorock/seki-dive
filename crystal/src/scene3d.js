@@ -12,6 +12,7 @@ import { makeEnvironment } from './crystals.js';
 import { createSolidBench } from './bench-solid.js';
 import { createGasBench } from './bench-gas.js';
 import { createConcBench } from './bench-conc.js';
+import { createArenaBench } from './bench-arena.js';
 
 const ACC = ACCENTS.crystal;
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -64,6 +65,7 @@ export function createScene(canvas) {
     solid: createSolidBench({ envMap }),
     gas: createGasBench({ envMap }),
     conc: createConcBench({ envMap }),
+    arena: createArenaBench({ envMap }),
   };
   for (const b of Object.values(benches)) { b.group.visible = false; scene.add(b.group); }
   let benchName = 'solid';
