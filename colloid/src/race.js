@@ -8,7 +8,7 @@
 //   部屋・参加料・賞金・勝負税・途中退出の罰金は、ほかのワールドの対戦と同じ（shared/room.js、shared/economy.js）。
 //   解いた関門は、答えた人が「s0, s1 …（解いた時刻）」として送り、どの端末も同じように数える。
 
-import { backend } from '../../shared/auth.js';
+import { backend, itemCount, useItem } from '../../shared/auth.js';
 import { SETTINGS, payFee, prize, fine, formatHiyama } from '../../shared/economy.js';
 import { faceUrl, faceFig } from '../../shared/characters.js';
 import * as room from '../../shared/room.js';
@@ -48,7 +48,7 @@ export function initRace(hooks) {
   const a = active();
   if (a && backend.mode === 'online') {
     setActive(null);
-    if (a.paid) fine({ itemKey: 'ledger.item.quitFine', amount: SETTINGS.quitFine }).then(() => H.toast(H.t('cl.r.fineOld', { amount: formatHiyama(SETTINGS.quitFine) })));
+    if (a.paid) fine({ itemKey: 'ledger.item.quitFine', amount: SETTINGS.quitFine }).then((fe) => H.toast(fe && fe.waived ? H.t('fine.waived') : H.t('cl.r.fineOld', { amount: formatHiyama(SETTINGS.quitFine) })));
     room.leaveRoom(a.code, true).catch(() => {});
   }
   document.addEventListener('visibilitychange', () => {
@@ -270,7 +270,8 @@ function renderPlay(now, res) {
   const gate = R.gates[i];
   const holder = gate ? holderOf(tm, gate.tool) : null;
   const mine = holder && holder.uid === backend.uid;
-  const fogged = fogUntil(tm) > now;
+  // v1.2：霧よけのお札を使ったら、その霧は自分には効かない
+  const fogged = fogUntil(tm) > now && !(R.clearUntil >= fogUntil(tm));
   const bell = holderOf(tm, 'bell');
   const iSeeBell = bell && bell.uid === backend.uid;
   const locked = Date.now() < R.lockUntil;
@@ -313,7 +314,7 @@ function renderPlay(now, res) {
   H.$('panel').innerHTML = `<div class="cl-head"><b>${esc(t('cl.r.title'))}</b><span class="cl-rtime" id="r-time">${mmss(left)}</span>${fogBtn}`
     + `<button type="button" class="cl-mini" data-act="r-quit">${esc(t('cl.r.quit'))}</button></div>`
     + (banner ? `<div class="cl-banner">📣 ${esc(t('cl.r.called', { name: banner.from }))}</div>` : '')
-    + (fogged ? `<div class="cl-fogbar">🌫 <span id="r-fogs">${esc(t('cl.r.fogNow', { s: Math.ceil((fogUntil(tm) - now) / 1000) }))}</span></div>` : '')
+    + (fogged ? `<div class="cl-fogbar">🌫 <span id="r-fogs">${esc(t('cl.r.fogNow', { s: Math.ceil((fogUntil(tm) - now) / 1000) }))}</span>${itemCount('amulet.cl') ? `<button type="button" class="cl-mini" data-act="r-amulet">${esc(t('item.amulet.cl.name'))} ×${itemCount('amulet.cl')}</button>` : ''}</div>` : '')
     + `<div class="cl-tracks">${track}</div><p class="cl-sub">${esc(t('cl.r.myTools'))}</p><div class="cl-mytools">${myTools || esc(t('cl.r.noTools'))}</div>${body}`;
   H.updateViewport();
 }
@@ -426,8 +427,8 @@ async function forfeit(why = 'quit') {
   if (playing) {
     await room.leaveRoom(code, true).catch(() => {});
     if (paid) {
-      await fine({ itemKey: 'ledger.item.quitFine', amount: SETTINGS.quitFine });
-      H.toast(H.t(`cl.r.fine.${why}`, { amount: formatHiyama(SETTINGS.quitFine) }));
+      const fe = await fine({ itemKey: 'ledger.item.quitFine', amount: SETTINGS.quitFine });
+      H.toast(fe && fe.waived ? H.t('fine.waived') : H.t(`cl.r.fine.${why}`, { amount: formatHiyama(SETTINGS.quitFine) }));
     }
   }
   leave();
@@ -464,6 +465,8 @@ export function onClick(act, el) {
     const h = gate && holderOf(tm, gate.tool);
     if (h) { room.updateMe(R.code, { ping: { to: h.uid, at: room.serverNow() } }).catch(() => {}); H.toast(H.t('cl.r.pinged', { name: h.name || H.t('topbar.guest') })); }
     R.touched = Date.now();
+  } else if (act === 'r-amulet') {
+    if (useItem('amulet.cl')) { R.clearUntil = fogUntil(myTeam()); H.toast(H.t('cl.r.amuletUsed')); }
   } else if (act === 'r-fog') {
     if (!R || R.coop) return true;
     const tm = myTeam();

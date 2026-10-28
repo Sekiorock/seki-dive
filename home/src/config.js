@@ -1,7 +1,7 @@
 // home/src/config.js
 // ホームワールドの数値の設定。数値はここに集め、プログラムの中に直接書かない。
 
-export const VERSION = 'home v1.1.0';
+export const VERSION = 'home v1.2.0';
 
 // QRコードで配る公開URL。
 // 空のままなら、いま開いているページのURL（例 https://ユーザー名.github.io/seki-dive/）を自動で使う。

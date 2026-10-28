@@ -8,6 +8,12 @@
 import { buildState } from './orders.js';
 import { TABLE, TEMPS, solubility } from './solubility.js';
 import { GASES, CONC_SOLUTES, ORDER_HINT, ORDER_EX } from './config.js';
+import { runOrder } from './orders.js';
+import { hintButtons, useHint } from '../../shared/items.js';
+
+// v1.2：ヒント券で見たヒントの段階（注文ごと。0〜3）
+const revealed = {};
+export const revealedTier = (id) => revealed[id] || 0;
 
 let H = null;            // { $, t, esc, getData, setData }
 let cur = null;          // { o, mode: 'ex' | 'hint', more, raf, t0, cv }
@@ -204,7 +210,7 @@ function drawGraph(g, r, o, st, k, mode) {
   }
   const [px, py] = s.point;
   // ヒント：読み取りの線
-  if (mode === 'hint') {
+  if (mode === 'hint' && revealedTier(o.id) >= 1) {
     g.setLineDash([4, 3]); g.lineWidth = 1.2;
     if (o.bench === 'solid' && askT(o)) {
       // 温度を聞く問題：横の線（水100 gあたりの量）が曲線とぶつかるところを探す
@@ -292,10 +298,14 @@ function render() {
     + `<li data-ph="2"><b>${esc(t('cr.ex.s3'))}</b>${esc(t('cr.ex.ask', { u: o.unit }))}</li></ol>`;
   let body = '';
   if (mode === 'hint') {
+    // v1.2：ふつうのヒントは「考え方の一言」まで。ヒント券（弱・中・強）で、もっと見られる
+    const tier = revealedTier(o.id);
     const how = t(`cr.o.${o.id}.how`, { ...o.how(0), r: '？' });
     body = `<p class="cr-ox__hint">💡 ${esc(t(`cr.hint.${cat}`))}</p>`
-      + (more ? `<p class="cr-ox__how">${esc(how)}</p>`
-        : `<button type="button" class="btn btn--small" data-act="ox-more">${esc(t('cr.ex.more'))}</button>`);
+      + `<p class="cr-ox__tip">${esc(t('cr.ihint.lead'))}</p>${hintButtons(t, 'crystal', tier, { act: 'ox-hint' })}`
+      + (tier >= 1 ? `<p class="ihint__box is-t1">${esc(t('cr.ihint.t1'))}</p>` : '')
+      + (tier >= 2 ? `<p class="ihint__box">${esc(how)}</p>` : '')
+      + (tier >= 3 ? `<p class="ihint__box is-t3">${esc(rangeText(o))}</p>` : '');
   } else {
     body = `<p class="cr-ox__tip">${esc(t(`cr.ex.tip.${o.bench}`))}</p>`;
   }
@@ -318,6 +328,15 @@ function loop() {
   cur.raf = requestAnimationFrame(loop);
 }
 
+/** ヒント券（強）：答えの範囲 */
+function rangeText(o) {
+  const v = runOrder(o).value;
+  const d = 10 ** o.digits;
+  const w = o.unit === '℃' ? 3 : Math.max(Math.abs(v) * 0.1, 1 / d);
+  const r = (x) => (Math.round(x * d) / d).toFixed(o.digits);
+  return H.t('cr.ihint.t3', { a: r(v - w), b: r(v + w), u: o.unit });
+}
+
 /** 開く（mode：'ex' 問題のアニメ、'hint' ヒント） */
 export function openEx(o, mode = 'ex') {
   closeEx();
@@ -333,10 +352,16 @@ export function closeEx() {
 }
 export function isOpen() { return !!cur; }
 
-export function onClick(act) {
+export function onClick(act, el) {
   if (!act.startsWith('ox-')) return false;
   if (act === 'ox-close') closeEx();
   else if (act === 'ox-replay' && cur) { cur.t0 = performance.now(); cur.ph = -1; }
-  else if (act === 'ox-more' && cur) { cur.more = true; const keep = cur.t0; render(); cur.t0 = keep; cur.ph = -1; }
+  else if (act === 'ox-hint' && cur) {
+    const tier = Number(el.dataset.tier);
+    if (tier <= revealedTier(cur.o.id)) return true;
+    if (!useHint('crystal', tier)) { H.toast(H.t('ihint.none')); return true; }
+    revealed[cur.o.id] = tier;
+    const keep = cur.t0; render(); cur.t0 = keep; cur.ph = -1;
+  }
   return true;
 }

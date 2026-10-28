@@ -1,7 +1,7 @@
 // colloid/src/config.js
 // ④ コロイド・ミストの数値の設定（全体の仕様書 10章）。数値はここに集め、プログラムの中に直接書かない。
 
-export const VERSION = 'colloid v1.1.0';
+export const VERSION = 'colloid v1.2.0';
 
 // ── エリア：入るときに道具を1つ受け取り、謎を順に解く。全部解くとエリアを抜ける ──
 export const AREAS = [
@@ -175,3 +175,6 @@ export const RACE = {
 
 // ── v1.1：選択肢の問題で、この回数まちがえたら、まちがいの選択肢を1つずつ消していく（ヒント） ──
 export const ELIM = { after: 2 };
+
+// ── v1.2：レバレッジ券：そのエリアで、まちがいがこの回数までならクリアあつかい ──
+export const CL_ITEM = { leverMiss: 3 };

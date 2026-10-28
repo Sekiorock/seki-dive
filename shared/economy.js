@@ -12,7 +12,8 @@
 //   罰金       ：本人から国庫へ（残高が足りなければ滞納＝マイナスになる）
 // ヒヤマはゲームの中だけの通貨で、現実のお金や物とは交換できない。
 
-import { backend, getUser } from './auth.js';
+import { backend, getUser, itemCount, useItem } from './auth.js';
+import { TAX_FREE_CHAR } from './characters.js';
 
 // ── 金額の設定（Firebase の settings に値があれば、そちらが優先。home v0.5 から管理画面で変える） ──
 export const SETTINGS = {
@@ -174,8 +175,26 @@ export function foundingGranted() { return !!(wallet && wallet.foundingGranted);
 /** 滞納（残高がマイナス）中は、買い物と対戦の参加ができない */
 export function isInArrears() { return getBalance() < 0; }
 
+// ───────────── v1.2：特別な減税と、税のかからない人 ─────────────
+// 図鑑の追加ページ（セキオ溶解ロックの図鑑の特集ページ）を1ページ足すごとに、所得税と消費税が 1% ずつ下がる（5ページで 5%）
+export const ZUKAN_RELIEF = { perPage: 0.01, max: 0.05 };
+export const CHARM_MUL = 1.3;      // 幸運のお守り：次の報酬 +30%
+export const CAP_UP = 1000;        // 報酬上限アップ券：その日の上限 +1,000
+export function zukanPages() { const w = (getUser().worlds || {}).hydration || {}; return Object.keys(w.pages || {}).length; }
+export function taxRelief() { return Math.min(ZUKAN_RELIEF.max, zukanPages() * ZUKAN_RELIEF.perPage); }
+/** テッペイでいる間は、税も罰金もかからない */
+export function isTaxFree() { const u = getUser(); return u.lastAvatar === TAX_FREE_CHAR && (u.owned || []).includes(TAX_FREE_CHAR); }
+export function incomeTaxRate() { return isTaxFree() ? 0 : Math.max(0, SETTINGS.incomeTaxRate - taxRelief()); }
+export function consumptionTaxRate() { return isTaxFree() ? 0 : Math.max(0, SETTINGS.consumptionTaxRate - taxRelief()); }
+export function betTaxRate() { return isTaxFree() ? 0 : SETTINGS.betTaxRate; }
+/** 今日の報酬の上限（ロック物販の「報酬上限アップ券」を使った日は増える） */
+export function todayCap() {
+  const b = getUser().capBoost || {};
+  return SETTINGS.dailyRewardCap + (b.day === new Date().toLocaleDateString('sv-SE') ? b.extra || 0 : 0);
+}
+
 /** 消費税（1ヒヤマ未満は切り捨て） */
-export function consumptionTax(price) { return Math.floor(price * SETTINGS.consumptionTaxRate); }
+export function consumptionTax(price) { return Math.floor(price * consumptionTaxRate()); }
 export function priceWithTax(price) { return price + consumptionTax(price); }
 export function canAfford(price) { return !isInArrears() && getBalance() >= priceWithTax(price); }
 
@@ -284,16 +303,18 @@ export async function grantFounding() {
  * @returns 記録。上限に達していて受け取れないときは null
  */
 export async function reward({ itemKey, itemVars, gross }) {
+  // v1.2：ロック物販の「幸運のお守り」を持っていれば、自動で使って +30%
+  if (gross > 0 && itemCount('charm') > 0 && useItem('charm')) gross = Math.round(gross * CHARM_MUL);
   const today = new Date().toLocaleDateString('sv-SE');   // YYYY-MM-DD（端末の時刻）
   let allowed = 0;
   const entry = await commit(
     () => {
-      const tax = Math.floor(allowed * SETTINGS.incomeTaxRate);
+      const tax = Math.floor(allowed * incomeTaxRate());
       return { type: 'reward', itemKey, itemVars, partnerKey: 'party.government', gross: allowed, tax, amount: allowed - tax };
     },
     (w) => {
       if (w.rewardDay !== today) { w.rewardDay = today; w.rewardToday = 0; }
-      allowed = Math.max(0, Math.min(gross, SETTINGS.dailyRewardCap - w.rewardToday));
+      allowed = Math.max(0, Math.min(gross, todayCap() - w.rewardToday));
       if (allowed <= 0) return false;
       w.rewardToday += allowed;
       return true;
@@ -335,9 +356,17 @@ export async function payFee({ itemKey, itemVars, amount }) {
   return commit(() => ({ type: 'fee', itemKey, itemVars, partnerKey: 'party.prizePool', gross: amount, tax: 0, amount: -amount }), (w) => w.balance >= amount);
 }
 
+/** v1.2：レバレッジの上乗せなど、1日の上限に数えない報酬（所得税はかかる） */
+export async function bonusReward({ itemKey, itemVars, gross }) {
+  const tax = Math.floor(gross * incomeTaxRate());
+  const entry = await commit(() => ({ type: 'reward', itemKey, itemVars, partnerKey: 'party.government', gross, tax, amount: gross - tax }), () => true);
+  if (entry) await moveTreasury(tax, { type: 'tax', itemKey });
+  return entry;
+}
+
 /** 対戦の賞金を受け取る（勝負税を引き、税は国庫へ） */
 export async function prize({ itemKey, itemVars, gross }) {
-  const tax = Math.floor(gross * SETTINGS.betTaxRate);
+  const tax = Math.floor(gross * betTaxRate());
   const entry = await commit(() => ({ type: 'prize', itemKey, itemVars, partnerKey: 'party.prizePool', gross, tax, amount: gross - tax }), () => true);
   if (entry) await moveTreasury(tax, { type: 'tax', itemKey });
   return entry;
@@ -345,6 +374,8 @@ export async function prize({ itemKey, itemVars, gross }) {
 
 /** 罰金（残高が足りなければマイナス＝滞納になる）。国庫へ。対戦の版と管理画面で使う。 */
 export async function fine({ itemKey, itemVars, amount }) {
+  // v1.2：テッペイでいる間は罰金なし（通帳には「免除」として 0 で残す）
+  if (isTaxFree()) return commit(() => ({ type: 'fine', itemKey: 'ledger.item.waived', itemVars: { item: `i18n:${itemKey}` }, partnerKey: 'party.treasury', gross: amount, amount: 0 }), () => true).then((e) => (e ? { ...e, waived: true } : { waived: true }));
   const entry = await commit(() => ({ type: 'fine', itemKey, itemVars, partnerKey: 'party.treasury', gross: amount, amount: -amount }), () => true);
   if (entry) await moveTreasury(amount, { type: 'fine', itemKey });
   return entry;

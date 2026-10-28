@@ -7,7 +7,8 @@
 //   エリアに入ると、まず「しくみ」（絵とものさし）を見せる。まちがえると、神主が理由を一言で返す。
 //   報酬：エリアを抜けるごとに 100 ヒヤマ（はじめてのとき）。
 
-import { VERSION, AREAS, LOCKED_AREAS, PUZZLES, LIQUIDS, DIALYSIS, REWARD, TOOLS, ELIM } from './config.js';
+import { VERSION, AREAS, LOCKED_AREAS, PUZZLES, LIQUIDS, DIALYSIS, REWARD, TOOLS, ELIM, CL_ITEM } from './config.js';
+import { trayHtml, trayClick, consumeArmed, settleLever, hasKey, keyNeedText, KEY_FROM, hintButtons, useHint } from '../../shared/items.js';
 import { createScene } from './scene3d.js';
 import { createScope } from './scope.js';
 import { cheer } from './cheer.js';
@@ -18,6 +19,7 @@ import { pictureSvg, rulerHtml } from './explain.js';
 import { initI18n, t, onLangChange, applyToDom, getLang, setLang } from '../../shared/i18n.js';
 import { applyTheme, fx } from '../../shared/theme.js';
 import { createTopbar } from '../../shared/topbar.js';
+import { itemCount } from '../../shared/auth.js';
 import { initBackend, getUser, setUserLang, getAvatar, getWorldData, setWorldData } from '../../shared/auth.js';
 import { initEconomy, isWorldOpen, onSettingsChange, formatHiyama, reward, grant } from '../../shared/economy.js';
 import { initNotices } from '../../shared/notices.js';
@@ -77,7 +79,7 @@ function renderTitle() {
   $('areas').innerHTML = AREAS.map((A, i) => {
     const open = areaOpen(i);
     return `<button type="button" class="cl-card${i === ai ? ' is-on' : ''}" data-act="area" data-i="${i}" ${open ? '' : 'disabled'}>`
-      + `<b>${A.tool ? A.id : '⛩'}</b><span>${esc(t(`cl.area${A.id}.name`))}</span><small>${A.tool ? `${TOOL_ICON[A.tool]} ${esc(t(`cl.tool.${A.tool}`))}` : esc(t('cl.allTools'))}</small><em>${areaDone(i) ? '✓' : open ? '' : '🔒'}</em></button>`;
+      + `<b>${A.tool ? A.id : '⛩'}</b><span>${esc(t(`cl.area${A.id}.name`))}</span><small>${A.tool ? `${TOOL_ICON[A.tool]} ${esc(t(`cl.tool.${A.tool}`))}` : esc(t('cl.allTools'))}</small><em>${areaDone(i) ? '✓' : open ? (i >= KEY_FROM - 1 && !hasKey('colloid') ? '🔑' : '') : '🔒'}</em></button>`;
   }).join('') + LOCKED_AREAS.map((L) => `<button type="button" class="cl-card" disabled><b>${L.id}</b><span>${esc(t(`cl.area${L.id}.name`))}</span><small>${esc(t('cl.soon', { v: L.ver }))}</small></button>`).join('');
   const r = rec();
   const owned = AREAS.filter((A) => A.tool && r.areas[A.id]).map((A) => A.tool);
@@ -86,6 +88,7 @@ function renderTitle() {
   $('box-btn').innerHTML = `${esc(t('cl.box.title'))} <b>${filled()} / 9</b>${newCount() ? `<em>${esc(t('cl.box.new', { n: newCount() }))}</em>` : ''}`;
   $('start-btn').textContent = t(areaDone(ai) ? 'cl.replay' : 'cl.start', { n: AREAS[ai].id, name: t(`cl.area${AREAS[ai].id}.name`) });
   $('start-btn').disabled = !areaOpen(ai);
+  const tr = $('cl-tray'); if (tr) tr.innerHTML = trayHtml(t, armedCl, { act: 'cl-tray', note: t('cl.leverRule', { n: CL_ITEM.leverMiss }) });
 }
 
 // ───────────── 3Dが見える場所 ─────────────
@@ -104,7 +107,13 @@ function updateViewport() {
 function area() { return AREAS[ai]; }
 function pid() { return area().puzzles[pi]; }
 function P() { return PUZZLES[pid()]; }
+// v1.2：ロック物販の券（レバレッジ券はエリアの始めに使う。まちがいが多すぎると失敗）
+const armedCl = { lev: null, boost: {} };
+let lever = null;   // { mult, miss, area }
 function startArea(a) {
+  if (a >= KEY_FROM - 1 && !hasKey('colloid')) { toast(keyNeedText(t, 'colloid')); return; }
+  const u = consumeArmed(armedCl);
+  lever = u.lev ? { mult: u.mult, miss: 0, area: a } : null;
   ai = a;
   const r = rec();
   pi = Math.max(0, area().puzzles.findIndex((id) => !r.solved[id]));
@@ -194,6 +203,7 @@ function okFx() {
   cheer.ok({ text: t('cl.cheer.ok'), sub: 'CORRECT', combo, comboText: t('cl.cheer.combo', { n: combo }) });
 }
 function ngFx() {
+  if (lever) lever.miss += 1;
   face = 'surprise';
   combo = 0;
   sfx.wrong();
@@ -232,8 +242,53 @@ function renderPanel() {
       + (sp ? `<button type="button" class="cl-found" data-act="box">✦ ${esc(t('cl.found', { name: t(`cl.sp.${sp}`) }))}<span>${esc(t('cl.foundGo'))}</span></button>` : '')
       + `<div class="cl-foot"><button type="button" class="btn btn--primary" data-act="next">${esc(t(pi + 1 < A.puzzles.length ? 'cl.nextQ' : 'cl.clearArea'))}</button></div>`;
   }
-  box.innerHTML = head + guideBox(line) + body;
+  const hb = ps.solved ? '' : clHintHtml(p, id);
+  box.innerHTML = head + guideBox(line) + hb + body;
   updateViewport();
+}
+
+// ── v1.2：ヒント券（3段階） ──
+/** 答えを選ぶ謎の、選択肢と正解 */
+function candOf(p) {
+  if (p.type === 'choice') return { list: p.vial ? p.options : ps.opts, ans: p.answer };
+  if (p.type === 'dose') return { list: ps.opts, ans: p.answer };
+  if (p.type === 'probe') return { list: p.items, ans: p.answer };
+  if (p.type === 'tool') return { list: TOOLS, ans: [p.answer] };
+  return null;
+}
+function clHintHtml(p, id) {
+  const anyTicket = [1, 2, 3].some((k) => itemCount(`hint.cl.${k}`));
+  const tier = ps.hint || 0;
+  if (!anyTicket && !tier) return '';
+  let box = '';
+  const c = candOf(p);
+  if (tier && c) {
+    if (tier >= 2) box += `<p class="ihint__box">${esc(t('cl.ihint.count', { n: c.ans.length }))}</p>`;
+    if (tier >= 3) box += `<p class="ihint__box is-t3">${esc(t('cl.ihint.t3'))}</p>`;
+    else box += `<p class="ihint__box is-t1">${esc(t('cl.ihint.elim'))}</p>`;
+  } else if (tier) {
+    // 選択肢のない謎：「わかったこと」を少しずつ見せる
+    const full = t(`cl.learn.${id}`);
+    const parts = full.split(/(?<=[。.!?！？])\s*/).filter(Boolean);
+    const n = tier >= 3 ? parts.length : Math.min(parts.length, tier);
+    box += `<p class="ihint__box${tier >= 3 ? ' is-t3' : ''}">${esc(parts.slice(0, n).join(' '))}</p>`;
+  }
+  return `<div class="itray"><p class="itray__head">💡 ${esc(t('cl.ihint.head'))}</p>${hintButtons(t, 'colloid', tier, { act: 'cl-hint' })}${box}</div>`;
+}
+function clHint(tier) {
+  if (!ps || ps.solved || tier <= (ps.hint || 0)) return;
+  if (!useHint('colloid', tier)) { toast(t('ihint.none')); return; }
+  ps.hint = tier;
+  const c = candOf(P());
+  if (c) {
+    const wrong = c.list.filter((x) => x && !c.ans.includes(x) && !(ps.elim || []).includes(x));
+    const drop = tier >= 3 ? wrong : tier === 2 ? wrong.slice(0, Math.ceil(wrong.length / 2) || 1) : wrong.slice(0, 1);
+    ps.elim = [...(ps.elim || []), ...drop.filter((x) => !(ps.elim || []).includes(x))];
+    ps.sel = ps.sel.filter((x) => !ps.elim.includes(x));
+    if (tier >= 3) ps.hl = c.ans.slice();
+  }
+  sfx.find();
+  renderPanel();
 }
 
 function toolsHtml(list) {
@@ -253,12 +308,12 @@ function probeHtml(p) {
   };
   return toolsHtml(p.tools)
     + `<p class="cl-hint">${esc(t(p.multi ? 'cl.howProbeMulti' : 'cl.howProbe'))}</p>`
-    + `<div class="cl-items">${p.items.map((liq, k) => `<div class="cl-item${ps.sel.includes(liq) ? ' is-sel' : ''}${ps.shown === k ? ' is-shown' : ''}">`
+    + `<div class="cl-items">${p.items.map((liq, k) => `<div class="cl-item${ps.sel.includes(liq) ? ' is-sel' : ''}${ps.shown === k ? ' is-shown' : ''}${(ps.elim || []).includes(liq) ? ' is-out' : ''}${(ps.hl || []).includes(liq) ? ' is-hint' : ''}">`
       + `<button type="button" class="cl-item__probe" data-act="probe" data-k="${k}"><b>${esc(itemLabel(k))}</b>${res(liq)}<span>${ps.tool ? TOOL_ICON[ps.tool] : ''} ${esc(t('cl.probe'))}</span></button>`
-      + `<button type="button" class="cl-item__pick" data-act="pick" data-k="${k}" aria-pressed="${ps.sel.includes(liq)}">${esc(t(ps.sel.includes(liq) ? 'cl.picked' : 'cl.pick'))}</button></div>`).join('')}</div>`
+      + `<button type="button" class="cl-item__pick" data-act="pick" data-k="${k}" aria-pressed="${ps.sel.includes(liq)}"${(ps.elim || []).includes(liq) ? ' disabled' : ''}>${esc(t(ps.sel.includes(liq) ? 'cl.picked' : 'cl.pick'))}</button></div>`).join('')}</div>`
     + `<div class="cl-foot"><button type="button" class="btn btn--primary" data-act="answer" ${ps.sel.length ? '' : 'disabled'}>${esc(t('cl.answer'))}</button></div>`;
 }
-const elimOf = (o) => ((ps.elim || []).includes(o) ? ' is-out' : '');
+const elimOf = (o) => ((ps.elim || []).includes(o) ? ' is-out' : '') + ((ps.hl || []).includes(o) ? ' is-hint' : '');
 function choiceHtml(p, id) {
   // 1-2・2-1 は、まず道具を使う（光を当てる／眼鏡をかける）
   if ((id === '1-2' || id === '2-1' || p.use) && ps.step < 1) {
@@ -297,7 +352,7 @@ function matchHtml(p) {
     + `<div class="cl-foot"><button type="button" class="btn btn--primary" data-act="match-go" ${all ? '' : 'disabled'}>${esc(t('cl.answer'))}</button></div>`;
 }
 function toolPickHtml() {
-  return `<p class="cl-hint">${esc(t('cl.shrine.how'))}</p><div class="cl-tools cl-tools--grid">${TOOLS.map((x) => `<button type="button" class="cl-toolb" data-act="use-tool" data-tool="${x}">${TOOL_ICON[x]} ${esc(t(`cl.tool.${x}`))}</button>`).join('')}</div>`;
+  return `<p class="cl-hint">${esc(t('cl.shrine.how'))}</p><div class="cl-tools cl-tools--grid">${TOOLS.map((x) => `<button type="button" class="cl-toolb${elimOf(x)}" data-act="use-tool" data-tool="${x}"${(ps.elim || []).includes(x) ? ' disabled' : ''}>${TOOL_ICON[x]} ${esc(t(`cl.tool.${x}`))}</button>`).join('')}</div>`;
 }
 function dialysisHtml() {
   const d = ps.dial;
@@ -371,6 +426,11 @@ async function next() {
       line = e ? t('cl.reward', { gross: formatHiyama(e.gross), net: formatHiyama(e.amount) }) : t('cl.cap');
     } catch (e) { line = t('cl.cap'); }
   } else line = t('cl.already');
+  if (lever) {
+    const lv = lever; lever = null;
+    const lt = await settleLever(t, { mult: lv.mult, base: REWARD.area, clear: lv.miss <= CL_ITEM.leverMiss, label: `i18n:cl.area${area().id}.name` });
+    if (lt) line = `${line} ／ ${lt}`;
+  }
   openClear(line);
 }
 
@@ -482,7 +542,13 @@ function setupInput() {
     if (act === 'area') { ai = Number(b.dataset.i); renderTitle(); }
     else if (act === 'start') { if (areaOpen(ai)) startArea(ai); }
     else if (act === 'go-area') { closeTut(); startArea(Number(b.dataset.i)); }
-    else if (act === 'to-title') { closeTut(); closeBox(); renderTitle(); show('title'); $('scope-box').hidden = true; }
+    else if (act === 'to-title') {
+      if (lever && screen === 'play') { const lv = lever; settleLever(t, { mult: lv.mult, base: REWARD.area, clear: false, label: `i18n:cl.area${area().id}.name` }).then((x) => { if (x) toast(x); }); }
+      lever = null;
+      closeTut(); closeBox(); renderTitle(); show('title'); $('scope-box').hidden = true;
+    }
+    else if (act === 'cl-tray') { trayClick(armedCl, b.dataset.item); renderTitle(); }
+    else if (act === 'cl-hint') clHint(Number(b.dataset.tier));
     else if (act === 'tut') openTut();
     else if (act === 'tut-next') { tutPage += 1; renderTut(); }
     else if (act === 'tut-prev') { tutPage = Math.max(0, tutPage - 1); renderTut(); }

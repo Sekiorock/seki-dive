@@ -49,7 +49,7 @@ export function initBattle(hooks) {
   const a = active();
   if (a && backend.mode === 'online') {
     setActive(null);
-    fine({ itemKey: 'ledger.item.quitFine', amount: SETTINGS.quitFine }).then(() => H.toast(t('cr.b.fineOld', { amount: formatHiyama(SETTINGS.quitFine) })));
+    fine({ itemKey: 'ledger.item.quitFine', amount: SETTINGS.quitFine }).then((fe) => H.toast(fe && fe.waived ? t('fine.waived') : t('cr.b.fineOld', { amount: formatHiyama(SETTINGS.quitFine) })));
     room.leaveRoom(a.code, true).catch(() => {});
   }
   document.addEventListener('visibilitychange', () => {
@@ -404,8 +404,8 @@ async function forfeit(why = 'quit') {
   if (playing) {
     setActive(null);
     await room.leaveRoom(code, true).catch(() => {});
-    await fine({ itemKey: 'ledger.item.quitFine', amount: SETTINGS.quitFine });
-    H.toast(t(`cr.b.fine.${why}`, { amount: formatHiyama(SETTINGS.quitFine) }));
+    const fe = await fine({ itemKey: 'ledger.item.quitFine', amount: SETTINGS.quitFine });
+    H.toast(fe && fe.waived ? t('fine.waived') : t(`cr.b.fine.${why}`, { amount: formatHiyama(SETTINGS.quitFine) }));
   }
   leave();
   H.toTitle();

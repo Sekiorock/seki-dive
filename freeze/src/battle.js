@@ -81,7 +81,7 @@ export function initBattle(hooks) {
   const a = active();
   if (a && backend.mode === 'online') {
     setActive(null);
-    fine({ itemKey: 'ledger.item.quitFine', amount: SETTINGS.quitFine }).then(() => H.toast(t('fz.b.fineOld', { amount: formatHiyama(SETTINGS.quitFine) })));
+    fine({ itemKey: 'ledger.item.quitFine', amount: SETTINGS.quitFine }).then((fe) => H.toast(fe && fe.waived ? t('fine.waived') : t('fz.b.fineOld', { amount: formatHiyama(SETTINGS.quitFine) })));
     room.leaveRoom(a.code, true).catch(() => {});
   }
   document.addEventListener('visibilitychange', () => {
@@ -653,8 +653,8 @@ async function forfeit(why = 'quit') {
   if (playing && !out) {
     setActive(null);
     await room.leaveRoom(code, true).catch(() => {});
-    await fine({ itemKey: 'ledger.item.quitFine', amount: SETTINGS.quitFine });
-    H.toast(t(`fz.b.fine.${why}`, { amount: formatHiyama(SETTINGS.quitFine) }));
+    const fe = await fine({ itemKey: 'ledger.item.quitFine', amount: SETTINGS.quitFine });
+    H.toast(fe && fe.waived ? t('fine.waived') : t(`fz.b.fine.${why}`, { amount: formatHiyama(SETTINGS.quitFine) }));
   } else if (playing) {
     // 脱落したあとに抜ける：罰金なし（結果だけ残す）
     setActive(null);

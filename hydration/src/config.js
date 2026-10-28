@@ -1,7 +1,7 @@
 // hydration/src/config.js
 // ① ハイドレーション・ビートの数値の設定。数値はここに集め、プログラムの中に直接書かない。
 
-export const VERSION = 'hydration v1.1.0';
+export const VERSION = 'hydration v1.2.0';
 
 // ── 判定の幅（ミリ秒。ノーツが判定リングに来た瞬間からのずれ） ──
 export const JUDGE = {
@@ -157,3 +157,9 @@ export const GLOW = {
   sparkle: '#8FF3FA',
   size: 1.6,
 };
+
+// ── v1.2：ロック物販のヒント券（3段階）とゲージお守り ──
+//   弱：押すボタンが、粒子が来る guideSec 秒前から光る
+//   中：弱 ＋ 文字（陽イオンなど）が出る ＋ 判定の幅 ×judgeMul
+//   強：中 ＋ 粒子がゆっくり（×slow）＋ ミスで減るゲージ ×missMul
+export const HINT_HB = { guideSec: 0.7, judgeMul: 1.3, slow: 1.3, missMul: 0.5, guardMisses: 5 };

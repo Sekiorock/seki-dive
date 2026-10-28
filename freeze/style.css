@@ -388,3 +388,7 @@ html[lang="en"] .fz-logo__name { font-family: var(--font-en); font-weight: 700; 
 
 /* v1.1：ワールドの新しい名前は英語だと長いので、2行まで折り返す */
 html[lang="en"] .fz-logo__name { white-space: normal; font-size: 26px; letter-spacing: 0.04em; text-align: center; }
+
+/* v1.2：ヒント券の一言は、行の幅いっぱいに */
+.fz-ihint { grid-column: 1 / -1; display: block; padding: 3px 8px; font-size: 12px; font-weight: 700; color: #fff3cf; background: rgba(255, 200, 58, 0.12); border-left: 3px solid #FFC83A; }
+.fz-ihint[hidden] { display: none; }

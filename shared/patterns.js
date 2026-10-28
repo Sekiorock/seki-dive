@@ -281,7 +281,7 @@ export function hexRingTexture(neon) {
   g.fillStyle = neon; g.shadowColor = neon; g.shadowBlur = 10;
   g.font = `700 24px 'Chakra Petch', 'Noto Sans', sans-serif`;
   g.textBaseline = 'middle';
-  const txt = 'SEKIOROCK · SCIENCE GOVERNMENT · 科学政府 · TREASURY · 国庫 · ';
+  const txt = 'SEKIOROCK · SCIENCE GOVERNMENT · 科学政府 · ROCK TREASURY · ロック国庫 · ';
   let x = 6;
   while (x < W) { g.fillText(txt, x, 33); x += g.measureText(txt).width; }
   const t = tex(c);

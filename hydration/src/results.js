@@ -88,6 +88,7 @@ export function renderResult(el, r) {
     </div>
     ${battleBox(r.battle)}
     ${rewardBox(r.reward)}
+    ${r.leverText ? `<p class="hb-result__lever">${esc(r.leverText)}</p>` : ''}
     ${r.unlocked ? `<p class="hb-result__news">${esc(t('hb.result.unlocked', { n: r.unlocked.n, title: t(r.unlocked.titleKey) }))}</p>` : ''}
     ${r.hinted ? `<p class="hb-result__note">${esc(t('hb.ticket.hintNote'))}</p>` : ''}
     ${r.clear || r.battle ? '' : `<p class="hb-result__news is-fail">${esc(t('hb.result.failNote', { pct: r.clearPct }))}</p>`}

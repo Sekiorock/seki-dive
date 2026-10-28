@@ -165,10 +165,10 @@ export function runOrder(o) {
 }
 
 /** 予想と結果の差から、ランク（0：いちばん近い、1、2） */
-export function rankOf(o, guess, value) {
+export function rankOf(o, guess, value, tolMul = 1) {
   const k = 10 ** o.digits;
   const d = Math.abs(guess - Math.round(value * k) / k);
-  return d <= o.tol[0] + 1e-9 ? 0 : d <= o.tol[1] + 1e-9 ? 1 : 2;
+  return d <= o.tol[0] * tolMul + 1e-9 ? 0 : d <= o.tol[1] * tolMul + 1e-9 ? 1 : 2;
 }
 
 export { GAS_CONST };

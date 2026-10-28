@@ -7,8 +7,9 @@
 //         取り出した KNO₃ の質量と純度が目標を超えれば達成（はじめての達成で REFINE.reward）。
 
 import { faceFig, say } from '../../shared/characters.js';
-import { ORDER, REFINE, GLOW } from './config.js';
+import { ORDER, REFINE, GLOW, LOUPE_MUL } from './config.js';
 import * as ox from './orderex.js';
+import { trayHtml, trayClick, consumeArmed, settleLever, hasKey, keyNeedText, KEY_FROM } from '../../shared/items.js';
 import { ORDERS, buildState, rankOf } from './orders.js';
 import { defineMix, mixEq, filter, wash, dry } from './refine.js';
 import { curvePoint, solubility } from './solubility.js';
@@ -19,9 +20,11 @@ const pad2 = (n) => String(n).padStart(2, '0');
 
 export function createModes(ctx) {
   const { $, t, esc, scene, faceUrl, guide } = ctx;
-  ox.initOrderEx({ $, t, esc });
+  ox.initOrderEx({ $, t, esc, toast: ctx.toast });
 
   let kind = null;            // 'order' | 'refine' | null
+  const armedCr = { lev: null, boost: {} };   // v1.2：持ち物の欄（レバレッジ券・目盛り拡大鏡）
+  let usedCr = null;                         // その注文で使った券
   // ── 注文 ──
   let oi = 0;                 // いまの注文の番号（0〜23）
   let phase = 'predict';      // 'predict' | 'ready' | 'run' | 'result'
@@ -52,7 +55,7 @@ export function createModes(ctx) {
         const open = orderUnlocked(i);
         return `<button type="button" class="cr-mcard${open ? '' : ' is-locked'}${r ? ' is-done' : ''}" data-act="order-open" data-i="${i}" ${open ? '' : 'disabled'}>`
           + `<b>${pad2(i + 1)}</b><span class="cr-tag cr-tag--${o.type}">${esc(t(`cr.order.type.${o.type}`))}</span>`
-          + `<em>${r ? stars(r.rank) : open ? '' : '🔒'}</em></button>`;
+          + `<em>${r ? stars(r.rank) : open ? (i >= (KEY_FROM - 1) * GLOW.perOrders && !hasKey('crystal') ? '<span class="key-lock">🔑</span>' : '') : '🔒'}</em></button>`;
       }).join('');
     } else {
       $('menu-title').textContent = t('cr.refine.title');
@@ -88,6 +91,8 @@ export function createModes(ctx) {
   }
 
   function openOrder(i) {
+    // v1.2：ステージ4（注文10）から先は、ロック物販の通行手形が必要
+    if (i >= (KEY_FROM - 1) * GLOW.perOrders && !hasKey('crystal')) { ctx.toast(keyNeedText(t, 'crystal')); return; }
     // v1.0：注文が進むほど、景色が豪華に
     if (ctx.glow) ctx.glow(Math.min(8, 1 + Math.floor(i / GLOW.perOrders)));
     kind = 'order';
@@ -115,7 +120,7 @@ export function createModes(ctx) {
     const q = t(`cr.o.${o.id}.q`, o.vars());
     let body = '';
     if (phase === 'predict') {
-      body = `<div class="cr-guess"><label for="og">${esc(t('cr.order.guess'))}</label>`
+      body = trayHtml(t, armedCr, { boosts: ['loupe.cr'], act: 'cr-tray' }) + `<div class="cr-guess"><label for="og">${esc(t('cr.order.guess'))}</label>`
         + `<input id="og" type="number" inputmode="decimal" step="any" enterkeyhint="done" autocomplete="off" value="${guess ?? ''}">`
         + `<span class="cr-guess__unit">${esc(o.unit)}</span>`
         + `<button type="button" class="btn btn--primary" data-act="order-decide">${esc(t('cr.order.decide'))}</button></div>`;
@@ -157,6 +162,7 @@ export function createModes(ctx) {
 
   function startRun() {
     ox.closeEx();
+    usedCr = consumeArmed(armedCr);
     const o = order();
     phase = 'run';
     run = { t0: performance.now(), st0: buildState(o.bench, o.start) };
@@ -169,7 +175,7 @@ export function createModes(ctx) {
     showOrderState(st);
     readout(st, true);
     const value = o.result(st, run.st0);
-    const rank = rankOf(o, guess, value);
+    const rank = rankOf(o, guess, value, usedCr && usedCr.boost['loupe.cr'] ? LOUPE_MUL : 1);
     outcome = { value, rank, rewardText: '' };
     phase = 'result';
     run = null;
@@ -189,6 +195,12 @@ export function createModes(ctx) {
         ? t(prevPaid > 0 ? 'cr.order.rewardUp' : 'cr.order.reward', { gross: ctx.money(entry.gross), net: ctx.money(entry.amount) })
         : t('cr.order.cap');
     } else outcome.rewardText = t('cr.order.noReward');
+    // v1.2：レバレッジ券の精算（「おしい」以上ならクリア）
+    if (usedCr && usedCr.lev) {
+      const lt = await settleLever(t, { mult: usedCr.mult, base: ORDER.rewards[0], clear: rank <= 1, label: `#${pad2(oi + 1)}` });
+      if (lt) { outcome.rewardText = `${outcome.rewardText} ／ ${lt}`; ctx.toast(lt); }
+    }
+    usedCr = null;
     if (kind === 'order' && phase === 'result') renderOrder();
   }
 
@@ -326,7 +338,8 @@ export function createModes(ctx) {
   }
 
   function onClick(act, b) {
-    if (ox.onClick(act)) return true;
+    if (ox.onClick(act, b)) return true;
+    if (act === 'cr-tray') { const g = $('og'); if (g && g.value !== '') guess = g.value; trayClick(armedCr, b.dataset.item); renderOrder(); return true; }
     if (act === 'order-ex') { ox.openEx(order(), 'ex'); return true; }
     if (act === 'order-hint') { ox.openEx(order(), 'hint'); return true; }
     if (act === 'order-open') { openOrder(Number(b.dataset.i)); return true; }
@@ -356,7 +369,12 @@ export function createModes(ctx) {
       return false;
     },
     onKey(e) { if (kind === 'order' && phase === 'predict' && e.key === 'Enter' && e.target.id === 'og') { e.preventDefault(); decide(); } },
-    leave() { kind = null; run = null; ox.closeEx(); },
+    leave() {
+      // v1.2：レバレッジ券を使った実験の途中で出たら、失敗あつかい
+      if (usedCr && usedCr.lev && phase === 'run') settleLever(t, { mult: usedCr.mult, base: ORDER.rewards[0], clear: false, label: `#${pad2(oi + 1)}` }).then((x) => { if (x) ctx.toast(x); });
+      usedCr = null;
+      kind = null; run = null; ox.closeEx();
+    },
     rerender() {
       if (kind === 'order') {
         const g = $('og'); if (g && phase === 'predict' && g.value !== '') guess = g.value;

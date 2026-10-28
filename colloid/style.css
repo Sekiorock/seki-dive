@@ -429,3 +429,10 @@ html[lang="en"] .cl-logo__name { white-space: normal; font-size: 26px; letter-sp
 
 /* v1.1：ヒントで消した選択肢 */
 .cl-opt.is-out { opacity: 0.3; text-decoration: line-through; filter: grayscale(1); }
+
+/* v1.2：ヒント券で消した・光らせた選択肢 */
+.cl-item.is-out { opacity: 0.3; filter: grayscale(1); }
+.cl-toolb.is-out { opacity: 0.3; text-decoration: line-through; }
+.cl-opt.is-hint, .cl-item.is-hint, .cl-toolb.is-hint { box-shadow: 0 0 0 2px #FFC83A, 0 0 18px rgba(255, 200, 58, 0.7); animation: cl-hintglow 1s ease-in-out infinite alternate; }
+@keyframes cl-hintglow { to { box-shadow: 0 0 0 2px #fff3b0, 0 0 26px rgba(255, 200, 58, 0.95); } }
+#cl-tray:empty { display: none; }

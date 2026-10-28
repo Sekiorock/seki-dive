@@ -12,7 +12,7 @@
 // 画面：（初めてのときはタイミング調整）→ タイトル → プレイ（一時停止あり）→ 結果。ワールドに入るときは、毎回アバター選択の画面を通る。
 // 時刻の基準は、音の時計（audio.js の heardTime）。
 
-import { ROYALE, GLOW } from './config.js';
+import { ROYALE, GLOW, HINT_HB } from './config.js';
 import { VERSION, NOTE, COMBO_LAYERS, CUTIN_EVERY, FLASH, DIFFICULTY, DEFAULT_DIFFICULTY, GAUGE, CALIB, JUDGE, SHOP_FX, WEAK } from './config.js';
 import { NOTES } from './notes.js';
 import { CHARTS, CHART_ORDER, STAGE_ORDER, expandChart, chartFormulas, makeWeakChart } from './charts.js';
@@ -32,6 +32,7 @@ import { initI18n, t, onLangChange, applyToDom, getLang, setLang } from '../../s
 import { applyTheme } from '../../shared/theme.js';
 import { createTopbar } from '../../shared/topbar.js';
 import { initBackend, getUser, setUserLang, getAvatar, getCostume, itemCount, useItem, addItem } from '../../shared/auth.js';
+import { trayHtml, trayClick, consumeArmed, settleLever, hasKey, keyNeedText, hintId, KEY_FROM } from '../../shared/items.js';
 import { initEconomy, isWorldOpen, onSettingsChange, formatHiyama, SETTINGS, reward, pay, grant, priceWithTax, canAfford, isInArrears } from '../../shared/economy.js';
 import { initNotices } from '../../shared/notices.js';
 import { openAvatarSelect } from '../../shared/avatar.js';
@@ -125,16 +126,21 @@ function renderTitle() {
   $('calib-now').textContent = off === null ? t('hb.calib.none') : `${off > 0 ? '+' : ''}${off} ms`;
 }
 
-// ───────────── v0.5：道具屋の券 ─────────────
-let useHint = false;
+// ───────────── v1.2：ロック物販の券（ヒント券3段階・レバレッジ券・ゲージお守り・練習券） ─────────────
+const armed = { lev: null, boost: {}, hint: 0 };
 function renderTickets() {
   const esc = (x) => String(x).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-  const hint = itemCount('hint'), practice = itemCount('practice');
-  if (!hint) useHint = false;
+  const practice = itemCount('practice');
   const rows = [];
-  if (hint && DIFFICULTY[pick.diff].assist > 1) {
-    rows.push(`<label class="hb-ticket"><input type="checkbox" data-act="use-hint" ${useHint ? 'checked' : ''}><span>${esc(t('hb.ticket.hint'))}　<b>×${hint}</b></span></label>`);
+  // ヒント券：どれか1つを選ぶ（始めるときに1枚使う）
+  if ([1, 2, 3].some((k) => itemCount(hintId('hydration', k)))) {
+    if (armed.hint && !itemCount(hintId('hydration', armed.hint))) armed.hint = 0;
+    rows.push(`<div class="itray"><p class="itray__head">💡 ${esc(t('hb.hint.head'))}</p><div class="itray__row">`
+      + `<button type="button" class="itray__chip${!armed.hint ? ' is-on' : ''}" data-act="hb-hint" data-tier="0">${esc(t('itray.none'))}</button>`
+      + [1, 2, 3].map((k) => `<button type="button" class="itray__chip is-t${k}${armed.hint === k ? ' is-on' : ''}" data-act="hb-hint" data-tier="${k}" ${itemCount(hintId('hydration', k)) ? '' : 'disabled'}>${esc(t(`ihint.tier${k}`))}<small>${itemCount(hintId('hydration', k))}</small></button>`).join('')
+      + `</div>${armed.hint ? `<p class="itray__note">${esc(t(`hb.hint.t${armed.hint}`))}</p>` : ''}</div>`);
   }
+  rows.push(trayHtml(t, armed, { boosts: ['guard.hb'], act: 'hb-tray' }));
   if (practice) {
     rows.push(`<div class="hb-ticket"><span>${esc(t('hb.ticket.practice'))}　<b>×${practice}</b><br>${esc(t(hasWeak() ? 'hb.ticket.practiceNote' : 'hb.ticket.practiceNone'))}</span>
       <button type="button" class="btn btn--small" data-act="weak-start"${hasWeak() ? '' : ' disabled'}>${esc(t('hb.ticket.practiceGo'))}</button></div>`);
@@ -148,16 +154,23 @@ async function startPlay(opts = {}) {
   const bt = opts.battle;     // 対戦：{ code, chart, diff, startAt }
   if (!weak && !bt && !isUnlocked(pick.chart)) { toast(t('hb.lockedToast', { n: prevStageNo(pick.chart) })); return; }
   let chart = CHARTS[bt ? bt.chart : pick.chart];
+  // v1.2：ステージ4から先は、ロック物販の通行手形が必要
+  if (!weak && !bt && chart.stageNo >= KEY_FROM && !hasKey('hydration')) { toast(keyNeedText(t, 'hydration')); return; }
   if (weak) {
     // 苦手ノーツの練習曲：券を1枚使う
     if (!useItem('practice')) { renderTitle(); return; }
     chart = makeWeakChart({ water: weakList('water', WEAK.maxNotes), hexane: weakList('hexane', WEAK.maxNotes) }, WEAK);
     toast(t('hb.ticket.practiceUsed'));
   }
-  // ヒント券：ふつう・むずかしいでも、この曲だけ補助輪1の文字を出す
-  let hinted = false;
-  if (!weak && !bt && useHint && DIFFICULTY[pick.diff].assist > 1 && useItem('hint')) { hinted = true; toast(t('hb.ticket.hintUsed')); }
-  useHint = false;
+  // v1.2：ヒント券（弱：押すボタンが光る／中：＋文字と判定ゆるめ／強：＋ゆっくり・ミスで減るゲージ半分）とレバレッジ券
+  let hintTier = 0, used = { lev: null, mult: 1, boost: {} };
+  if (!bt) {
+    if (armed.hint && useItem(hintId('hydration', armed.hint))) { hintTier = armed.hint; toast(t('hb.hint.used', { tier: t(`ihint.tier${hintTier}`) })); }
+    armed.hint = 0;
+    used = consumeArmed(armed);
+    if (weak || !chart.stageNo) used.mult = 1;   // 練習曲ではレバレッジは使えない（券は返す）
+  }
+  const hinted = hintTier >= 2;
   const ctx = await unlockAudio();
   const diffId = bt ? bt.diff : pick.diff;
   const diff = DIFFICULTY[diffId];
@@ -171,9 +184,10 @@ async function startPlay(opts = {}) {
     offsetMs: off === null ? JUDGE.inputOffsetMs : off,
     // バトルロイヤル：ゲージは半分から始まり、ミスで大きく減る（0 で脱落）
     // v1.1：難易度ごとの判定の幅・クリアの条件・ミスで減る量
-    judgeMul: diff.judgeMul || 1,
+    judgeMul: (diff.judgeMul || 1) * (hintTier >= 2 ? HINT_HB.judgeMul : 1),
     clearPct: royale ? GAUGE.clearPct : (diff.clearPct || GAUGE.clearPct),
-    negMul: (royale ? ROYALE.negMul : 1) * (diff.missMul || 1),
+    negMul: (royale ? ROYALE.negMul : 1) * (diff.missMul || 1) * (hintTier >= 3 ? HINT_HB.missMul : 1),
+    guard: used.boost['guard.hb'] ? HINT_HB.guardMisses : 0,
     ...(royale ? { startPct: ROYALE.startPct } : {}),
   });
   $('hud-gauge').querySelector('.hb-gauge__mark').style.left = `${judge.clearPct}%`;
@@ -183,7 +197,7 @@ async function startPlay(opts = {}) {
   hideModel();
   scene.reset();
   setSolvent('water', false);
-  scene.setPlay({ approachSec: diff.approachSec, assist: hinted ? 1 : diff.assist });
+  scene.setPlay({ approachSec: diff.approachSec * (hintTier >= 3 ? HINT_HB.slow : 1), assist: hinted ? 1 : diff.assist });
   // 映え：ステージの曲はその段階。練習曲（パレード）は、いまの進み具合の段階
   const cid = bt ? bt.chart : pick.chart;
   scene.setGlow(weak ? GLOW.practice : STAGE_ORDER.includes(cid) ? (GLOW.byStage[cid] || 1) : titleGlow());
@@ -191,8 +205,10 @@ async function startPlay(opts = {}) {
   scene.setTiming(0, chart.bpm);
   scene.setComboLevel(0);
   song.start(t0);
+  // 練習曲で選んだレバレッジ券は返す
+  if (used.lev && used.mult === 1) { addItem(used.lev); used.lev = null; }
   play = {
-    chart, diff, diffId, exp, notes, judge, song, t0, swIdx: 0, weak: !!weak, hinted, battle: bt || null,
+    chart, diff, diffId, exp, notes, judge, song, t0, swIdx: 0, weak: !!weak, hinted, hintTier, lever: used.lev ? used : null, battle: bt || null,
     paused: false, finished: false, hits: 0,
     peelEvery: Math.max(1, Math.ceil(notes.length / scene.crystalCount)),
     lastScore: -1, lastCombo: -1,
@@ -338,6 +354,7 @@ function showResult() { renderResult($('result'), lastResult); }
 
 async function finish() {
   play.finished = true;
+  guideKey = ''; document.querySelectorAll('.hb-pad.is-guide').forEach((b) => b.classList.remove('is-guide'));
   play.song.stop();
   if (play.battle) { finishBattle(); return; }
   const clear = play.judge.cleared();
@@ -346,6 +363,8 @@ async function finish() {
   const news = play.weak ? { newRecord: false, unlocked: null } : recordResult(play.chart.id, play.diffId, play.judge.score(), clear);
   addWeak(play.notes);
   const un = news.unlocked ? CHARTS[news.unlocked] : null;
+  // v1.2：新しく開いたステージを、タイトルで選んだ状態にしておく
+  if (un) { pick.chart = un.id; savePick(); }
   // 報酬：ステージをクリアしたときだけ（練習曲は出ない）。初めてクリアしたときは2倍
   let rw = { state: practice ? 'practice' : clear ? 'pending' : 'none' };
   if (rw.state === 'pending') {
@@ -362,6 +381,18 @@ async function finish() {
   };
   showResult();
   show('result');
+  // v1.2：レバレッジ券の精算（クリアなら上乗せ、だめなら罰金）
+  if (play.lever) {
+    const lv = play.lever;
+    play.lever = null;
+    const myR = lastResult;
+    settleLever(t, { mult: lv.mult, base: SETTINGS[REWARD_KEY[play.diffId]] || 0, clear, label: `i18n:${play.chart.titleKey}` }).then((txt) => {
+      if (!txt) return;
+      myR.leverText = txt;
+      toast(txt);
+      if (screen === 'result' && lastResult === myR) { const box = $('result'); const top = box.scrollTop; showResult(); box.scrollTop = top; }
+    });
+  }
   if (rw.state === 'pending') {
     const myResult = lastResult;
     let entry = null;
@@ -381,6 +412,20 @@ async function finish() {
       box.scrollTop = top;
     }
   }
+}
+
+// ── v1.2：ヒント券（弱）：次の粒子が判定の輪に来る少し前に、押すボタンを光らせる ──
+let guideKey = '';
+function guideFrame(now) {
+  const n = play.notes.slice(play.judge.cursor).find((x) => x.state === 'pending');
+  let k = '';
+  if (n && n.t - now < HINT_HB.guideSec && n.t - now > -0.15) k = n.answer === 'OH' ? 'OH' : n.answer || '';
+  if (k === guideKey) return;
+  guideKey = k;
+  document.querySelectorAll('.hb-pad').forEach((b) => {
+    const inp = b.dataset.input;
+    b.classList.toggle('is-guide', k === inp || (k === 'OH' && (inp === 'O' || inp === 'H')));
+  });
 }
 
 // ───────────── v0.8：対戦 ─────────────
@@ -492,6 +537,11 @@ async function resume() {
   play.paused = false;
 }
 async function quitPlay() {
+  // v1.2：レバレッジ券を使った曲を途中でやめたら、失敗あつかい（罰金）
+  if (play && play.lever && !play.finished) {
+    const lv = play.lever; play.lever = null;
+    settleLever(t, { mult: lv.mult, base: SETTINGS[REWARD_KEY[play.diffId]] || 0, clear: false, label: `i18n:${play.chart.titleKey}` }).then((txt) => { if (txt) toast(txt); });
+  }
   document.body.classList.remove('is-out');
   $('spectate').hidden = true;
   $('hud-target').hidden = true;
@@ -690,6 +740,7 @@ function loop(nowMs) {
       play.swIdx += 1;
     }
     scene.frame(play.notes, play.judge.cursor, now);
+    if (play.hintTier >= 1) guideFrame(now);
     if (now > play.exp.lengthSec + 0.3) finish();
     return;
   }
@@ -738,7 +789,8 @@ function setupInput() {
     if (act === 'solo') startPlay();
     else if (act === 'pick-chart') { pick.chart = b.dataset.chart; savePick(); renderTitle(); }
     else if (act === 'calib') openCalib(false);
-    else if (act === 'use-hint') { useHint = b.checked; }
+    else if (act === 'hb-hint') { armed.hint = Number(b.dataset.tier) || 0; renderTickets(); }
+    else if (act === 'hb-tray') { trayClick(armed, b.dataset.item); renderTickets(); }
     else if (act === 'weak-start') startPlay({ weak: true });
     else if (act === 'shop') { pendingBuy = ''; renderShop(); show('shop'); }
     else if (act === 'shop-close') { renderTitle(); show('title'); }
@@ -781,7 +833,7 @@ function setupInput() {
     else if (act === 'battle-forfeit') { $('bpause').hidden = true; battle.forfeit('quit'); }
     else if (act === 'battle-again') { battle.leave(); await quitPlay(); battle.openBattle(); }
     else if (act === 'battle-done') { battle.leave(); await quitPlay(); renderTitle(); show('title'); }
-    else if (act === 'to-title') { await quitPlay(); show('title'); }
+    else if (act === 'to-title') { await quitPlay(); renderTitle(); show('title'); }   // v1.2：次のステージが開いたことを、タイトルにすぐ出す
     else if (act === 'home') { await quitPlay(); goHome(); }
   });
   document.addEventListener('visibilitychange', () => { if (document.hidden) pause(); });

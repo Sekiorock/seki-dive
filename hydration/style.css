@@ -541,3 +541,8 @@ body.is-out .hb-frame { box-shadow: inset 0 0 0 3px #D7003A, inset 0 0 40px rgba
 
 /* v1.1：ワールドの新しい名前は英語だと長いので、2行まで折り返す */
 html[lang="en"] .hb-logo__name { white-space: normal; font-size: 26px; letter-spacing: 0.04em; text-align: center; }
+
+/* v1.2：ヒント券（弱）で、押すボタンが光る */
+.hb-pad.is-guide { box-shadow: 0 0 0 3px #fff, 0 0 26px 8px rgba(255, 255, 255, 0.85); filter: brightness(1.45); animation: hb-guide .35s ease-in-out infinite alternate; }
+@keyframes hb-guide { to { filter: brightness(1.9); } }
+.hb-result__lever { margin: 6px 0; padding: 8px 10px; font-size: 13px; font-weight: 700; color: #ffe9a6; background: rgba(230, 180, 34, 0.12); border-left: 3px solid #E6B422; }

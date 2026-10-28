@@ -698,3 +698,67 @@ body[data-glow="0"] .glow-sky { opacity: 0; }
   animation: glow-rise calc(16s + var(--i) * 1.7s) linear infinite; animation-delay: calc(var(--i) * -3.1s); }
 @keyframes glow-rise { from { transform: translate(0, 0); opacity: 0; } 10% { opacity: 0.9; } 90% { opacity: 0.6; } to { transform: translate(18px, -105vh); opacity: 0; } }
 @media (prefers-reduced-motion: reduce) { .glow-sky *, .glow-sky__lamps b { animation: none !important; } }
+
+/* ── v1.2：22人と、だれでも着られる衣装 ── */
+.avatar-screen__list { grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 6px; flex: none; }
+.avatar-chip { min-width: 0; }
+.avatar-chip__lock { font-size: 9px; bottom: 6%; }
+.avatar-screen__stage { min-height: 200px; }
+.avatar-screen__costumes { overflow-x: auto; gap: 8px; flex: none; scrollbar-width: none; }
+.avatar-screen__costumes .swatch { flex: none; position: relative; }
+.swatch__type { position: absolute; inset: 0; display: grid; place-items: center; font: 800 9px/1 var(--font-ja); font-style: normal; color: #fff; text-shadow: 0 0 3px #000, 0 0 2px #000; }
+/* ロック呉服屋の衣装 */
+.ck-who { display: flex; align-items: center; gap: 6px; overflow-x: auto; padding: 4px 2px; scrollbar-width: none; }
+.ck-who > span { flex: none; font-size: 12px; color: var(--dim); }
+.ck-who__b { flex: none; appearance: none; border: 0; padding: 0; width: 40px; height: 36px; clip-path: var(--hex); background: linear-gradient(160deg, #fff, #b9ccff); cursor: pointer; opacity: 0.6; }
+.ck-who__b img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.ck-who__b[aria-checked="true"] { opacity: 1; filter: drop-shadow(0 0 6px var(--neon-1)); }
+.ck-preview { display: flex; gap: 10px; align-items: flex-end; margin: 6px 0; padding: 8px; clip-path: var(--chamfer); background: var(--scan), rgba(6, 10, 28, 0.7); box-shadow: inset 0 0 0 1px var(--stroke); }
+.ck-stand { width: 110px; height: 165px; object-fit: contain; object-position: bottom; filter: drop-shadow(0 0 2px #fff) drop-shadow(0 0 10px rgba(54, 169, 255, 0.7)); }
+.ck-info { flex: 1; display: flex; flex-direction: column; gap: 6px; align-items: flex-start; }
+.ck-info b { font-size: 15px; }
+.ck-types { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; margin: 6px 0; }
+.ck-type { appearance: none; border: 0; padding: 6px 2px; font: 700 11px/1.3 var(--font-ja); color: var(--fg, #fff); background: rgba(54, 169, 255, 0.12); clip-path: var(--chamfer-s); cursor: pointer; }
+.ck-type small { display: block; font-size: 9px; color: var(--hiyama); }
+.ck-type.is-on { background: linear-gradient(135deg, var(--neon-1), #6a4cff); }
+.ck-colors { display: flex; flex-wrap: wrap; gap: 8px; padding: 4px 2px 8px; }
+.ck-color.is-on { transform: scale(1.25); filter: drop-shadow(0 0 6px var(--neon-1)) drop-shadow(0 0 2px #fff); }
+.ck-color.is-owned::after { content: "✓"; position: absolute; inset: 0; display: grid; place-items: center; font-size: 12px; font-weight: 800; color: #fff; text-shadow: 0 0 3px #000; }
+.ck-color { position: relative; }
+.ck-color.is-premium { outline: 2px solid #E6B422; outline-offset: -2px; }
+.goods.is-special { box-shadow: inset 0 0 0 2px #E6B422, 0 0 16px rgba(230, 180, 34, 0.35); }
+.goods__special { margin-left: 6px; padding: 1px 6px; font-size: 10px; font-style: normal; color: #05081A; background: linear-gradient(90deg, #E6B422, #fff3b0); }
+.goods__perk { display: block; margin-top: 2px; font-size: 11px; color: #E6B422; }
+
+/* ── v1.2：持ち物の欄（レバレッジ券・道具）とヒント券のボタン（shared/items.js） ── */
+.itray { margin: 6px 0; padding: 8px 10px; clip-path: var(--chamfer-s); background: var(--scan), rgba(6, 10, 28, 0.78); box-shadow: inset 0 0 0 1px var(--stroke); }
+.itray__head { margin: 0 0 4px; font-size: 12px; font-weight: 800; color: var(--neon-2); }
+.itray__row { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; margin: 3px 0; }
+.itray__label { font-size: 11px; color: var(--dim); margin-right: 2px; }
+.itray__chip { appearance: none; border: 0; padding: 4px 8px; font: 700 12px/1.2 var(--font-ja); color: #fff; background: rgba(54, 169, 255, 0.14); clip-path: var(--chamfer-s); cursor: pointer; }
+.itray__chip small { margin-left: 4px; font-size: 10px; color: var(--hiyama); }
+.itray__chip.is-on { background: linear-gradient(135deg, var(--neon-1), #6a4cff); box-shadow: 0 0 10px rgba(54, 169, 255, 0.6); }
+.itray__chip.is-lev.is-on { background: linear-gradient(135deg, #E6B422, #ff5e70); color: #05081A; }
+.itray__chip:disabled { opacity: 0.35; cursor: default; }
+.itray__chip.is-t1.is-on { background: linear-gradient(135deg, #5CF2A8, #36A9FF); color: #05081A; }
+.itray__chip.is-t2.is-on { background: linear-gradient(135deg, #36A9FF, #A985FF); }
+.itray__chip.is-t3.is-on { background: linear-gradient(135deg, #FFC83A, #ff5e70); color: #05081A; }
+.itray__warn { margin: 4px 0 0; font-size: 11px; line-height: 1.5; color: #ffb3bb; }
+.itray__note { margin: 4px 0 0; font-size: 11px; line-height: 1.5; color: var(--dim); }
+.ihint { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin: 6px 0; }
+.ihint__b { appearance: none; border: 0; padding: 6px 4px; display: flex; flex-direction: column; align-items: center; gap: 2px; font: 800 12px/1.2 var(--font-ja); color: #05081A; clip-path: var(--chamfer-s); cursor: pointer; }
+.ihint__b small { font-size: 10px; font-weight: 700; opacity: 0.85; }
+.ihint__b.is-t1 { background: linear-gradient(135deg, #5CF2A8, #bfffe0); }
+.ihint__b.is-t2 { background: linear-gradient(135deg, #8FC7FF, #d6e8ff); }
+.ihint__b.is-t3 { background: linear-gradient(135deg, #FFC83A, #ffe9a6); }
+.ihint__b:disabled { opacity: 0.4; cursor: default; }
+.ihint__b.is-done { opacity: 1; filter: saturate(0.4); }
+.ihint__box { margin: 6px 0; padding: 8px 10px; font-size: 12.5px; line-height: 1.65; border-left: 3px solid var(--neon-1); background: rgba(54, 169, 255, 0.1); animation: ihint-in .3s ease-out; }
+.ihint__box.is-t1 { border-left-color: #5CF2A8; background: rgba(92, 242, 168, 0.1); }
+.ihint__box.is-t3 { border-left-color: #FFC83A; background: rgba(255, 200, 58, 0.12); }
+@keyframes ihint-in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+.tabs--wrap { flex-wrap: wrap; }
+.goods.is-key { box-shadow: inset 0 0 0 1px #5CF2A8; }
+.goods.is-lever .goods__name { color: #FFC83A; }
+.rates__relief b { color: #5CF2A8; }
+.key-lock { color: #FFC83A; }

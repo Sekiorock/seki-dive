@@ -6,7 +6,7 @@
 // ・設定がない、またはつながらないときは「この端末だけ」（localStorage）で動く。
 // ・先生のログイン（メールとパスワード）は、管理画面を作る home v0.5 でここに足す。
 
-import { CHARACTERS, DEFAULT_AVATAR } from './characters.js';
+import { CHARACTERS, DEFAULT_AVATAR, legacyCostume, parseCostume } from './characters.js';
 import { FIREBASE_CONFIG, FIREBASE_SDK_VERSION, CONNECT_TIMEOUT_MS } from './firebase-config.js';
 
 const KEY = 'sekidive.user';
@@ -75,8 +75,9 @@ function blank() {
     avatars: {},                      // ワールドごとのアバター { hydration: 'minato', ... }
     lastAvatar: DEFAULT_AVATAR,       // 最後に選んだアバター（上の帯の顔アイコン）
     owned: CHARACTERS.filter((c) => c.start).map((c) => c.id),   // 持っているキャラクター
-    costumesOwned: {},                // 持っている衣装の色違い { minato: ['gunjo'], ... }
-    costume: {},                      // キャラクターごとに今着ている衣装 { minato: 'gunjo' }
+    costumesOwned: {},                // v1.1 までの、持っている衣装の色違い（v1.2 で wardrobe に移す）
+    wardrobe: {},                     // v1.2：持っている衣装 { 'haori.ai': 時刻 }（だれでも着られる）
+    costume: {},                      // キャラクターごとに今着ている衣装 { minato: 'haori.ai' }
     items: {},                        // 道具屋で買ったもの { hint: 2, ... }
     worlds: {},                       // ワールドごとの記録 { hydration: { clears: {...} } }（hydration v0.3〜）
   };
@@ -91,7 +92,25 @@ export function getUser() {
     const saved = JSON.parse(localStorage.getItem(KEY) || 'null');
     if (saved && typeof saved === 'object') user = { ...user, ...saved };
   } catch (e) { /* 読めなければ新しく始める */ }
+  migrate(user);
   return user;
+}
+
+/** v1.2：前の版の衣装（その人だけの色違い）を、新しい衣装（だれでも着られる）に移す */
+function migrate(u) {
+  u.wardrobe = u.wardrobe || {};
+  u.costume = u.costume || {};
+  for (const [ch, list] of Object.entries(u.costumesOwned || {})) {
+    for (const col of list || []) { const id = legacyCostume(ch, col); if (id && !u.wardrobe[id]) u.wardrobe[id] = 1; }
+  }
+  for (const [ch, cur] of Object.entries(u.costume)) {
+    if (cur && cur !== 'base' && !parseCostume(cur)) u.costume[ch] = legacyCostume(ch, cur) || 'base';
+  }
+  u.costumesOwned = {};
+  // v1.2：前の版の「ヒント券」は、セキオ溶解ロックのヒント券（弱）になった
+  u.items = u.items || {};
+  if (u.items.hint) { u.items['hint.hb.1'] = (u.items['hint.hb.1'] || 0) + u.items.hint; delete u.items.hint; }
+  return u;
 }
 
 /**
@@ -111,6 +130,7 @@ async function loadRemoteProfile() {
     user.costumesOwned = user.costumesOwned || {};
     user.costume = user.costume || {};
     user.items = user.items || {};
+    migrate(user);
     user.worlds = user.worlds || {};
     user.owned = user.owned || blank().owned;
   } else {
@@ -172,22 +192,29 @@ export function addCharacter(charId) {
   if (!u.owned.includes(charId)) { u.owned.push(charId); save(); }
 }
 
-export function ownsCostume(charId, costume) {
-  return costume === 'base' || (getUser().costumesOwned[charId] || []).includes(costume);
+/** 衣装を持っているか（v1.2：だれでも着られる。前の版の呼び方 ownsCostume(人, 衣装) も使える） */
+export function ownsCostume(a, b) {
+  const cid = b === undefined ? a : b;
+  return cid === 'base' || !!(getUser().wardrobe || {})[cid];
 }
-export function addCostume(charId, costume) {
+export function addCostume(a, b) {
+  const cid = b === undefined ? a : b;
   const u = getUser();
-  const list = u.costumesOwned[charId] || (u.costumesOwned[charId] = []);
-  if (!list.includes(costume)) list.push(costume);
+  u.wardrobe = { ...(u.wardrobe || {}), [cid]: Date.now() };
   save();
+}
+/** 持っている衣装の一覧（買った順） */
+export function wardrobeList() {
+  const w = getUser().wardrobe || {};
+  return Object.keys(w).filter((k) => parseCostume(k)).sort((x, y) => (w[x] || 0) - (w[y] || 0));
 }
 /** そのキャラクターが今着ている衣装（持っていない衣装なら base） */
 export function getCostume(charId) {
-  const c = getUser().costume[charId] || 'base';
-  return ownsCostume(charId, c) ? c : 'base';
+  const c = (getUser().costume || {})[charId] || 'base';
+  return ownsCostume(c) ? c : 'base';
 }
 export function setCostume(charId, costume) {
-  if (!ownsCostume(charId, costume)) return;
+  if (!ownsCostume(costume)) return;
   getUser().costume[charId] = costume;
   save();
 }
@@ -200,6 +227,8 @@ export function useItem(itemId) {
   addItem(itemId, -1);
   return true;
 }
+/** v1.2：本人の情報の一部を書きかえて保存する（報酬上限アップ券など） */
+export function patchUser(patch) { Object.assign(getUser(), patch); save(); }
 export function addItem(itemId, n = 1) {
   const u = getUser();
   u.items[itemId] = (u.items[itemId] || 0) + n;

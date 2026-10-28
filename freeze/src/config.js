@@ -1,7 +1,7 @@
 // freeze/src/config.js
 // ③ フリーズ・ガードの数値の設定（全体の仕様書 9章）。数値はここに集め、プログラムの中に直接書かない。
 
-export const VERSION = 'freeze v1.1.0';
+export const VERSION = 'freeze v1.2.0';
 
 // ── 計算に使う定数（教科書の値） ──
 export const CONST = {
@@ -215,3 +215,6 @@ export const GLOW = {
 
 // ── v1.1：説明の1ページめ「公式のアニメ」（数値が自動で行ったり来たりする） ──
 export const FZ_ANIM = { cycleSec: 4 };   // 片道の秒数
+
+// ── v1.2：ロック物販の「予算追加券」：その夜の予算が この倍に ──
+export const FZ_ITEM = { budgetMul: 1.2 };

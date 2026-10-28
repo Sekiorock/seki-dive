@@ -16,7 +16,8 @@
 import { JUDGE, SCORE, GAUGE } from './config.js';
 import { mistakeKind } from './notes.js';
 
-export function createJudge(notes, defs, { offsetMs = JUDGE.inputOffsetMs, startPct = GAUGE.startPct, negMul = 1, judgeMul = 1, clearPct = GAUGE.clearPct } = {}) {
+export function createJudge(notes, defs, { offsetMs = JUDGE.inputOffsetMs, startPct = GAUGE.startPct, negMul = 1, judgeMul = 1, clearPct = GAUGE.clearPct, guard = 0 } = {}) {
+  let guardLeft = guard;   // v1.2：ゲージお守り（はじめの何回かのミスでは、ゲージが減らない）
   // v1.1：難易度ごとに判定の幅を広げる（judgeMul）
   const W = { perfect: JUDGE.perfect * judgeMul, great: JUDGE.great * judgeMul, good: JUDGE.good * judgeMul };
   const goodSec = W.good / 1000;
@@ -57,7 +58,8 @@ export function createJudge(notes, defs, { offsetMs = JUDGE.inputOffsetMs, start
       per[note.noteId] = (per[note.noteId] || 0) + 1;
     }
     if (extra.pass) stats.passed += 1;
-    const g = GAUGE.gain[result] || 0;
+    let g = GAUGE.gain[result] || 0;
+    if (g < 0 && guardLeft > 0) { guardLeft -= 1; g = 0; }
     stats.gauge = Math.max(0, Math.min(100, stats.gauge + g * (g < 0 ? negMul : 1) * gaugeUnit));
     if (result === 'miss' || result === 'wrong') stats.combo = 0;
     else { stats.combo += 1; stats.maxCombo = Math.max(stats.maxCombo, stats.combo); }

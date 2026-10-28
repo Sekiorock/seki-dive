@@ -13,16 +13,23 @@ import { getNotices, getPersonalNotices, onNoticesChange, noticeText } from '../
 import { fx } from '../../shared/theme.js';
 import {
   ownsCharacter, addCharacter, ownsCostume, addCostume, getCostume, setCostume,
-  itemCount, addItem, onUserChange,
+  itemCount, addItem, useItem, onUserChange, getUser,
 } from '../../shared/auth.js';
 import {
-  CHARACTERS, UNLOCK_PRICE, COSTUMES, COLOR_HEX, costumePrice, faceUrl, nameKey, motifKey, nameTag, say,
+  CHARACTERS, UNLOCK_PRICE, COSTUME_TYPES, COSTUME_COLORS, COLOR_HEX, PREMIUM_COLORS, costumeId, costumePrice, parseCostume,
+  faceUrl, standUrl, nameKey, motifKey, nameTag, say,
 } from '../../shared/characters.js';
 import { FACILITIES } from './config.js';
+import { ITEMS, SHOP_GROUPS, itemDef } from '../../shared/items.js';
+import { incomeTaxRate, consumptionTaxRate, taxRelief, zukanPages, isTaxFree, todayCap, CAP_UP } from '../../shared/economy.js';
+import { patchUser } from '../../shared/auth.js';
 
 let root, confirmEl;
 let current = null;        // 開いている施設のID
 let gofukuTab = 'chars';
+let ckType = 'haori';        // v1.2：ロック呉服屋で見ている衣装の種類
+let ckColor = 'ai';         // 見ている色
+let ckWho = null;           // 着せる人（はじめは、いまのアバター）
 let keeperLine = 'welcome';
 let onToast = () => {};
 
@@ -136,12 +143,15 @@ function leaderboardHtml() {
 function govHtml() {
   const tr = getTreasury();
   const pct = (x) => `${Math.round(x * 1000) / 10}%`;
+  const mine = (base, now) => (Math.abs(base - now) > 1e-9 ? `${pct(base)}（${t("gov.yours", { r: pct(now) })}）` : pct(base));
   const rates = [
-    ['gov.incomeTax', pct(SETTINGS.incomeTaxRate)],
-    ['gov.consumptionTax', pct(SETTINGS.consumptionTaxRate)],
-    ['gov.betTax', pct(SETTINGS.betTaxRate)],
-    ['gov.dailyCap', money(SETTINGS.dailyRewardCap)],
-  ].map(([k, v]) => `<li><span>${esc(t(k))}</span><b>${esc(v)}</b></li>`).join('');
+    ['gov.incomeTax', mine(SETTINGS.incomeTaxRate, incomeTaxRate())],
+    ['gov.consumptionTax', mine(SETTINGS.consumptionTaxRate, consumptionTaxRate())],
+    ['gov.betTax', mine(SETTINGS.betTaxRate, isTaxFree() ? 0 : SETTINGS.betTaxRate)],
+    ['gov.dailyCap', todayCap() > SETTINGS.dailyRewardCap ? `${money(SETTINGS.dailyRewardCap)} → ${t('gov.yours', { r: money(todayCap()) })}` : money(SETTINGS.dailyRewardCap)],
+  ].map(([k, v]) => `<li><span>${esc(t(k))}</span><b>${esc(v)}</b></li>`).join('')
+    + `<li class="rates__relief"><span>${esc(t('gov.relief'))}</span><b>${esc(t('gov.reliefVal', { n: zukanPages(), r: pct(taxRelief()) }))}</b></li>`
+    + (isTaxFree() ? `<li class="rates__relief"><span>${esc(t('gov.taxFree'))}</span><b>${esc(t('char.teppei.name'))}</b></li>` : '');
   const fmtDate = (ms) => { const d = new Date(ms); return `${d.getMonth() + 1}/${d.getDate()}`; };
   const notices = [...getPersonalNotices().map((n) => ({ ...n, mine: true })), ...getNotices()]
     .sort((a, b) => (b.at || 0) - (a.at || 0))
@@ -190,63 +200,62 @@ function gofukuHtml() {
     const list = CHARACTERS.filter((c) => c.selectable && !c.start).map((c) => {
       const owned = ownsCharacter(c.id);
       return `
-        <li class="goods">
+        <li class="goods${c.special ? ' is-special' : ''}">
           <figure class="char-fig char-fig--img"><img class="goods__face ${owned ? '' : 'is-locked'}" src="${faceUrl(c.id)}" alt="" width="256" height="256">${nameTag(t, c.id)}</figure>
           <div class="goods__text">
-            <span class="goods__name">${esc(t(nameKey(c.id)))}</span>
+            <span class="goods__name">${esc(t(nameKey(c.id)))}${c.special ? `<em class="goods__special">${esc(t('gofuku.special'))}</em>` : ''}</span>
             <span class="goods__desc">${esc(t(motifKey(c.id)))}</span>
+            ${c.special ? `<span class="goods__perk">${esc(t('gofuku.teppeiPerk'))}</span>` : ''}
           </div>
           ${owned ? `<span class="goods__owned">${esc(t('shop.owned'))}</span>` : buyButton('unlock', UNLOCK_PRICE[c.id], `data-char="${c.id}"`)}
         </li>`;
     }).join('');
     return `${tabs}<ul class="goods-list">${list}</ul>`;
   }
-  const blocks = CHARACTERS.filter((c) => c.selectable).map((c) => {
-    const has = ownsCharacter(c.id);
-    const wearing = getCostume(c.id);
-    const cells = ['base', ...COSTUMES[c.id]].map((col) => {
-      const owned = ownsCostume(c.id, col);
-      const price = costumePrice(c.id, col);
-      const label = col === 'base' ? t('gofuku.base') : t(`color.${col}`);
-      const swatch = col === 'base' ? '#FFFFFF' : COLOR_HEX[col];
-      let action;
-      if (!has) action = '';
-      else if (wearing === col) action = `<span class="costume__state">${esc(t('shop.wearing'))}</span>`;
-      else if (owned) action = `<button type="button" class="btn btn--small" data-act="wear" data-char="${c.id}" data-col="${col}">${esc(t('shop.wear'))}</button>`;
-      else action = `<button type="button" class="btn btn--small btn--primary" data-act="costume" data-char="${c.id}" data-col="${col}" ${canAfford(price) ? '' : 'disabled'}>${esc(formatHiyama(price))}</button>`;
-      return `
-        <li class="costume ${wearing === col && has ? 'is-wearing' : ''}">
-          <img class="costume__face ${has ? '' : 'is-locked'}" src="${faceUrl(c.id, col)}" alt="" width="256" height="256" loading="lazy">
-          <span class="costume__name"><i class="costume__swatch" style="background:${swatch}"></i>${esc(label)}</span>
-          ${action}
-        </li>`;
-    }).join('');
-    return `
-      <section class="costume-block">
-        <h3 class="shop__sub">${esc(t(nameKey(c.id)))}${has ? '' : `<span class="costume-block__lock">${esc(t('gofuku.needChar'))}</span>`}</h3>
-        <ul class="costume-list">${cells}</ul>
-      </section>`;
-  }).join('');
+  // v1.2：衣装は「種類 × 色」。1度買えば、だれでも着られる
+  const owners = CHARACTERS.filter((c) => c.selectable && ownsCharacter(c.id));
+  if (!ckWho || !ownsCharacter(ckWho)) ckWho = ownsCharacter(getUser().lastAvatar) ? getUser().lastAvatar : owners[0].id;
+  const cid = costumeId(ckType, ckColor);
+  const owned = ownsCostume(cid);
+  const price = costumePrice(cid);
+  const wearing = getCostume(ckWho);
+  const who = `<div class="ck-who" role="radiogroup" aria-label="${esc(t('gofuku.who'))}"><span>${esc(t('gofuku.who'))}</span>${owners.map((c) => `<button type="button" class="ck-who__b" role="radio" aria-checked="${c.id === ckWho}" data-act="ck-who" data-char="${c.id}"><img src="${faceUrl(c.id, getCostume(c.id))}" alt="${esc(t(nameKey(c.id)))}" width="40" height="40"></button>`).join('')}</div>`;
+  const types = `<div class="ck-types">${COSTUME_TYPES.map((x) => `<button type="button" class="ck-type${x.id === ckType ? ' is-on' : ''}" data-act="ck-type" data-type="${x.id}">${esc(t(`costume.${x.id}`))}<small>${esc(formatHiyama(x.price))}〜</small></button>`).join('')}</div>`;
+  const colors = `<div class="ck-colors">${COSTUME_COLORS.map((c) => {
+    const id = costumeId(ckType, c);
+    return `<button type="button" class="swatch ck-color${c === ckColor ? ' is-on' : ''}${ownsCostume(id) ? ' is-owned' : ''}${PREMIUM_COLORS.includes(c) ? ' is-premium' : ''}" data-act="ck-color" data-col="${c}" aria-label="${esc(t(`color.${c}`))}" title="${esc(t(`color.${c}`))}" style="--swatch:${COLOR_HEX[c]}"></button>`;
+  }).join('')}</div>`;
+  let action;
+  if (wearing === cid) action = `<span class="costume__state">${esc(t('shop.wearing'))}</span><button type="button" class="btn btn--small" data-act="ck-base">${esc(t('gofuku.toBase'))}</button>`;
+  else if (owned) action = `<button type="button" class="btn btn--small btn--primary" data-act="ck-wear">${esc(t('gofuku.wearOn', { name: t(nameKey(ckWho)) }))}</button>`;
+  else action = buyButton('ck-buy', price);
+  const preview = `<div class="ck-preview"><figure class="char-fig char-fig--stand"><img class="ck-stand" src="${standUrl(ckWho, 'smile', cid)}" alt="" width="1024" height="1536">${nameTag(t, ckWho)}</figure>`
+    + `<div class="ck-info"><b>${esc(t('gofuku.costumeName', { type: t(`costume.${ckType}`), color: t(`color.${ckColor}`) }))}</b>`
+    + `${owned ? `<span class="goods__owned">${esc(t('shop.owned'))}</span>` : ''}<p class="goods__desc">${esc(t('gofuku.anyone'))}</p>${action}</div></div>`;
   const short = isInArrears() ? `<p class="shop__alert">${esc(t('shop.arrears'))}</p>` : '';
-  return `${tabs}${short}${blocks}`;
+  return `${tabs}${short}${who}${preview}${types}${colors}`;
 }
 
-// ── 道具屋：サービス ──
+// ── ロック物販：品の一覧（v1.2：ワールドごとに、ヒント券3段階・通行手形・レバレッジ券・道具） ──
+let douguGroup = 'home';
 function douguHtml() {
-  const list = SETTINGS.services.map((s) => {
-    const n = itemCount(s.id);
-    const full = n >= SETTINGS.itemMax;
+  const tabs = `<div class="tabs tabs--wrap" role="tablist">${SHOP_GROUPS.map((g) => `<button type="button" role="tab" class="tabs__tab" aria-selected="${douguGroup === g}" data-act="dg-tab" data-g="${g}">${esc(t(`dougu.group.${g}`))}</button>`).join('')}</div>`;
+  const list = ITEMS.filter((x) => x.world === douguGroup).map((x) => {
+    const n = itemCount(x.id);
+    const max = x.kind === 'perm' ? 1 : SETTINGS.itemMax;
+    const full = n >= max;
+    const use = x.id === 'capUp' && n > 0 ? `<button type="button" class="btn btn--small" data-act="use-cap">${esc(t('dougu.useNow'))}</button>` : '';
     return `
-      <li class="goods">
+      <li class="goods${x.kind === 'perm' ? ' is-key' : ''}${x.world === 'lever' ? ' is-lever' : ''}">
         <div class="goods__text">
-          <span class="goods__name">${esc(t(`service.${s.id}.name`))}</span>
-          <span class="goods__desc">${esc(t(`service.${s.id}.desc`))}</span>
-          <span class="goods__have">${esc(t('dougu.have', { n }))}</span>
+          <span class="goods__name">${esc(t(`item.${x.id}.name`))}${x.kind === 'perm' ? `<em class="goods__special">${esc(t('dougu.perm'))}</em>` : ''}</span>
+          <span class="goods__desc">${esc(t(`item.${x.id}.desc`, { m: x.mult || '', f: x.mult ? Math.round((x.mult - 1) * 100) / 100 : '' }))}</span>
+          <span class="goods__have">${esc(x.kind === 'perm' ? (n ? t('shop.owned') : '') : t('dougu.have', { n }))}</span>
         </div>
-        ${full ? `<span class="goods__owned">${esc(t('dougu.max'))}</span>` : buyButton('service', s.price, `data-item="${s.id}"`)}
+        ${use}${full ? `<span class="goods__owned">${esc(t(x.kind === 'perm' ? 'shop.owned' : 'dougu.max'))}</span>` : buyButton('item', x.price, `data-item="${x.id}"`)}
       </li>`;
   }).join('');
-  return `<p class="shop__note">${esc(t('dougu.note'))}</p><ul class="goods-list">${list}</ul>`;
+  return `${tabs}<p class="shop__note">${esc(t(`dougu.note.${douguGroup}`))}</p><ul class="goods-list">${list}</ul>`;
 }
 
 function render() {
@@ -294,7 +303,21 @@ function onClick(e) {
   const act = b.dataset.act;
   if (act === 'close') { closeShop(); return; }
   if (act === 'tab') { gofukuTab = b.dataset.tab; render(); return; }
-  if (act === 'wear') { setCostume(b.dataset.char, b.dataset.col); return; }
+  if (act === 'dg-tab') { douguGroup = b.dataset.g; render(); return; }
+  if (act === 'use-cap') {
+    if (!useItem('capUp')) return;
+    const day = new Date().toLocaleDateString('sv-SE');
+    const cb = getUser().capBoost || {};
+    patchUser({ capBoost: { day, extra: (cb.day === day ? cb.extra || 0 : 0) + CAP_UP } });
+    onToast(t('dougu.capUsed', { cap: formatHiyama(todayCap()) }));
+    render();
+    return;
+  }
+  if (act === 'ck-type') { ckType = b.dataset.type; render(); return; }
+  if (act === 'ck-color') { ckColor = b.dataset.col; render(); return; }
+  if (act === 'ck-who') { ckWho = b.dataset.char; render(); return; }
+  if (act === 'ck-wear') { setCostume(ckWho, costumeId(ckType, ckColor)); return; }
+  if (act === 'ck-base') { setCostume(ckWho, 'base'); return; }
 
   if (act === 'unlock') {
     const id = b.dataset.char;
@@ -306,25 +329,25 @@ function onClick(e) {
         if (r.ok) { addCharacter(id); afterBuy(itemName); fx.newItem(); } else failed(r);
       },
     });
-  } else if (act === 'costume') {
-    const id = b.dataset.char, col = b.dataset.col;
-    const price = costumePrice(id, col);
-    const itemName = t('ledger.item.costume', { name: t(nameKey(id)), color: t(`color.${col}`) });
+  } else if (act === 'ck-buy') {
+    const cid = costumeId(ckType, ckColor);
+    const price = costumePrice(cid);
+    const itemName = t('gofuku.costumeName', { type: t(`costume.${ckType}`), color: t(`color.${ckColor}`) });
     confirmBuy({
       itemName, price,
       onYes: async () => {
-        const r = await pay({ type: 'purchase', itemKey: 'ledger.item.costume', itemVars: { name: `i18n:${nameKey(id)}`, color: `i18n:color.${col}` }, price });
-        if (r.ok) { addCostume(id, col); setCostume(id, col); afterBuy(itemName); fx.newItem(); } else failed(r);
+        const r = await pay({ type: 'purchase', itemKey: 'ledger.item.costume2', itemVars: { type: `i18n:costume.${ckType}`, color: `i18n:color.${ckColor}` }, price });
+        if (r.ok) { addCostume(cid); setCostume(ckWho, cid); afterBuy(itemName); fx.newItem(); } else failed(r);
       },
     });
-  } else if (act === 'service') {
-    const s = SETTINGS.services.find((x) => x.id === b.dataset.item);
-    const itemName = t(`service.${s.id}.name`);
+  } else if (act === 'item') {
+    const x = itemDef(b.dataset.item);
+    const itemName = t(`item.${x.id}.name`);
     confirmBuy({
-      itemName, price: s.price,
+      itemName, price: x.price,
       onYes: async () => {
-        const r = await pay({ type: 'service', itemKey: 'ledger.item.service', itemVars: { item: `i18n:service.${s.id}.name` }, price: s.price });
-        if (r.ok) { addItem(s.id); afterBuy(itemName); } else failed(r);
+        const r = await pay({ type: 'service', itemKey: 'ledger.item.service', itemVars: { item: `i18n:item.${x.id}.name` }, price: x.price });
+        if (r.ok) { addItem(x.id); afterBuy(itemName); if (x.kind === 'perm') fx.newItem(); } else failed(r);
       },
     });
   }

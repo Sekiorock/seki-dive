@@ -1,7 +1,7 @@
 // crystal/src/config.js
 // ② クリスタル・ラボの数値の設定。数値はここに集め、プログラムの中に直接書かない。
 
-export const VERSION = 'crystal v1.1.0';
+export const VERSION = 'crystal v1.2.0';
 
 // 実験台の並び
 export const BENCHES = ['solid', 'gas', 'conc'];
@@ -195,3 +195,6 @@ export const ORDER_HINT = {
   o17: 'gasP', o18: 'gasVol', o19: 'gasAir', o20: 'gasT',
   o21: 'percent', o22: 'molality', o23: 'molarity', o24: 'molarityDens',
 };
+
+// ── v1.2：ロック物販の「目盛り拡大鏡」：その注文だけ、「ぴったり」「おしい」の幅が この倍に ──
+export const LOUPE_MUL = 2;

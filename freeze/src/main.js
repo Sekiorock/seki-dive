@@ -9,7 +9,7 @@
 //   朝：守れた区間の数と残った予算で評価。凍った区間・むだの多い区間に、どこで計算がずれたかの解説。
 //   報酬：1夜を守り切ると 60 ヒヤマ、予算を半分以上残すと追加 40 ヒヤマ（どちらも、その夜で初めてのときだけ）。
 
-import { VERSION, SUBSTANCES, STAGES, LOCKED_STAGES, NIGHT, REWARD, CONST, SPREAD, ASSIST, WAVE, TUG, GLOW, FZ_ANIM } from './config.js';
+import { VERSION, SUBSTANCES, STAGES, LOCKED_STAGES, NIGHT, REWARD, CONST, SPREAD, ASSIST, WAVE, TUG, GLOW, FZ_ANIM, FZ_ITEM } from './config.js';
 import { nightOf, plan, judge, nightState, needed, coolingCurve, molarFrom } from './model.js';
 import { chainOf, demoOf, pictureOf, EXAMPLES, SHOW_IONS } from './tutorial.js';
 import { pictureSvg, ionsHtml, lineBar } from './explain.js';
@@ -24,6 +24,8 @@ import { openAvatarSelect } from '../../shared/avatar.js';
 import { standUrl, nameKey, say, tagStand, faceFig, nameTag } from '../../shared/characters.js';
 import { createCalc } from '../../shared/calc.js';
 import * as battle from './battle.js';
+import { trayHtml, trayClick, consumeArmed, settleLever, hasKey, keyNeedText, KEY_FROM, hintButtons, useHint } from '../../shared/items.js';
+import { itemCount, useItem } from '../../shared/auth.js';
 
 const $ = (id) => document.getElementById(id);
 const esc = (x) => String(x ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -97,7 +99,7 @@ function renderTitle() {
     const open = stageOpen(i);
     const done = S.nights.every((_, n) => (r[key(i, n)] || {}).cleared);
     return `<button type="button" class="fz-card${i === si ? ' is-on' : ''}" data-act="stage" data-i="${i}" ${open ? '' : 'disabled'}>`
-      + `<b>${S.id}</b><span>${esc(t(`fz.stage${S.id}.name`))}</span><em>${done ? '✓' : open ? '' : '🔒'}</em></button>`;
+      + `<b>${S.id}</b><span>${esc(t(`fz.stage${S.id}.name`))}</span><em>${done ? '✓' : open ? (i >= KEY_FROM - 1 && !hasKey('freeze') ? '🔑' : '') : '🔒'}</em></button>`;
   }).join('') + LOCKED_STAGES.map((L) => `<button type="button" class="fz-card" disabled><b>${L.id}</b><span>${esc(t(`fz.stage${L.id}.name`))}</span><span>${esc(t('fz.soon', { v: L.ver }))}</span></button>`).join('');
   $('nights-title').textContent = t('fz.nightsOf', { s: STAGES[si].id, name: t(`fz.stage${STAGES[si].id}.name`) });
   $('nights').innerHTML = STAGES[si].nights.map((_, n) => {
@@ -124,9 +126,20 @@ function updateViewport() {
 }
 
 // ───────────── 1夜 ─────────────
+// v1.2：ロック物販の券（その夜のヒント券の段階・レバレッジ券・予算追加券）
+const armedFz = { lev: null, boost: {} };
+let fzHint = 0;          // その夜に使ったヒント券の段階（0〜3）
+let fzHintAt = '';       // どの夜のヒントか
+let fzBudgetAt = '';     // 予算追加券を使った夜
+let usedFz = null;       // 夜を迎えるときに使ったレバレッジ券
 function startNight(s, n, keepPicks = false) {
+  // v1.2：ステージ4から先は、ロック物販の通行手形が必要
+  if (s >= KEY_FROM - 1 && !hasKey('freeze')) { toast(keyNeedText(t, 'freeze')); return; }
+  const here = `${s}-${n}`;
+  if (fzHintAt !== here) { fzHint = 0; fzHintAt = here; }
   si = s; ni = n;
   night = nightOf(s, n);
+  if (fzBudgetAt === here) night.budget = Math.round(night.budget * FZ_ITEM.budgetMul);
   if (!keepPicks || picks.length !== night.sections.length) picks = night.sections.map(() => ({ sub: night.substances[0] || null, mass: '' }));
   phase = 'prep';
   if (scene) scene.clearSpread();
@@ -388,6 +401,36 @@ function condCells(sec, k) {
   return `<span class="fz-v">${f1(sec.water)}<small>kg</small></span><span class="fz-v fz-low">${signed(sec.low)}<small>℃</small></span>${graph}`;
 }
 
+// ── v1.2：準備の画面の「持ち物」とヒント券 ──
+function itemsPrepHtml() {
+  const here = `${si}-${ni}`;
+  const budgetBtn = night.kind !== 'mm' && itemCount('budget.fz') && fzBudgetAt !== here
+    ? `<button type="button" class="itray__chip" data-act="fz-budget">${esc(t('item.budget.fz.name'))}<small>${itemCount('budget.fz')}</small></button>` : '';
+  const anyHint = [1, 2, 3].some((k) => itemCount(`hint.fz.${k}`)) || fzHint;
+  return (anyHint ? `<div class="itray"><p class="itray__head">💡 ${esc(t('fz.ihint.head'))}</p>${hintButtons(t, 'freeze', fzHint, { act: 'fz-hint' })}</div>` : '')
+    + trayHtml(t, armedFz, { boosts: [], act: 'fz-tray' })
+    + (budgetBtn ? `<div class="itray"><div class="itray__row"><span class="itray__label">${esc(t('itray.boost'))}</span>${budgetBtn}</div><p class="itray__note">${esc(t('item.budget.fz.desc'))}</p></div>` : '');
+}
+/** ヒント券の段階に合わせた、区間ごとの一言（弱：±30%、中：±10%、強：ぴったり） */
+function hintLine(k) {
+  const sec = night.sections[k];
+  const kind = night.kind;
+  const w = [0, 0.3, 0.1, 0][fzHint];
+  if (kind === 'mm') {
+    const M = molarFrom(sec);
+    if (fzHint >= 3) return t('fz.ihint.mm3', { f: SUBSTANCES[sec.ans].formula });
+    return t('fz.ihint.mm', { a: Math.round(M * (1 - w)), b: Math.round(M * (1 + w)) });
+  }
+  const sub = (picks[k] || {}).sub || night.substances[0];
+  const need = needed(kind, sec, sub);
+  const unit = kind === 'vapor' ? 'kg' : kind === 'osmo' ? '×10⁵ Pa' : 'g';
+  const dg = kind === 'vapor' ? 2 : 1;
+  const r = (x) => (Math.round(x * 10 ** dg) / 10 ** dg).toFixed(dg);
+  const what = kind === 'vapor' || kind === 'osmo' ? '' : `${SUBSTANCES[sub].formula} `;
+  if (fzHint >= 3) return t('fz.ihint.t3', { what, v: kind === 'vapor' || kind === 'osmo' ? r(need) : String(Math.ceil(need - 1e-9)), u: unit });
+  return t('fz.ihint.range', { what, a: r(need * (1 - w)), b: r(need * (1 + w)), u: unit });
+}
+
 function renderPanel() {
   const box = $('panel');
   const head = (extra) => `<div class="fz-head"><b>${esc(t('fz.nightTitle', { s: night.stage, n: night.night }))}</b>${extra}</div>`;
@@ -412,12 +455,14 @@ function renderPanel() {
       + (kind === 'mm' ? '' : `<div class="fz-budget${p.over ? ' is-over' : ''}" id="budget"><span>${esc(t('fz.used'))} <b>${f1(p.used)}</b> / ${night.budget} pt</span>`
       + `<span>${esc(t('fz.left'))} <b>${f1(p.left)}</b> pt</span><span class="fz-budget__bar"><i style="width:${(ratio * 100).toFixed(1)}%"></i></span></div>`)
       + `<p class="fz-hint">${esc(t(`fz.hint${night.stage}`, { kf: CONST.Kf, kb: CONST.Kb, wp: CONST.waterPrice, pp: CONST.pressPrice, bk: CONST.benzeneKf, bf: CONST.benzeneFp }))}</p>`
+      + itemsPrepHtml()
       + (showTable || ['vapor', 'mm', 'osmo'].includes(kind) ? table : '')
       + `<ol class="fz-rows fz-rows--${kind}">${night.sections.map((sec, k) => {
         const pk = picks[k];
         if (kind === 'mm') {
           return `<li class="fz-row fz-row--mm"><b>${k + 1}</b>${condCells(sec, k)}`
-            + `<select data-k="${k}" data-f="sub" aria-label="${esc(t('fz.pickLabel', { n: k + 1 }))}"><option value="">${esc(t('fz.pickNone'))}</option>${night.candidates.map((id) => `<option value="${id}" ${pk.sub === id ? 'selected' : ''}>${esc(SUBSTANCES[id].formula)}</option>`).join('')}</select></li>`;
+            + `<select data-k="${k}" data-f="sub" aria-label="${esc(t('fz.pickLabel', { n: k + 1 }))}"><option value="">${esc(t('fz.pickNone'))}</option>${night.candidates.map((id) => `<option value="${id}" ${pk.sub === id ? 'selected' : ''}>${esc(SUBSTANCES[id].formula)}</option>`).join('')}</select>`
+            + `<span class="fz-ihint" id="ih${k}" ${fzHint ? '' : 'hidden'}>${fzHint ? esc(hintLine(k)) : ''}</span></li>`;
         }
         const sel = kind === 'vapor' || kind === 'osmo' ? ''
           : `<select data-k="${k}" data-f="sub" aria-label="${esc(t('fz.subLabel'))}">${subs.map((id) => `<option value="${id}" ${pk.sub === id ? 'selected' : ''}>${esc(SUBSTANCES[id].formula)}</option>`).join('')}</select>`;
@@ -426,7 +471,8 @@ function renderPanel() {
         return `<li class="fz-row fz-row--${kind}"><b>${k + 1}</b>${condCells(sec, k)}${sel}`
           + `<input type="number" inputmode="decimal" step="any" min="0" data-k="${k}" data-f="mass" id="m${k}" value="${esc(pk.mass)}" placeholder="${unit}" aria-label="${esc(t(lbl, { n: k + 1 }))}">`
           + `<span class="fz-cost" id="c${k}">${f1(p.rows[k].cost)} pt</span>`
-          + `<span class="fz-meter" id="mt${k}" ${meter ? '' : 'hidden'}>${meter ? barOf(kind, p.rows[k]) : ''}</span></li>`;
+          + `<span class="fz-meter" id="mt${k}" ${meter ? '' : 'hidden'}>${meter ? barOf(kind, p.rows[k]) : ''}</span>`
+          + `<span class="fz-ihint" id="ih${k}" ${fzHint ? '' : 'hidden'}>${fzHint ? esc(hintLine(k)) : ''}</span></li>`;
       }).join('')}</ol>`
       + `<p class="fz-note">${esc(t(`fz.colHelp.${kind}`))}</p>`
       + (meter ? `<p class="fz-note fz-note--hot">${esc(t('fz.meterNote'))}</p>` : '')
@@ -491,6 +537,7 @@ function refreshPrep() {
   p.rows.forEach((r, k) => {
     const el = $(`c${k}`); if (el) el.textContent = `${f1(r.cost)} pt`;
     const mt = $(`mt${k}`); if (mt && meter) mt.innerHTML = barOf(night.kind, r);
+    const ih = $(`ih${k}`); if (ih && fzHint) ih.textContent = hintLine(k);
   });
   const b = $('budget');
   if (b) {
@@ -550,6 +597,7 @@ function cleanPicks() { return picks.map((x) => ({ sub: x.sub, mass: Number(x.ma
 function goNight() {
   const p = plan(night, cleanPicks());
   if (p.over && night.kind !== 'mm') return;
+  usedFz = consumeArmed(armedFz);
   result = judge(night, cleanPicks());
   if (calc) calc.close();
   closeCurve();
@@ -708,6 +756,16 @@ async function morning() {
   run = null;
   const r = result;
   rewardText = '';
+  // v1.2：レバレッジ券の精算（全部守れたらクリア）
+  if (usedFz && usedFz.lev) {
+    const u = usedFz; usedFz = null;
+    settleLever(t, { mult: u.mult, base: REWARD.night, clear: r.all, label: `${night.stage}-${night.night}` }).then((x) => {
+      if (!x) return;
+      toast(x);
+      rewardText = rewardText ? `${rewardText} ／ ${x}` : x;
+      if (phase === 'morning') renderPanel();
+    });
+  }
   const d = getWorldData(WORLD);
   const nights = { ...(d.nights || {}) };
   const k = key(si, ni);
@@ -794,12 +852,24 @@ function setupInput() {
     if (act === 'stage') { si = Number(b.dataset.i); ni = 0; for (let n = STAGES[si].nights.length - 1; n >= 0; n--) if (nightOpen(si, n)) { ni = n; break; } renderTitle(); }
     else if (act === 'night') { ni = Number(b.dataset.i); renderTitle(); }
     else if (act === 'start') { if (nightOpen(si, ni)) startNight(si, ni); }
-    else if (act === 'to-title') { phase = 'prep'; run = null; scene.clearSpread(); if (calc) calc.close(); closeTut(); setDawn(0); renderTitle(); show('title'); scene.setNight(0.2); }
+    else if (act === 'to-title') {
+      if (usedFz && usedFz.lev && (phase === 'spread' || phase === 'night')) { const u = usedFz; settleLever(t, { mult: u.mult, base: REWARD.night, clear: false, label: `${night.stage}-${night.night}` }).then((x) => { if (x) toast(x); }); }
+      usedFz = null;
+      phase = 'prep'; run = null; scene.clearSpread(); if (calc) calc.close(); closeTut(); setDawn(0); renderTitle(); show('title'); scene.setNight(0.2); }
     else if (act.startsWith('b-')) battle.onClick(act, b);
     else if (act === 'battle') battle.openBattle(b.dataset.mode);
     else if (act === 'calc') calc.toggle();
     else if (act === 'table') { showTable = !showTable; renderPanel(); }
     else if (act === 'go-night') goNight();
+    else if (act === 'fz-tray') { trayClick(armedFz, b.dataset.item); renderPanel(); }
+    else if (act === 'fz-hint') {
+      const tier = Number(b.dataset.tier);
+      if (tier > fzHint && useHint('freeze', tier)) { fzHint = tier; renderPanel(); } else if (tier > fzHint) toast(t('ihint.none'));
+    }
+    else if (act === 'fz-budget') {
+      const here = `${si}-${ni}`;
+      if (fzBudgetAt !== here && useItem('budget.fz')) { fzBudgetAt = here; night.budget = Math.round(night.budget * FZ_ITEM.budgetMul); toast(t('fz.budgetUp', { b: night.budget })); renderPanel(); }
+    }
     else if (act === 'meter') { meter = !meter; if (meter) meterUsed = true; renderPanel(); }
     else if (act === 'curve') openCurve(Number(b.dataset.k));
     else if (act === 'tut') openTut('intro');

@@ -7,9 +7,9 @@
 import { t, onLangChange } from './i18n.js';
 import {
   selectableCharacters, standUrl, faceUrl, nameKey, motifKey, roleKey, lineKey, say,
-  UNLOCK_PRICE, DEFAULT_AVATAR, COSTUMES, COLOR_HEX,
+  UNLOCK_PRICE, DEFAULT_AVATAR, COLOR_HEX, parseCostume,
 } from './characters.js';
-import { getAvatar, setAvatar, ownsCharacter, ownsCostume, getCostume, setCostume } from './auth.js';
+import { getAvatar, setAvatar, ownsCharacter, getCostume, setCostume, wardrobeList } from './auth.js';
 
 let root = null;
 let state = null;   // { world, picked, previous, expression, line, resolve }
@@ -105,16 +105,17 @@ function render() {
     ? say(t, picked, t(lineKey(picked, state.line)))
     : t('avatar.lockedNote');
 
-  // 衣装：いつもの衣装と、持っている色違い
+  // 衣装：いつもの衣装と、持っている衣装（v1.2：だれでも、どの衣装でも着られる）
   const box = q('.avatar-screen__costumes');
-  const cols = owned ? ['base', ...(COSTUMES[picked] || []).filter((c) => ownsCostume(picked, c))] : [];
+  const cols = owned ? ['base', ...wardrobeList()] : [];
   box.hidden = cols.length < 2;
   box.setAttribute('aria-label', t('avatar.costume'));
   const wearing = getCostume(picked);
   box.innerHTML = cols.length < 2 ? '' : `<span class="avatar-screen__costume-label">${t('avatar.costume')}</span>` + cols.map((c) => {
-    const label = c === 'base' ? t('gofuku.base') : t(`color.${c}`);
-    const color = c === 'base' ? '#FFFFFF' : COLOR_HEX[c];
-    return `<button type="button" class="swatch" role="radio" aria-checked="${c === wearing}" aria-label="${label}" title="${label}" data-col="${c}" style="--swatch:${color}"></button>`;
+    const pc = parseCostume(c);
+    const label = pc ? t('gofuku.costumeName', { type: t(`costume.${pc.type}`), color: t(`color.${pc.color}`) }) : t('gofuku.base');
+    const color = pc ? COLOR_HEX[pc.color] : '#FFFFFF';
+    return `<button type="button" class="swatch" role="radio" aria-checked="${c === wearing}" aria-label="${label}" title="${label}" data-col="${c}" style="--swatch:${color}">${pc ? `<i class="swatch__type">${t(`costume.${pc.type}.short`)}</i>` : ''}</button>`;
   }).join('');
 
   root.querySelectorAll('.avatar-chip').forEach((b) => {
