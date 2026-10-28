@@ -379,3 +379,12 @@ html[lang="en"] .fz-logo__name { font-family: var(--font-en); font-weight: 700; 
 .fz-tteam li span { grid-column: 1; color: var(--dim); }
 .fz-tteam li em { grid-row: 1 / 3; grid-column: 2; align-self: center; font-style: normal; font-family: var(--font-en); }
 .fz-tteam li.is-me { box-shadow: inset 2px 0 0 var(--hiyama); }
+
+/* ── v1.1：説明の1ページめ「公式のアニメ」 ── */
+.fz-anim { margin: 6px 0; padding: 10px; clip-path: var(--chamfer); background: rgba(8, 14, 40, 0.75); box-shadow: inset 0 0 0 1px var(--stroke-strong); }
+.fz-anim__formula { margin: 0; text-align: center; font: 800 22px/1.3 var(--font-en); letter-spacing: 0.04em; color: #fff; text-shadow: 0 0 10px var(--neon-1); }
+.fz-anim__live { margin: 6px 0 8px; text-align: center; font-size: 13px; line-height: 1.7; color: var(--dim); font-variant-numeric: tabular-nums; }
+.fz-anim__v { color: #FFC83A; font-size: 15px; text-shadow: 0 0 8px rgba(255, 200, 58, 0.6); }
+
+/* v1.1：ワールドの新しい名前は英語だと長いので、2行まで折り返す */
+html[lang="en"] .fz-logo__name { white-space: normal; font-size: 26px; letter-spacing: 0.04em; text-align: center; }

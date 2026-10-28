@@ -538,3 +538,6 @@ body.is-out .hb-frame { box-shadow: inset 0 0 0 3px #D7003A, inset 0 0 40px rgba
 .hb-battle__players.is-royale .hb-battle__p.is-empty { min-height: 70px; }
 .hb-battle__target { display: flex; flex-direction: column; gap: 4px; font-size: 12px; }
 .hb-battle__target .hb-diff { max-width: none; }
+
+/* v1.1：ワールドの新しい名前は英語だと長いので、2行まで折り返す */
+html[lang="en"] .hb-logo__name { white-space: normal; font-size: 26px; letter-spacing: 0.04em; text-align: center; }

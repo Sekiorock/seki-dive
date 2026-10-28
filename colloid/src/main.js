@@ -7,7 +7,7 @@
 //   エリアに入ると、まず「しくみ」（絵とものさし）を見せる。まちがえると、神主が理由を一言で返す。
 //   報酬：エリアを抜けるごとに 100 ヒヤマ（はじめてのとき）。
 
-import { VERSION, AREAS, LOCKED_AREAS, PUZZLES, LIQUIDS, DIALYSIS, REWARD, TOOLS } from './config.js';
+import { VERSION, AREAS, LOCKED_AREAS, PUZZLES, LIQUIDS, DIALYSIS, REWARD, TOOLS, ELIM } from './config.js';
 import { createScene } from './scene3d.js';
 import { createScope } from './scope.js';
 import { cheer } from './cheer.js';
@@ -258,6 +258,7 @@ function probeHtml(p) {
       + `<button type="button" class="cl-item__pick" data-act="pick" data-k="${k}" aria-pressed="${ps.sel.includes(liq)}">${esc(t(ps.sel.includes(liq) ? 'cl.picked' : 'cl.pick'))}</button></div>`).join('')}</div>`
     + `<div class="cl-foot"><button type="button" class="btn btn--primary" data-act="answer" ${ps.sel.length ? '' : 'disabled'}>${esc(t('cl.answer'))}</button></div>`;
 }
+const elimOf = (o) => ((ps.elim || []).includes(o) ? ' is-out' : '');
 function choiceHtml(p, id) {
   // 1-2・2-1 は、まず道具を使う（光を当てる／眼鏡をかける）
   if ((id === '1-2' || id === '2-1' || p.use) && ps.step < 1) {
@@ -265,7 +266,7 @@ function choiceHtml(p, id) {
     return `<div class="cl-foot"><button type="button" class="btn btn--primary" data-act="use">${TOOL_ICON[tool]} ${esc(t(`cl.use.${tool}`))}</button></div>`;
   }
   return `<p class="cl-hint">${esc(t(p.multi ? 'cl.pickMulti' : 'cl.pickOne'))}</p>`
-    + `<div class="cl-opts${p.vial ? ' cl-opts--2' : ''}">${(p.vial ? p.options : ps.opts).map((o) => `<button type="button" class="cl-opt${ps.sel.includes(o) ? ' is-sel' : ''}" data-act="opt" data-o="${o}">`
+    + `<div class="cl-opts${p.vial ? ' cl-opts--2' : ''}">${(p.vial ? p.options : ps.opts).map((o) => `<button type="button" class="cl-opt${ps.sel.includes(o) ? ' is-sel' : ''}${elimOf(o)}" data-act="opt" data-o="${o}"${(ps.elim || []).includes(o) ? ' disabled' : ''}>`
       + (p.vial ? `<b class="cl-vial">${esc(t(`cl.vial.${o}`))}</b><small>${esc(t(`cl.ions.${o}`))}</small>` : esc(t(`cl.opt.${id}.${o}`))) + '</button>').join('')}</div>`
     + `<div class="cl-foot"><button type="button" class="btn btn--primary" data-act="answer" ${ps.sel.length ? '' : 'disabled'}>${esc(t('cl.answer'))}</button></div>`;
 }
@@ -286,7 +287,7 @@ function doseHtml(p) {
   let html = `<div class="cl-opts cl-opts--2"><button type="button" class="cl-opt${ps.dose.little ? ' is-sel' : ''}" data-act="dose" data-o="little">🧪 ${esc(t('cl.dose.little'))}</button>`
     + `<button type="button" class="cl-opt${ps.dose.much ? ' is-sel' : ''}" data-act="dose" data-o="much">🧪🧪🧪 ${esc(t('cl.dose.much'))}</button></div>`;
   if (!both) return `<p class="cl-hint">${esc(t('cl.dose.how'))}</p>${html}`;
-  return html + `<p class="cl-hint">${esc(t('cl.pickOne'))}</p><div class="cl-opts">${ps.opts.map((o) => `<button type="button" class="cl-opt${ps.sel.includes(o) ? ' is-sel' : ''}" data-act="opt" data-o="${o}">${esc(t(`cl.opt.${pid()}.${o}`))}</button>`).join('')}</div>`
+  return html + `<p class="cl-hint">${esc(t('cl.pickOne'))}</p><div class="cl-opts">${ps.opts.map((o) => `<button type="button" class="cl-opt${ps.sel.includes(o) ? ' is-sel' : ''}${elimOf(o)}" data-act="opt" data-o="${o}"${(ps.elim || []).includes(o) ? ' disabled' : ''}>${esc(t(`cl.opt.${pid()}.${o}`))}</button>`).join('')}</div>`
     + `<div class="cl-foot"><button type="button" class="btn btn--primary" data-act="answer" ${ps.sel.length ? '' : 'disabled'}>${esc(t('cl.answer'))}</button></div>`;
 }
 function matchHtml(p) {
@@ -325,6 +326,17 @@ function answer() {
   // 調べていないものを選んだら、まず調べるように
   if (p.type === 'probe' && wrong && !ps.probed[wrong]) key = 'cl.why.probeFirst';
   ps.fb = t(key);
+  // v1.1：選択肢の問題で2回まちがえたら、まちがいの選択肢を1つずつ消していく（ヒント）
+  ps.miss = (ps.miss || 0) + 1;
+  if (p.type !== 'probe' && ps.miss >= ELIM.after) {
+    const pool = (p.vial ? p.options : ps.opts || []).filter((o) => !p.answer.includes(o) && !(ps.elim || []).includes(o));
+    const out = pool.includes(wrong) ? wrong : pool[0];
+    if (out && (p.vial ? p.options : ps.opts).length - (ps.elim || []).length > p.answer.length + 1) {
+      ps.elim = [...(ps.elim || []), out];
+      ps.sel = ps.sel.filter((x) => x !== out);
+      ps.fb = `${ps.fb}　${t('cl.elim')}`;
+    }
+  }
   ngFx();
   renderPanel();
 }

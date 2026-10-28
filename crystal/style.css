@@ -299,3 +299,28 @@ html[lang="en"] .cr-logo__name { font-family: var(--font-en); font-weight: 700; 
 .cr-mpanel__head .calc-btn { margin-left: auto; }
 .cr-mpanel__head .calc-btn + .cr-fold { margin-left: 0; }
 .cr-panel__head .calc-btn { min-width: 48px; }
+
+/* ── v1.1：注文の問題のアニメ・ヒントの小窓（orderex.js） ── */
+.cr-oxbtns { display: flex; gap: 8px; margin: 6px 0 4px; }
+.cr-oxbtns .btn { flex: 1; font-size: 12px; }
+.cr-hintbtn { color: #05081A; background: linear-gradient(90deg, #FFC83A, #ffe9a6); box-shadow: 0 0 12px rgba(255, 200, 58, 0.45); }
+.cr-ox { position: fixed; inset: 0; z-index: 40; display: flex; align-items: center; justify-content: center; padding: 16px; background: rgba(3, 6, 18, 0.62); backdrop-filter: blur(3px); }
+.cr-ox[hidden] { display: none; }
+.cr-ox__card { width: min(420px, 100%); max-height: calc(100vh - 32px); overflow-y: auto; padding: 12px 14px 14px; clip-path: var(--chamfer); background: var(--scan), var(--seigaiha), rgba(9, 15, 40, 0.97); box-shadow: inset 0 0 0 1px var(--stroke-strong); animation: cr-ox-in .28s ease-out; }
+@keyframes cr-ox-in { from { opacity: 0; transform: translateY(10px) scale(0.97); } to { opacity: 1; transform: none; } }
+.cr-ox__bar { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
+.cr-ox__bar b { font-size: 14px; color: var(--neon-2, #FFC83A); letter-spacing: 0.04em; }
+.cr-ox__cv { display: block; width: 100%; height: 230px; }
+.cr-ox__steps { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 4px; }
+.cr-ox__steps li { padding: 5px 8px; font-size: 12px; line-height: 1.5; color: var(--dim); border-left: 3px solid rgba(120, 150, 220, 0.3); transition: color .3s, border-color .3s, background .3s; }
+.cr-ox__steps li b { margin-right: 6px; color: inherit; }
+.cr-ox__steps li.is-on { color: #fff; border-left-color: var(--neon-1, #36A9FF); background: rgba(54, 169, 255, 0.12); }
+.cr-ox__tip, .cr-ox__hint, .cr-ox__how { margin: 8px 0 0; font-size: 12.5px; line-height: 1.65; }
+.cr-ox__hint { padding: 8px 10px; color: #fff3cf; background: rgba(255, 200, 58, 0.1); border-left: 3px solid #FFC83A; }
+.cr-ox__how { padding: 8px 10px; color: #e8f6ff; background: rgba(54, 169, 255, 0.1); border-left: 3px solid var(--neon-1, #36A9FF); animation: cr-ox-in .3s ease-out; }
+.cr-ox .btn--small[data-act="ox-more"] { margin-top: 8px; width: 100%; }
+.cr-ox__foot { display: flex; gap: 8px; margin-top: 10px; }
+.cr-ox__foot .btn { flex: 1; }
+
+/* v1.1：ワールドの新しい名前は英語だと長いので、2行まで折り返す */
+html[lang="en"] .cr-logo__name { white-space: normal; font-size: 26px; letter-spacing: 0.04em; text-align: center; }

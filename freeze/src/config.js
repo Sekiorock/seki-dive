@@ -1,7 +1,7 @@
 // freeze/src/config.js
 // ③ フリーズ・ガードの数値の設定（全体の仕様書 9章）。数値はここに集め、プログラムの中に直接書かない。
 
-export const VERSION = 'freeze v1.0.0';
+export const VERSION = 'freeze v1.1.0';
 
 // ── 計算に使う定数（教科書の値） ──
 export const CONST = {
@@ -134,8 +134,8 @@ export const SPREAD = {
 
 // ── 目安メーター（v0.4）：準備のとき、撒く量を入れると、その量での凍る温度などを数直線で見せる ──
 export const ASSIST = {
-  meterNoBonus: true,   // メーターを使った夜は、予算ボーナス（★ 40 ヒヤマ）なし（自分で計算した人へのごほうびとして）
-  meterOnFirst: true,   // ステージ1の1夜めは、はじめからメーターをつけておく（しくみをつかむため）
+  meterNoBonus: false,  // v1.1：メーターを使っても予算ボーナスがもらえる（前は、使うとボーナスなし）
+  meterOnFirst: true,   // どのステージも1夜めは、はじめからメーターをつけておく（v1.1：前はステージ1だけ）
 };
 
 // ── 朝の解説で、まき方の傾向を見分ける幅 ──
@@ -165,7 +165,7 @@ export const WAVE = {
   minPlayers: 2,
   maxPlayers: 12,
   nights: 5,
-  decideSec: 60,        // 撒く量を決める時間
+  decideSec: 90,        // 撒く量を決める時間（v1.1：60 → 90 秒）
   nightSec: 14,         // 撒く → 夜 → 結果 を見せる時間（この間に寒波の相手を選ぶ）
   substances: ['urea', 'glucose', 'NaCl', 'CaCl2'],
   budgetPerMol: 9.6,    // 予算 ＝ 寒波なしで守るのに必要な粒子の物質量 × この数（ステージ2と同じ）
@@ -187,7 +187,7 @@ export const TUG = {
   maxPlayers: 12,
   teamMax: 6,
   rounds: 6,
-  decideSec: 20,
+  decideSec: 30,        // v1.1：20 → 30 秒
   revealSec: 8,
   cmPerMol: 12,
   goalCm: 8,
@@ -212,3 +212,6 @@ export const GLOW = {
   groundY: 0,
   size: 1.1,
 };
+
+// ── v1.1：説明の1ページめ「公式のアニメ」（数値が自動で行ったり来たりする） ──
+export const FZ_ANIM = { cycleSec: 4 };   // 片道の秒数

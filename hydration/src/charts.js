@@ -278,8 +278,9 @@ export function expandChart(chart, diff) {
       const t = bar * barSec + i * stepSec;
       const def = NOTES[id];
       const solvent = solventAt(chart, bar);
-      // やさしい：裏拍（8分音符の奇数番目）のノーツは抜く
-      if (diff.thin && i % 2 === 1) return;
+      // 間引く：thinEvery が 2 なら裏拍（8分音符の奇数番目）を、4 なら1拍目と3拍目以外を抜く
+      const every = diff.thinEvery || (diff.thin ? 2 : 1);
+      if (every > 1 && i % every !== 0) return;
       // ヘキサンの中の糖は、水和しないので1つのノーツ（見送る）
       if (def.chain && solvent === 'hexane') { notes.push({ t, noteId: id, solvent, answer: 'PASS' }); return; }
       if (def.chain) {

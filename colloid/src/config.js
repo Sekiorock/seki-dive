@@ -1,7 +1,7 @@
 // colloid/src/config.js
 // ④ コロイド・ミストの数値の設定（全体の仕様書 10章）。数値はここに集め、プログラムの中に直接書かない。
 
-export const VERSION = 'colloid v1.0.0';
+export const VERSION = 'colloid v1.1.0';
 
 // ── エリア：入るときに道具を1つ受け取り、謎を順に解く。全部解くとエリアを抜ける ──
 export const AREAS = [
@@ -165,10 +165,13 @@ export const RACE = {
   maxPlayers: 12,
   teamMax: 6,
   gates: 10,            // 関門の数（最後が湖の社）
-  limitSec: 480,        // 制限時間（秒）。時間切れなら、進んだ関門が多いチームの勝ち
-  wrongLockSec: 5,      // まちがえると、この秒数は答えられない
+  limitSec: 600,        // 制限時間（秒）。時間切れなら、進んだ関門が多いチームの勝ち（v1.1：480 → 600 秒）
+  wrongLockSec: 3,      // まちがえると、この秒数は答えられない（v1.1：5 → 3 秒）
   fogSec: 10,           // 霧の壁が続く秒数
   fogPerTeam: 2,        // 1チームが送れる霧の壁の数
   pingSec: 4,           // 「呼ぶ」の知らせを出す秒数
   idleSec: 90,          // この秒数、何も操作しないと放置（罰金）
 };
+
+// ── v1.1：選択肢の問題で、この回数まちがえたら、まちがいの選択肢を1つずつ消していく（ヒント） ──
+export const ELIM = { after: 2 };

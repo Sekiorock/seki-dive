@@ -1,7 +1,7 @@
 // crystal/src/config.js
 // ② クリスタル・ラボの数値の設定。数値はここに集め、プログラムの中に直接書かない。
 
-export const VERSION = 'crystal v1.0.0';
+export const VERSION = 'crystal v1.1.0';
 
 // 実験台の並び
 export const BENCHES = ['solid', 'gas', 'conc'];
@@ -131,16 +131,17 @@ export const REFINE = {
   adhere: 0.15,               // ろ過したあと、結晶にしみこんで残る液（母液）の割合（結晶の質量に対して）
   washTemp: 0,                // 洗うのに使う冷水の温度（℃）
   washEff: 0.5,               // 洗う水が、どれだけ結晶を溶かしてしまうか（溶解度いっぱいを 1 とする）
-  washMax: 3,                 // 洗える回数
+  washMax: 4,                 // 洗える回数（v1.1：3 → 4）
   wash: { min: 0, max: 50, step: 5, start: 20 },   // 1回に使う冷水（g）
   // 段階：混合物の中身（g）と、目標（取り出す KNO₃ の質量 g 以上、純度 % 以上）
-  near: { mass: 10, purity: 1.0, reward: 40 },   // 目標まで 質量 10 g・純度 1% 以内なら「おしい」（はじめてのとき 40 ヒヤマ。次の段階も開く）
+  // v1.1：目標をやさしくした（質量を少なめ、純度を低め、「おしい」の幅を広く）
+  near: { mass: 15, purity: 1.5, reward: 40 },   // 目標まで 質量 15 g・純度 1.5% 以内なら「おしい」（はじめてのとき 40 ヒヤマ。次の段階も開く）
   levels: [
-    { kno3: 90, cuh: 10, mass: 45, purity: 98.0 },
-    { kno3: 80, cuh: 20, mass: 40, purity: 98.0 },
-    { kno3: 70, cuh: 30, mass: 33, purity: 98.5 },
-    { kno3: 60, cuh: 40, mass: 24, purity: 98.5 },
-    { kno3: 100, cuh: 20, mass: 65, purity: 99.0 },
+    { kno3: 90, cuh: 10, mass: 40, purity: 97.0 },
+    { kno3: 80, cuh: 20, mass: 35, purity: 97.0 },
+    { kno3: 70, cuh: 30, mass: 28, purity: 97.5 },
+    { kno3: 60, cuh: 40, mass: 20, purity: 97.5 },
+    { kno3: 100, cuh: 20, mass: 58, purity: 98.0 },
   ],
 };
 
@@ -149,7 +150,7 @@ export const NEARPIN = {
   minPlayers: 2,
   maxPlayers: 12,
   rounds: 5,                  // 5回戦。合計の誤差が小さい順に順位
-  decideSec: 30,              // 水の質量と温度を決める時間（秒）
+  decideSec: 45,              // 水の質量と温度を決める時間（秒）。v1.1：30 → 45 秒
   revealSec: 10,              // 一斉に冷やして結果を見せる時間（秒）
   coolSec: 4.5,               // そのうち、冷やしていく動きの時間（秒）
   startTemp: 80,              // 冷やしはじめる温度（℃）
@@ -180,4 +181,17 @@ export const GLOW = {
   sparkle: '#FFE38A',
   groundY: -0.28,
   size: 1.2,
+};
+
+// ── v1.1：注文の「問題のアニメ」と「ヒントの小窓」（orderex.js） ──
+// アニメの時間（秒）：はじめで止まる・動く・おわりで止まる。くり返す
+export const ORDER_EX = { hold0: 1.4, move: 3.2, hold1: 2.4, pastT: 25 };   // pastT：温度を聞く問題では、答えより 25℃ 先まで冷やして見せる
+// 注文ごとのヒントの種類（ヒントの文は shared/i18n の cr.hint.○○）
+export const ORDER_HINT = {
+  o01: 'max', o02: 'max', o03: 'evapAll',
+  o04: 'cool', o05: 'coolSat', o06: 'cool', o07: 'cool', o08: 'cool',
+  o09: 'startT', o10: 'startT', o11: 'evap', o12: 'cool',
+  o13: 'hydWater', o14: 'hydDissolve', o15: 'hydCool', o16: 'mix',
+  o17: 'gasP', o18: 'gasVol', o19: 'gasAir', o20: 'gasT',
+  o21: 'percent', o22: 'molality', o23: 'molarity', o24: 'molarityDens',
 };

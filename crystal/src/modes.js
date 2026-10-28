@@ -8,6 +8,7 @@
 
 import { faceFig, say } from '../../shared/characters.js';
 import { ORDER, REFINE, GLOW } from './config.js';
+import * as ox from './orderex.js';
 import { ORDERS, buildState, rankOf } from './orders.js';
 import { defineMix, mixEq, filter, wash, dry } from './refine.js';
 import { curvePoint, solubility } from './solubility.js';
@@ -18,6 +19,7 @@ const pad2 = (n) => String(n).padStart(2, '0');
 
 export function createModes(ctx) {
   const { $, t, esc, scene, faceUrl, guide } = ctx;
+  ox.initOrderEx({ $, t, esc });
 
   let kind = null;            // 'order' | 'refine' | null
   // ── 注文 ──
@@ -99,6 +101,12 @@ export function createModes(ctx) {
     ctx.enterLab('order');
     readout(st0, false);
     renderOrder();
+    // v1.1：はじめて開いた注文では、問題のアニメを自動で見せる
+    const seen = data().exSeen || {};
+    if (!seen[o.id]) {
+      ctx.setData({ ...data(), exSeen: { ...seen, [o.id]: Date.now() } });
+      ox.openEx(o, 'ex');
+    } else ox.closeEx();
   }
 
   function renderOrder() {
@@ -131,7 +139,10 @@ export function createModes(ctx) {
       + `<span class="cr-tag cr-tag--${o.type}">${esc(t(`cr.order.type.${o.type}`))}</span>`
       + `${rec ? `<em>${esc(t('cr.order.stars', { s: stars(rec.rank) }))}</em>` : ''}`
       + `<button type="button" class="cr-fold calc-btn" data-act="calc">${esc(t('calc.open'))}</button><button type="button" class="cr-fold" data-act="order-list">${esc(t('cr.order.list'))}</button></div>`
-      + `<div class="cr-order">${faceFig(t, guide, { size: 44 })}<p>${esc(say(t, guide, q))}</p></div>${body}`;
+      + `<div class="cr-order">${faceFig(t, guide, { size: 44 })}<p>${esc(say(t, guide, q))}</p></div>`
+      // v1.1：問題のアニメとヒントは、いつでも開ける
+      + `<div class="cr-oxbtns"><button type="button" class="btn btn--small" data-act="order-ex">▶ ${esc(t('cr.ex.open'))}</button>`
+      + `<button type="button" class="btn btn--small cr-hintbtn" data-act="order-hint">💡 ${esc(t('cr.ex.hint'))}</button></div>${body}`;
     ctx.updateViewport();
   }
 
@@ -145,6 +156,7 @@ export function createModes(ctx) {
   }
 
   function startRun() {
+    ox.closeEx();
     const o = order();
     phase = 'run';
     run = { t0: performance.now(), st0: buildState(o.bench, o.start) };
@@ -314,6 +326,9 @@ export function createModes(ctx) {
   }
 
   function onClick(act, b) {
+    if (ox.onClick(act)) return true;
+    if (act === 'order-ex') { ox.openEx(order(), 'ex'); return true; }
+    if (act === 'order-hint') { ox.openEx(order(), 'hint'); return true; }
     if (act === 'order-open') { openOrder(Number(b.dataset.i)); return true; }
     if (act === 'refine-open') { openRefine(Number(b.dataset.i)); return true; }
     if (act === 'order-decide') { decide(); return true; }
@@ -341,7 +356,7 @@ export function createModes(ctx) {
       return false;
     },
     onKey(e) { if (kind === 'order' && phase === 'predict' && e.key === 'Enter' && e.target.id === 'og') { e.preventDefault(); decide(); } },
-    leave() { kind = null; run = null; },
+    leave() { kind = null; run = null; ox.closeEx(); },
     rerender() {
       if (kind === 'order') {
         const g = $('og'); if (g && phase === 'predict' && g.value !== '') guess = g.value;

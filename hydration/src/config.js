@@ -1,7 +1,7 @@
 // hydration/src/config.js
 // ① ハイドレーション・ビートの数値の設定。数値はここに集め、プログラムの中に直接書かない。
 
-export const VERSION = 'hydration v1.0.0';
+export const VERSION = 'hydration v1.1.0';
 
 // ── 判定の幅（ミリ秒。ノーツが判定リングに来た瞬間からのずれ） ──
 export const JUDGE = {
@@ -27,9 +27,14 @@ export const JUDGE = {
 //   reward    1曲の報酬の目安（ヒヤマ）。v0.5 からは shared/economy.js の hbRewardEasy などを使う
 //             （先生が管理画面から変えられるようにするため。ここは説明のための値）
 export const DIFFICULTY = {
-  easy:   { assist: 1, approachSec: 3.2, thin: true,  chainStep: 1, hclGap: 1,   reward: 30 },
-  normal: { assist: 2, approachSec: 2.7, thin: false, chainStep: 1, hclGap: 0.5, reward: 80 },
-  hard:   { assist: 3, approachSec: 2.2, thin: false, chainStep: 0.5, hclGap: 0.5, reward: 200 },
+  // v1.1：全体にやさしくした。前の「やさしい」を「ふつう」に、前の「ふつう」を「むずかしい」にして、
+  //       もっとやさしい「やさしい」を新しく作った（前の「むずかしい」はなくなった）
+  //   thinEvery：ノーツを間引く（2＝裏拍を抜く、4＝1小節の1拍目と3拍目だけ）
+  //   judgeMul：判定の幅の倍率（大きいほどずれても当たる）
+  //   clearPct：クリアに必要な水和ゲージ（%）、missMul：ミスで減るゲージの倍率
+  easy:   { assist: 1, approachSec: 4.0, thinEvery: 4, chainStep: 2, hclGap: 2,   judgeMul: 1.6, clearPct: 50, missMul: 0.5, reward: 30 },
+  normal: { assist: 1, approachSec: 3.2, thinEvery: 2, chainStep: 1, hclGap: 1,   judgeMul: 1.25, clearPct: 60, missMul: 0.8, reward: 80 },
+  hard:   { assist: 2, approachSec: 2.7, thinEvery: 1, chainStep: 1, hclGap: 0.5, judgeMul: 1.0, clearPct: 70, missMul: 1.0, reward: 200 },
 };
 export const DEFAULT_DIFFICULTY = 'easy';
 

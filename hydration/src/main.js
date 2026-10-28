@@ -132,7 +132,7 @@ function renderTickets() {
   const hint = itemCount('hint'), practice = itemCount('practice');
   if (!hint) useHint = false;
   const rows = [];
-  if (hint && pick.diff !== 'easy') {
+  if (hint && DIFFICULTY[pick.diff].assist > 1) {
     rows.push(`<label class="hb-ticket"><input type="checkbox" data-act="use-hint" ${useHint ? 'checked' : ''}><span>${esc(t('hb.ticket.hint'))}　<b>×${hint}</b></span></label>`);
   }
   if (practice) {
@@ -156,7 +156,7 @@ async function startPlay(opts = {}) {
   }
   // ヒント券：ふつう・むずかしいでも、この曲だけ補助輪1の文字を出す
   let hinted = false;
-  if (!weak && !bt && useHint && pick.diff !== 'easy' && useItem('hint')) { hinted = true; toast(t('hb.ticket.hintUsed')); }
+  if (!weak && !bt && useHint && DIFFICULTY[pick.diff].assist > 1 && useItem('hint')) { hinted = true; toast(t('hb.ticket.hintUsed')); }
   useHint = false;
   const ctx = await unlockAudio();
   const diffId = bt ? bt.diff : pick.diff;
@@ -170,8 +170,13 @@ async function startPlay(opts = {}) {
   const judge = createJudge(notes, NOTES, {
     offsetMs: off === null ? JUDGE.inputOffsetMs : off,
     // バトルロイヤル：ゲージは半分から始まり、ミスで大きく減る（0 で脱落）
-    ...(royale ? { startPct: ROYALE.startPct, negMul: ROYALE.negMul } : {}),
+    // v1.1：難易度ごとの判定の幅・クリアの条件・ミスで減る量
+    judgeMul: diff.judgeMul || 1,
+    clearPct: royale ? GAUGE.clearPct : (diff.clearPct || GAUGE.clearPct),
+    negMul: (royale ? ROYALE.negMul : 1) * (diff.missMul || 1),
+    ...(royale ? { startPct: ROYALE.startPct } : {}),
   });
+  $('hud-gauge').querySelector('.hb-gauge__mark').style.left = `${judge.clearPct}%`;
   const song = createSong(chart, exp);
   // 対戦では、2人の端末で同じ時刻に始まるように、サーバーの時計で決めた開始の時刻に合わせる
   const t0 = bt ? ctx.currentTime + Math.max(0.5, (bt.startAt - serverNow()) / 1000) : ctx.currentTime + NOTE.leadInSec;
@@ -310,7 +315,7 @@ function updateHud() {
     $('hud-gauge-fill').style.width = `${play.judge.stats.gauge}%`;
     $('hud-gauge-pct').textContent = `${g}%`;
     $('hud-gauge').setAttribute('aria-valuenow', String(g));
-    $('hud-gauge').classList.toggle('is-clear', play.judge.stats.gauge >= GAUGE.clearPct);
+    $('hud-gauge').classList.toggle('is-clear', play.judge.stats.gauge >= play.judge.clearPct);
     play.lastGauge = g;
   }
   const sc = play.judge.score();
@@ -349,7 +354,7 @@ async function finish() {
     rw.first = first;
   }
   lastResult = {
-    clear, gauge: play.judge.stats.gauge, clearPct: GAUGE.clearPct, news,
+    clear, gauge: play.judge.stats.gauge, clearPct: play.judge.clearPct, news,
     unlocked: un ? { n: un.stageNo, titleKey: un.titleKey } : null,
     stageNo: play.chart.stageNo, practiceKey: play.weak ? 'hb.weak.label' : 'hb.practiceLabel',
     stageTitleKey: play.chart.titleKey, diffId: play.diffId, hinted: play.hinted,
@@ -449,7 +454,7 @@ function updateRival(v) {
 async function finishBattle() {
   addWeak(play.notes);
   lastResult = {
-    clear: play.judge.cleared(), gauge: play.judge.stats.gauge, clearPct: GAUGE.clearPct, news: { newRecord: false },
+    clear: play.judge.cleared(), gauge: play.judge.stats.gauge, clearPct: play.judge.clearPct, news: { newRecord: false },
     unlocked: null, stageNo: play.chart.stageNo, practiceKey: 'hb.practiceLabel',
     stageTitleKey: play.chart.titleKey, diffId: play.diffId, score: play.judge.score(), stats: play.judge.stats, avatar,
     reward: { state: 'none' }, battle: { state: 'waiting', ranks: [] },

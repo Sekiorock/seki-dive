@@ -16,8 +16,10 @@
 import { JUDGE, SCORE, GAUGE } from './config.js';
 import { mistakeKind } from './notes.js';
 
-export function createJudge(notes, defs, { offsetMs = JUDGE.inputOffsetMs, startPct = GAUGE.startPct, negMul = 1 } = {}) {
-  const goodSec = JUDGE.good / 1000;
+export function createJudge(notes, defs, { offsetMs = JUDGE.inputOffsetMs, startPct = GAUGE.startPct, negMul = 1, judgeMul = 1, clearPct = GAUGE.clearPct } = {}) {
+  // v1.1：難易度ごとに判定の幅を広げる（judgeMul）
+  const W = { perfect: JUDGE.perfect * judgeMul, great: JUDGE.great * judgeMul, good: JUDGE.good * judgeMul };
+  const goodSec = W.good / 1000;
   const offset = offsetMs / 1000;
   const gaugeUnit = notes.length ? 100 / (notes.length * GAUGE.fullAt) : 0;
   const graceSec = (JUDGE.missGraceMs || 0) / 1000;
@@ -39,8 +41,8 @@ export function createJudge(notes, defs, { offsetMs = JUDGE.inputOffsetMs, start
   const answerOf = (n) => n.answer || defs[n.noteId].answer;
 
   function grade(absMs) {
-    if (absMs <= JUDGE.perfect) return 'perfect';
-    if (absMs <= JUDGE.great) return 'great';
+    if (absMs <= W.perfect) return 'perfect';
+    if (absMs <= W.great) return 'great';
     return 'good';
   }
 
@@ -151,6 +153,7 @@ export function createJudge(notes, defs, { offsetMs = JUDGE.inputOffsetMs, start
     score() { return stats.total ? Math.round((stats.rateSum / stats.total) * SCORE.max) : 0; },
     done() { return cursor >= notes.length; },
     /** クリアしたか（曲の終わりに水和ゲージが clearPct % 以上） */
-    cleared() { return stats.gauge >= GAUGE.clearPct; },
+    cleared() { return stats.gauge >= clearPct; },
+    clearPct,
   };
 }

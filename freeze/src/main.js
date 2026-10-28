@@ -9,7 +9,7 @@
 //   朝：守れた区間の数と残った予算で評価。凍った区間・むだの多い区間に、どこで計算がずれたかの解説。
 //   報酬：1夜を守り切ると 60 ヒヤマ、予算を半分以上残すと追加 40 ヒヤマ（どちらも、その夜で初めてのときだけ）。
 
-import { VERSION, SUBSTANCES, STAGES, LOCKED_STAGES, NIGHT, REWARD, CONST, SPREAD, ASSIST, WAVE, TUG, GLOW } from './config.js';
+import { VERSION, SUBSTANCES, STAGES, LOCKED_STAGES, NIGHT, REWARD, CONST, SPREAD, ASSIST, WAVE, TUG, GLOW, FZ_ANIM } from './config.js';
 import { nightOf, plan, judge, nightState, needed, coolingCurve, molarFrom } from './model.js';
 import { chainOf, demoOf, pictureOf, EXAMPLES, SHOW_IONS } from './tutorial.js';
 import { pictureSvg, ionsHtml, lineBar } from './explain.js';
@@ -69,8 +69,10 @@ const key = (s, n) => `${s + 1}-${n + 1}`;
 function rec() { return getWorldData(WORLD).nights || {}; }
 function nightOpen(s, n) {
   if (s === 0 && n === 0) return true;
-  if (n > 0) return !!(rec()[key(s, n - 1)] || {}).cleared;
-  return !!(rec()[key(s - 1, STAGES[s - 1].nights.length - 1)] || {}).cleared;
+  // v1.1：守り切れなくても、凍った区間が1つまでなら次の夜へ進める（passed）
+  const ok = (r) => !!(r && (r.cleared || r.passed));
+  if (n > 0) return ok(rec()[key(s, n - 1)]);
+  return ok(rec()[key(s - 1, STAGES[s - 1].nights.length - 1)]);
 }
 function stageOpen(s) { return nightOpen(s, 0); }
 
@@ -128,7 +130,7 @@ function startNight(s, n, keepPicks = false) {
   if (!keepPicks || picks.length !== night.sections.length) picks = night.sections.map(() => ({ sub: night.substances[0] || null, mass: '' }));
   phase = 'prep';
   if (scene) scene.clearSpread();
-  if (!keepPicks) { meter = ASSIST.meterOnFirst && s === 0 && n === 0; meterUsed = meter; }
+  if (!keepPicks) { meter = ASSIST.meterOnFirst && n === 0; meterUsed = meter; }   // v1.1：どのステージも1夜めはメーターつき
   else meterUsed = meter;
   run = null; result = null; rewardText = '';
   scene.setTheme(night.kind);
@@ -141,8 +143,9 @@ function startNight(s, n, keepPicks = false) {
   renderPanel();
   updateSections();
   // そのステージを初めて遊ぶときは、解き方の説明から
+  // v1.1：どのステージも、第1夜を始めるときは毎回、公式のアニメから説明する（やり直しのときは出さない）
   const seen = getWorldData(WORLD).tut || {};
-  if (!seen[night.stage]) openTut('intro');
+  if (!seen[night.stage] || (n === 0 && !keepPicks)) openTut('intro');
 }
 
 function subName(id) { return t(`fz.sub.${id}`); }
@@ -156,9 +159,9 @@ function setDawn(k) {
 
 // ───────────── 解き方の説明（v0.4：しくみ → ためしてみよう → 計算のレシピ） ─────────────
 const tut = { mode: 'intro', idx: 0, page: 0, shown: 0, demo: 0 };
-function closeTut() { const m = $('tut'); if (m) m.hidden = true; }
+function closeTut() { stopAnim(); const m = $('tut'); if (m) m.hidden = true; }
 function failRows() { return result ? result.rows.map((r, k) => ({ r, k })).filter((x) => x.r.fail) : []; }
-function tutPages() { return tut.mode === 'recap' ? ['recipe'] : ['how', 'try', 'recipe']; }
+function tutPages() { return tut.mode === 'recap' ? ['recipe'] : ['anim', 'how', 'try', 'recipe']; }
 /** mode：'intro'（ステージのはじめ）| 'recap'（失敗した区間の数値で） */
 function openTut(mode, idx = 0) {
   if (mode === 'recap' && !failRows().length) return;
@@ -192,7 +195,13 @@ function renderTut() {
     ? t('fz.recapTitle', { n: kind === 'mm' ? t('fz.sampleN', { n: k + 1 }) : t('fz.secN', { n: k + 1 }) })
     : t('fz.tutTitle', { s: stage, name: t(`fz.stage${stage}.name`) });
   let body = '';
-  if (page === 'how') {
+  stopAnim();
+  if (page === 'anim') {
+    body = `<p class="fz-tut__big">${esc(t(`fz.anim.head.${demoOf(kind).outKey}`))}</p>`
+      + `<div class="fz-anim" id="tut-anim"><p class="fz-anim__formula">${esc(formulaOf(kind))}</p>`
+      + `<p class="fz-anim__live" id="tut-anim-live"></p><div id="tut-anim-out"></div></div>`
+      + `<p class="fz-tut__lead">${esc(t(`fz.anim.cap.${demoOf(kind).outKey}`))}</p>`;
+  } else if (page === 'how') {
     const pic = pictureOf(kind);
     const subs = ['NaCl', 'CaCl2', 'urea'];
     body = `<p class="fz-tut__big">${esc(t(`fz.how.${kind === 'curve' ? 'freeze' : kind}.head`))}</p>`
@@ -217,10 +226,56 @@ function renderTut() {
     if (more) foot += `<button type="button" class="btn" data-act="tut-next">${esc(t('fz.tutNextFail'))}</button>`;
     foot += `<button type="button" class="btn btn--primary" data-act="tut-close">${esc(t('fz.tutClose'))}</button>`;
   }
+  if (page === 'anim') setTimeout(() => startAnim(kind), 0);
   m.innerHTML = `<div class="fz-tut__card"><div class="fz-tut__bar"><b>${esc(title)}</b>${dots}<button type="button" class="fz-mini" data-act="tut-close" aria-label="${esc(t('calc.close'))}">×</button></div>`
     + body + `<div class="fz-foot">${foot}</div></div>`;
   m.scrollTop = 0;
 }
+// ── v1.1：公式に連動するアニメ（説明の1ページめ）。数値が自動で行ったり来たりし、公式の数と粒と温度の線が一緒に動く ──
+let animRaf = 0;
+function stopAnim() { if (animRaf) cancelAnimationFrame(animRaf); animRaf = 0; }
+function formulaOf(kind) {
+  return { fp: 'Δt = K_f × m', bp: 'Δt = K_b × m', vp: 'm = n ÷ W', os: 'Π = c R T', mm: 'Δt = K_f × (w ÷ M) ÷ W' }[demoOf(kind).outKey];
+}
+/** 公式に今の数を入れた式（数が動くところを光らせる） */
+function liveOf(kind, x) {
+  const d = demoOf(kind);
+  const b = (v) => `<b class="fz-anim__v">${v}</b>`;
+  const f2 = (v) => (Math.round(v * 100) / 100).toFixed(2);
+  const f1 = (v) => (Math.round(v * 10) / 10).toFixed(1);
+  if (d.outKey === 'fp') { const dt = CONST.Kf * x; return `Δt = 1.85 × ${b(f1(x))} = ${b(f2(dt))} K　→　${esc(t('fz.anim.fpAt'))} ${b(`${dt > 0 ? '−' : ''}${f2(dt)}℃`)}`; }
+  if (d.outKey === 'bp') { const dt = CONST.Kb * x; return `Δt = 0.515 × ${b(f1(x))} = ${b(f2(dt))} K　→　${esc(t('fz.anim.bpAt'))} ${b(`${f2(100 + dt)}℃`)}`; }
+  if (d.outKey === 'vp') { const m = 1.2 / (1 + x); return `m = 1.20 ÷ (1.0 + ${b(f1(x))}) = ${b(f2(m))} mol/kg`; }
+  if (d.outKey === 'os') { const P = (x * CONST.R * 298) / 1e5; return `Π = ${b(f2(x))} × 8.31×10³ × 298 = ${b(f1(P))}×10⁵ Pa`; }
+  const dt = CONST.Kf * (9 / x) / 0.1;
+  return `Δt = 1.85 × (9.0 ÷ ${b(Math.round(x))}) ÷ 0.100 = ${b(f2(dt))} K`;
+}
+function startAnim(kind) {
+  stopAnim();
+  const d = demoOf(kind);
+  const t0 = performance.now();
+  const lo = d.outKey === 'mm' ? d.min : d.min, hi = d.outKey === 'mm' ? d.max : d.min + (d.max - d.min) * 0.8;
+  let last = -1;
+  const tick = (now) => {
+    const live = $('tut-anim-live'), out = $('tut-anim-out');
+    if (!live || !out) { animRaf = 0; return; }
+    // 4秒で行って、4秒で戻る（はじめと終わりで少し止まる）
+    const ph = ((now - t0) / 1000) % (FZ_ANIM.cycleSec * 2);
+    const k = Math.min(1, Math.max(0, ph < FZ_ANIM.cycleSec ? ph / FZ_ANIM.cycleSec : 2 - ph / FZ_ANIM.cycleSec) * 1.15 - 0.075);
+    const e = k < 0.5 ? 2 * k * k : 1 - (-2 * k + 2) ** 2 / 2;
+    const raw = lo + (hi - lo) * e;
+    const x = Math.round(raw / d.step) * d.step;
+    if (x !== last) {
+      last = x;
+      tut.demo = x;
+      live.innerHTML = liveOf(kind, x);
+      out.innerHTML = demoOut(kind);
+    }
+    animRaf = requestAnimationFrame(tick);
+  };
+  animRaf = requestAnimationFrame(tick);
+}
+
 /** ためしてみよう：スライダーで粒を動かす */
 function demoHtml(kind) {
   const d = demoOf(kind);
@@ -374,7 +429,7 @@ function renderPanel() {
           + `<span class="fz-meter" id="mt${k}" ${meter ? '' : 'hidden'}>${meter ? barOf(kind, p.rows[k]) : ''}</span></li>`;
       }).join('')}</ol>`
       + `<p class="fz-note">${esc(t(`fz.colHelp.${kind}`))}</p>`
-      + (meter && ASSIST.meterNoBonus ? `<p class="fz-note fz-note--hot">${esc(t('fz.meterNote'))}</p>` : '')
+      + (meter ? `<p class="fz-note fz-note--hot">${esc(t('fz.meterNote'))}</p>` : '')
       + `<div class="fz-foot"><button type="button" class="btn btn--primary" data-act="go-night" id="go-btn" ${p.over ? 'disabled' : ''}>${esc(t(p.over ? 'fz.overBudget' : `fz.go.${kind}`))}</button></div>`;
   } else if (phase === 'spread') {
     box.innerHTML = head('') + `<p class="fz-spread__cap">${esc(t(`fz.spread.${kind}`))}</p><ol class="fz-rows" id="spread-rows"></ol>`;
@@ -393,7 +448,8 @@ function renderPanel() {
       + (rewardText ? `<p class="fz-sum__reward">${esc(rewardText)}</p>` : '') + '</div>'
       + `<ul class="fz-diag">${r.rows.map((row, k) => diagLine(row, k)).join('')}</ul>`
       + `<div class="fz-foot"><button type="button" class="btn" data-act="retry">${esc(t('fz.retry'))}</button>`
-      + (r.all && nextNight() ? `<button type="button" class="btn btn--primary" data-act="next">${esc(t('fz.next'))}</button>` : '')
+      + (!r.all && r.safe >= r.rows.length - 1 ? `<p class="fz-note fz-note--hot">${esc(t('fz.passNext'))}</p>` : '')
+      + (r.safe >= r.rows.length - 1 && nextNight() ? `<button type="button" class="btn btn--primary" data-act="next">${esc(t('fz.next'))}</button>` : '')
       + `<button type="button" class="btn" data-act="to-title">${esc(t('fz.toTitle'))}</button></div>`;
   }
   updateViewport();
@@ -659,7 +715,8 @@ async function morning() {
   const firstClear = r.all && !prev.cleared && night.kind !== 'mm';
   const noBonus = ASSIST.meterNoBonus && meterUsed;
   const firstBonus = r.all && r.half && !prev.bonus && night.kind !== 'mm' && !noBonus;
-  nights[k] = { cleared: prev.cleared || r.all, bonus: prev.bonus || (r.all && r.half && !noBonus), best: Math.max(prev.best || 0, r.safe), at: Date.now() };
+  const pass = r.all || r.safe >= r.rows.length - 1;
+  nights[k] = { cleared: prev.cleared || r.all, passed: !!(prev.passed || pass), bonus: prev.bonus || (r.all && r.half && !noBonus), best: Math.max(prev.best || 0, r.safe), at: Date.now() };
   setWorldData(WORLD, { ...d, nights });
   if (r.all) fx.celebrate();
   renderPanel();
@@ -750,7 +807,7 @@ function setupInput() {
     else if (act === 'tut-close') closeTut();
     else if (act === 'tut-next') openTut('recap', (tut.idx + 1) % Math.max(1, failRows().length));
     else if (act === 'tut-step') { tut.shown = Math.max(2, tut.shown + 1); renderTut(); }
-    else if (act === 'tut-nextp') { tut.page += 1; tut.shown = 1; renderTut(); }
+    else if (act === 'tut-nextp') { tut.page += 1; tut.shown = 1; tut.demo = demoOf(EXAMPLES[night.stage].kind).start; renderTut(); }
     else if (act === 'tut-prev') { tut.page = Math.max(0, tut.page - 1); tut.shown = tutPages()[tut.page] === 'recipe' ? 1 : 0; renderTut(); }
     else if (act === 'curve-close') closeCurve();
     else if (act === 'fast') {
