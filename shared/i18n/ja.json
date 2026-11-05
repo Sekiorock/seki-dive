@@ -2421,5 +2421,8 @@
   "cl.ihint.elim": "まちがいの選択肢を消したよ",
   "cl.ihint.t3": "光っているのが正解！ なぜそうなるか考えてから選ぼう",
   "cl.leverRule": "レバレッジ：エリアの中でのまちがいが {n} 回までならクリア",
-  "cl.r.amuletUsed": "霧よけのお札で、霧を晴らした！"
+  "cl.r.amuletUsed": "霧よけのお札で、霧を晴らした！",
+  "world.energy": "セキオエナジーロック",
+  "scale.energy": "化学反応とエネルギー",
+  "nav.new": "NEW"
 }

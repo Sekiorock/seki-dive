@@ -2421,5 +2421,8 @@
   "cl.ihint.elim": "Wrong choices removed",
   "cl.ihint.t3": "The glowing one is right! Think about why before you choose",
   "cl.leverRule": "Leverage: clear if you make {n} mistakes or fewer in the area",
-  "cl.r.amuletUsed": "The talisman cleared the mist!"
+  "cl.r.amuletUsed": "The talisman cleared the mist!",
+  "world.energy": "Sekio Energy Rock",
+  "scale.energy": "Reaction & Energy",
+  "nav.new": "NEW"
 }

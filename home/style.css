@@ -345,3 +345,13 @@ body.is-shop-open .hint { visibility: hidden; }
 @media (prefers-reduced-motion: reduce) {
   .hud-frame::after, .place-title__main { animation: none; }
 }
+
+/* 新作ワールドの NEW バッジ（nav の一覧） */
+.nav__new {
+  font-style: normal; font-family: 'Chakra Petch', sans-serif;
+  font-size: 10px; letter-spacing: .14em; vertical-align: 2px;
+  color: #060A1A; background: #FFC83A; padding: 1px 6px; border-radius: 2px;
+  animation: nav-new-blink 2.2s ease-in-out infinite;
+}
+@keyframes nav-new-blink { 0%, 100% { opacity: 1; } 50% { opacity: .55; } }
+@media (prefers-reduced-motion: reduce) { .nav__new { animation: none; } }

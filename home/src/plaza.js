@@ -284,6 +284,7 @@ function buildGate(def) {
     /** 先生が門を閉じたときは、光を消して灰色にする */
     setOpen: (v) => {
       open = v;
+      if (def.hideClosed) g.visible = v;
       portal.visible = v;
       lineMat.color.copy(v ? openColor : new THREE.Color(0x3a3f55));
       bodyMat.color.set(v ? 0xffffff : 0x4a4d5c);

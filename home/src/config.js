@@ -67,10 +67,12 @@ export const GATES = [
   { id: 'crystal',   angleDeg: 90 },   // 東  ② クリスタル・ラボ
   { id: 'freeze',    angleDeg: 180 },  // 南  ③ フリーズ・ガード
   { id: 'colloid',   angleDeg: 270 },  // 西  ④ コロイド・ミスト
+  // 別単元ワールド（energy/ フォルダ）。先生が閉じている間は門ごと消える（hideClosed）
+  { id: 'energy',    angleDeg: 135, hideClosed: true, isNew: true },  // 南東 ⑤ セキオエナジーロック
 ];
 
 // できあがっているワールド（門から、そのワールドのページへ移る）。できたら足していく
-export const READY_WORLDS = ['hydration', 'crystal', 'freeze', 'colloid'];
+export const READY_WORLDS = ['hydration', 'crystal', 'freeze', 'colloid', 'energy'];
 
 export const UI = {
   toastMs: 3600,        // 短いお知らせを出しておく時間（ミリ秒）

@@ -15,7 +15,7 @@ export function createNav({ onGate, onFacility }) {
     const gate = (g) => `
       <li><button type="button" class="nav__item ${isWorldOpen(g.id) ? '' : 'is-closed'}" data-gate="${g.id}">
         <i class="nav__mark" style="background:${ACCENTS[g.id].a1.neon};color:${ACCENTS[g.id].a1.neon}"></i>
-        <span>${t(`world.${g.id}`)}</span><small>${t(`scale.${g.id}`)}</small>
+        <span>${t(`world.${g.id}`)}${g.isNew ? ` <em class="nav__new">${t('nav.new')}</em>` : ''}</span><small>${t(`scale.${g.id}`)}</small>
       </button></li>`;
     const fac = (f) => `
       <li><button type="button" class="nav__item" data-facility="${f.id}">
@@ -24,7 +24,7 @@ export function createNav({ onGate, onFacility }) {
     sheet.innerHTML = `
       <div class="nav__box">
         <h2 class="nav__head">${t('nav.gates')}</h2>
-        <ul class="nav__list">${GATES.map(gate).join('')}</ul>
+        <ul class="nav__list">${GATES.filter((g) => !g.hideClosed || isWorldOpen(g.id)).map(gate).join('')}</ul>
         <h2 class="nav__head">${t('nav.facilities')}</h2>
         <ul class="nav__list">${[{ id: 'gov' }, ...FACILITIES].map(fac).join('')}</ul>
         <button type="button" class="btn nav__close">${t('shop.close')}</button>
