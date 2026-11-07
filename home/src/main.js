@@ -8,12 +8,12 @@
 // v0.5：管理画面、和柄とゲームの演出、先生が閉じた門
 // hydration v0.1 から：① の門から、ハイドレーション・ビートのページへ移る
 
-import { VERSION, RENDER, PLAZA, CAMERA, UI, STANDEE, GATES, READY_WORLDS, GLOW, GLOW_PROGRESS } from './config.js';
+import { VERSION, RENDER, PLAZA, CAMERA, UI, STANDEE, GATES, READY_WORLDS, GLOW, GLOW_PROGRESS, SHRINE } from './config.js';
 import { createGlow } from '../../shared/glow.js';
 import { initI18n, t, onLangChange, applyToDom, getLang, setLang } from '../../shared/i18n.js';
 import { applyTheme, ACCENTS, hexToInt } from '../../shared/theme.js';
 import { createTopbar } from '../../shared/topbar.js';
-import { buildPlaza } from './plaza.js';
+import { buildPlaza, henryIconCanvas } from './plaza.js';
 import { createQrOverlay } from './qr-overlay.js';
 import { runOnboarding } from './onboarding.js';
 import { getUser, initBackend, backend, setUserLang, getWorldData } from '../../shared/auth.js';
@@ -386,6 +386,9 @@ function startScene() {
       enterGate(data.gateId);
     } else if (data.facilityId) {
       openShop(data.facilityId);
+    } else if (data.shrine) {
+      if (!plaza.isShrineVisible()) return false;
+      openShrine();
     } else {
       return false;
     }
@@ -404,6 +407,34 @@ function startScene() {
     else toast(t('world.notReady', { world: t(`world.${world}`) }));
   }
 
+  // 御神体ヘンリー男爵：祈祷すると「気体の溶解ラボ」へ
+  function openShrine() {
+    document.getElementById('toast').classList.remove('is-shown');
+    const old = document.getElementById('shrine-dialog');
+    if (old) old.remove();
+    const el = document.createElement('div');
+    el.id = 'shrine-dialog';
+    el.className = 'shrine';
+    el.setAttribute('role', 'dialog');
+    el.setAttribute('aria-modal', 'true');
+    el.innerHTML = `
+      <div class="shrine__box">
+        <div class="shrine__icon"></div>
+        <h2 class="shrine__name">${t('home.shrine.name')}</h2>
+        <p class="shrine__sub">${t('home.shrine.sub')}</p>
+        <p class="shrine__line">${t('home.shrine.line')}</p>
+        <button type="button" class="btn btn--primary shrine__pray">${t('home.shrine.pray')}</button>
+        <button type="button" class="btn shrine__leave">${t('home.shrine.leave')}</button>
+      </div>`;
+    el.querySelector('.shrine__icon').append(henryIconCanvas(220));
+    el.addEventListener('click', (e) => {
+      if (e.target === el || e.target.closest('.shrine__leave')) { el.remove(); return; }
+      if (e.target.closest('.shrine__pray')) location.href = `${SHRINE.url}?from=home`;
+    });
+    document.body.append(el);
+    el.querySelector('.shrine__pray').focus();
+  }
+
   createNav({ onGate: enterGate, onFacility: openShop });
 
   // 言語を切り替えたら、3Dの名札と額の文字を描き直す
@@ -416,8 +447,12 @@ function startScene() {
 
   // 国庫の残高を、政府庁舎の上に浮かぶ掲示板に出す
   onTreasuryChange((n) => { plaza.setTreasury(n); requestRender(); });
-  // 先生が閉じたワールドの門は、灰色にして入れなくする
-  onSettingsChange(() => { GATES.forEach((gt) => plaza.setGateOpen(gt.id, isWorldOpen(gt.id))); requestRender(); });
+  // 先生が閉じたワールドの門は、灰色にして入れなくする。御神体は消したり出したりできる
+  onSettingsChange((s) => {
+    GATES.forEach((gt) => plaza.setGateOpen(gt.id, isWorldOpen(gt.id)));
+    plaza.setShrineVisible(!s || s.goshintaiOn !== false);
+    requestRender();
+  });
 
   // 描き直し：触っているときは毎回、何もしていないときは少なめに（電池のため）
   let last = 0;

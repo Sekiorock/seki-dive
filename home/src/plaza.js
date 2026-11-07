@@ -4,7 +4,7 @@
 //         角ばった鳥居と町家風の建物、五重の塔のような政府庁舎、提灯と石灯籠、浮かぶ光の粒。影は使わない。
 // 軽く保つため、1つの門・建物の部品は、材質ごとに1つの形にまとめて描く（画面の物体はおよそ60個）。
 
-import { PLAZA, GATE, GATES, STANDEE, FACILITY, FACILITIES, GOV, FX } from './config.js';
+import { PLAZA, GATE, GATES, STANDEE, FACILITY, FACILITIES, GOV, FX, SHRINE } from './config.js';
 import { standUrl, nameKey } from '../../shared/characters.js';
 import { ACCENTS, hexToInt } from '../../shared/theme.js';
 import { t } from '../../shared/i18n.js';
@@ -547,6 +547,126 @@ function buildWave() {
   };
 }
 
+// ───────────── 御神体ヘンリー男爵（気体の溶解ラボの祠） ─────────────
+const GOLD = '#ffd76a';
+
+/** ヘンリー男爵の肖像を2Dの絵で描く（祠の御神体と、祈祷の画面で使う） */
+function drawHenryIcon(ctx, S) {
+  const u = S / 120;
+  ctx.clearRect(0, 0, S, S);
+  // 後光（金の輪）
+  ctx.save();
+  ctx.strokeStyle = GOLD; ctx.lineWidth = 4.5 * u;
+  ctx.shadowColor = GOLD; ctx.shadowBlur = 16 * u;
+  ctx.beginPath(); ctx.arc(60 * u, 52 * u, 42 * u, 0, Math.PI * 2); ctx.stroke();
+  ctx.restore();
+  // 上着と襟
+  ctx.fillStyle = '#27406e';
+  ctx.beginPath();
+  ctx.moveTo(16 * u, 120 * u); ctx.quadraticCurveTo(22 * u, 94 * u, 40 * u, 90 * u);
+  ctx.lineTo(60 * u, 86 * u); ctx.lineTo(80 * u, 90 * u);
+  ctx.quadraticCurveTo(98 * u, 94 * u, 104 * u, 120 * u); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = '#ffffff';
+  ctx.beginPath(); ctx.moveTo(44 * u, 100 * u); ctx.lineTo(60 * u, 93 * u); ctx.lineTo(76 * u, 100 * u); ctx.lineTo(60 * u, 114 * u); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = '#8a1538';
+  ctx.beginPath(); ctx.moveTo(55 * u, 104 * u); ctx.lineTo(60 * u, 99 * u); ctx.lineTo(65 * u, 104 * u); ctx.lineTo(62 * u, 115 * u); ctx.lineTo(58 * u, 115 * u); ctx.closePath(); ctx.fill();
+  // 顔
+  ctx.fillStyle = '#f6dcc3';
+  ctx.beginPath(); ctx.ellipse(60 * u, 62 * u, 27 * u, 31 * u, 0, 0, Math.PI * 2); ctx.fill();
+  // 流した髪ともみあげ
+  ctx.fillStyle = '#9aa3b5';
+  ctx.beginPath();
+  ctx.moveTo(33 * u, 62 * u);
+  ctx.quadraticCurveTo(30 * u, 27 * u, 60 * u, 26 * u);
+  ctx.quadraticCurveTo(90 * u, 27 * u, 87 * u, 62 * u);
+  ctx.quadraticCurveTo(87 * u, 40 * u, 77 * u, 36 * u);
+  ctx.quadraticCurveTo(69 * u, 45 * u, 55 * u, 43 * u);
+  ctx.quadraticCurveTo(41 * u, 41 * u, 41 * u, 50 * u);
+  ctx.quadraticCurveTo(35 * u, 52 * u, 33 * u, 62 * u);
+  ctx.closePath(); ctx.fill();
+  ctx.fillRect(33 * u, 56 * u, 6 * u, 22 * u);
+  ctx.fillRect(81 * u, 56 * u, 6 * u, 22 * u);
+  // まゆ・すました目・モノクル・口もと
+  ctx.strokeStyle = '#4b5568'; ctx.lineWidth = 3 * u; ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.moveTo(40 * u, 54 * u); ctx.lineTo(54 * u, 56 * u); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(80 * u, 54 * u); ctx.lineTo(66 * u, 56 * u); ctx.stroke();
+  ctx.strokeStyle = '#1c2742'; ctx.lineWidth = 2.6 * u;
+  ctx.beginPath(); ctx.moveTo(42 * u, 61 * u); ctx.quadraticCurveTo(47 * u, 64 * u, 52 * u, 61 * u); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(68 * u, 61 * u); ctx.quadraticCurveTo(73 * u, 64 * u, 78 * u, 61 * u); ctx.stroke();
+  ctx.fillStyle = '#1c2742';
+  ctx.beginPath(); ctx.arc(47 * u, 61.5 * u, 1.9 * u, 0, 7); ctx.fill();
+  ctx.beginPath(); ctx.arc(73 * u, 61.5 * u, 1.9 * u, 0, 7); ctx.fill();
+  ctx.strokeStyle = '#d9a514'; ctx.lineWidth = 2 * u;
+  ctx.beginPath(); ctx.arc(73 * u, 62 * u, 9.5 * u, 0, Math.PI * 2); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(80 * u, 69 * u); ctx.lineTo(88 * u, 84 * u); ctx.stroke();
+  ctx.strokeStyle = '#1c2742'; ctx.lineWidth = 2.6 * u;
+  ctx.beginPath(); ctx.moveTo(53 * u, 80 * u); ctx.quadraticCurveTo(60 * u, 84 * u, 68 * u, 81 * u); ctx.stroke();
+}
+
+/** ヘンリー男爵の肖像のキャンバスを返す（祈祷の画面でも使う） */
+export function henryIconCanvas(size = 256) {
+  const c = makeCanvas(size, size);
+  drawHenryIcon(c.getContext('2d'), size);
+  return c;
+}
+
+function buildShrine(def) {
+  const g = new THREE.Group();
+  g.name = 'shrine-henry';
+  // 石の台座（2段）
+  g.add(new THREE.Mesh(merge([
+    { geo: new THREE.BoxGeometry(2.0, 0.22, 1.5), pos: [0, 0.11, 0] },
+    { geo: new THREE.BoxGeometry(1.6, 0.2, 1.2), pos: [0, 0.32, 0] },
+  ]), lacquer('#2a3150')));
+  // 祠（ほこら）：背板・2本の柱・床
+  const body = [
+    { geo: new THREE.BoxGeometry(1.5, 1.5, 0.12), pos: [0, 1.17, -0.5] },
+    { geo: new THREE.BoxGeometry(1.7, 0.12, 1.2), pos: [0, 0.48, 0] },
+  ];
+  for (const sx of [-1, 1]) body.push({ geo: new THREE.BoxGeometry(0.14, 1.5, 0.14), pos: [sx * 0.72, 1.17, 0.42] });
+  g.add(new THREE.Mesh(merge(body), lacquer('#1d2a5e', wallTexture(GOLD), 0.4)));
+  // 切妻の屋根
+  const pitch = Math.atan2(0.55, 0.75), slope = Math.hypot(0.55, 0.75);
+  const roof = [];
+  for (const sz of [-1, 1]) roof.push({ geo: new THREE.BoxGeometry(2.0, 0.1, slope), pos: [0, 2.05, sz * 0.36], rot: [sz * pitch, 0, 0] });
+  g.add(new THREE.Mesh(merge(roof), lacquer('#141a38', roofTexture(GOLD), 0.35)));
+  // しめ縄（金の帯）と紙垂（しで）
+  const rope = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 1.56, 6), neon(GOLD));
+  rope.rotation.z = Math.PI / 2;
+  rope.position.set(0, 1.86, 0.49);
+  g.add(rope);
+  const shide = [];
+  for (const sx of [-0.4, 0.4]) shide.push({ geo: new THREE.PlaneGeometry(0.14, 0.3), pos: [sx, 1.68, 0.5] });
+  g.add(new THREE.Mesh(merge(shide), new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.DoubleSide, toneMapped: false })));
+  // 御神体：金色に光るヘンリー男爵の肖像（ふわふわ浮く）
+  const icon = henryIconCanvas(256);
+  const henry = makeSprite(icon, 1.15, 1.15);
+  henry.sprite.position.set(0, 1.3, 0.12);
+  g.add(henry.sprite);
+  // 足もとの光る六角の輪と、金の光の粒
+  const ring = new THREE.Mesh(new THREE.RingGeometry(0.95, 1.06, 6), neon(GOLD, 0.95));
+  ring.rotation.x = -Math.PI / 2;
+  ring.position.y = 0.03;
+  g.add(ring);
+  g.add(glowPoints([[0, 2.35, 0, GOLD], [-0.95, 0.6, 0.7, GOLD], [0.95, 0.6, 0.7, GOLD]], 1.3));
+  // 名札
+  const labelCanvas = makeCanvas(560, 140);
+  const draw = () => drawLabel(labelCanvas, t('home.shrine.name'), GOLD, HOME.a2.neon);
+  draw();
+  const label = makeSprite(labelCanvas, 3.6, 0.9);
+  label.sprite.position.set(0, def.labelHeight, 0);
+  g.add(label.sprite);
+  // タップの当たり判定
+  const hit = new THREE.Mesh(new THREE.BoxGeometry(2.4, def.labelHeight + 0.5, 2.0), new THREE.MeshBasicMaterial({ visible: false }));
+  hit.position.y = (def.labelHeight + 0.5) / 2;
+  hit.userData.shrine = true;
+  g.add(hit);
+  const a = THREE.MathUtils.degToRad(def.angleDeg);
+  g.position.set(Math.sin(a) * def.distance, 0, -Math.cos(a) * def.distance);
+  g.lookAt(0, 0, 0);
+  return { group: g, hit, henry: henry.sprite, ring, redraw: () => { draw(); label.tex.needsUpdate = true; } };
+}
+
 // ───────────── 立ち絵の板（キタロー） ─────────────
 function buildStandee(id, height, onLoad) {
   const w = height * (1024 / 1536);
@@ -585,6 +705,9 @@ export function buildPlaza(scene, { onTextureLoad } = {}) {
   standee.group.position.set(Math.sin(sa) * STANDEE.distance, 0.02, -Math.cos(sa) * STANDEE.distance);
   scene.add(standee.group);
 
+  const shrine = buildShrine(SHRINE);
+  scene.add(shrine.group);
+
   const gates = GATES.map((def) => { const x = buildGate(def); scene.add(x.group); return x; });
   const facilities = FACILITIES.map((def) => { const x = buildFacility(def); scene.add(x.group); return x; });
 
@@ -595,9 +718,12 @@ export function buildPlaza(scene, { onTextureLoad } = {}) {
 
   let last = 0;
   return {
-    hitTargets: [standee.mesh, ...gates.map((x) => x.hit), ...facilities.map((x) => x.hit), gov.hit],
-    redrawLabels: () => [...gates, ...facilities, gov, standee].forEach((x) => x.redraw()),
+    hitTargets: [standee.mesh, shrine.hit, ...gates.map((x) => x.hit), ...facilities.map((x) => x.hit), gov.hit],
+    redrawLabels: () => [...gates, ...facilities, gov, standee, shrine].forEach((x) => x.redraw()),
     setTreasury: gov.setTreasury,
+    /** 先生が御神体を消しているときは、祠ごと見えなくする */
+    setShrineVisible: (v) => { shrine.group.visible = v; },
+    isShrineVisible: () => shrine.group.visible,
     setGateOpen: (id, open) => { const x = gates.find((gg) => gg.hit.userData.gateId === id); if (x) x.setOpen(open); },
     /** 立ち絵の板をカメラの方へ向ける（縦の軸のまわりだけ回す） */
     faceCamera: (camera) => {
@@ -613,6 +739,8 @@ export function buildPlaza(scene, { onTextureLoad } = {}) {
       gov.ringTex.offset.x = (time * 0.00005) % 1;
       gates.forEach((x, i) => { x.portal.rotation.z = time * 0.0006 * (i % 2 ? 1 : -1); });
       standee.ring.rotation.z = time * 0.0008;
+      shrine.ring.rotation.z = -time * 0.0007;
+      shrine.henry.position.y = 1.3 + Math.sin(time * 0.0012) * 0.09;
       ground.floorMat.emissiveIntensity = 0.28 + Math.sin(time * 0.0012) * 0.07;
       particles.update(dt);
       wave.update(time);

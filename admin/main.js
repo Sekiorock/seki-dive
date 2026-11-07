@@ -357,6 +357,12 @@ function settingsTab() {
       <li class="adm-switch"><span>${esc(t(`world.${g.id}`))}</span>
         <div class="tabs">${['open', 'closed'].map((k) => `<button type="button" class="tabs__tab" aria-selected="${(worldsOpen[g.id] !== false) === (k === 'open')}" data-act="world" data-world="${g.id}" data-open="${k === 'open'}">${esc(t(`admin.set.${k}`))}</button>`).join('')}</div>
       </li>`).join('')}</ul>
+    <h2 class="shop__sub">${esc(t('admin.set.shrineHead'))}</h2>
+    <ul class="adm-list">
+      <li class="adm-switch"><span>${esc(t('admin.set.shrine'))}</span>
+        <div class="tabs">${[true, false].map((on) => `<button type="button" class="tabs__tab" aria-selected="${(s.goshintaiOn !== false) === on}" data-act="shrine" data-open="${on}">${esc(t(on ? 'admin.set.shrineShow' : 'admin.set.shrineHide'))}</button>`).join('')}</div>
+      </li>
+    </ul>
     <h2 class="shop__sub">${esc(t('admin.set.battle'))}</h2>
     <div class="tabs adm-tabs3">${['always', 'class', 'off'].map((k) => `<button type="button" class="tabs__tab" aria-selected="${mode === k}" data-act="battle" data-mode="${k}">${esc(t(`admin.set.battle.${k}`))}</button>`).join('')}</div>
     <p class="shop__note">${esc(t('admin.set.battleNote'))}</p>
@@ -488,6 +494,7 @@ async function onClick(e) {
       const open = b.dataset.open === 'true';
       await F().update(ref('settings/worldsOpen'), { [b.dataset.world]: open });
     }
+    else if (act === 'shrine') await F().update(ref('settings'), { goshintaiOn: b.dataset.open === 'true' });
     else if (act === 'battle') await F().update(ref('settings'), { battleMode: b.dataset.mode });
     else if (act === 'settings-save') await saveSettings();
     else if (act === 'collect') {

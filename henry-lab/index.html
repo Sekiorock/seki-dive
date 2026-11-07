@@ -1,0 +1,2692 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>気体の溶解ラボ 〜ヘンリーの法則〜</title>
+<link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700;900&family=Orbitron:wght@500;700;900&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<style>
+:root{
+  --bg:#edf3fb;
+  --panel:#ffffff;
+  --panel2:#f3f7ff;
+  --line:#d8e3f3;
+  --text:#1c2742;
+  --sub:#64749c;
+  --cyan:#0891b2;
+  --cyanB:#22d3ee;
+  --pink:#e5338f;
+  --yellow:#d97706;
+  --yellowB:#fbbf24;
+  --green:#16a34a;
+  --navy:#0e1430;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+button{touch-action:manipulation;}
+body{
+  background:var(--bg);
+  color:var(--text);
+  font-family:"Zen Kaku Gothic New",sans-serif;
+  line-height:1.75;
+  min-height:100vh;
+  background-image:
+    radial-gradient(ellipse 70% 40% at 50% -5%, rgba(34,211,238,.12), transparent),
+    radial-gradient(ellipse 50% 30% at 95% 100%, rgba(236,72,153,.08), transparent);
+}
+.num{font-family:"Orbitron","Zen Kaku Gothic New",sans-serif;}
+body.endmode header, body.endmode nav, body.endmode main{display:none;}
+
+/* ===== sparkle bits ===== */
+@keyframes twk{0%,100%{opacity:.15;transform:scale(.6);}50%{opacity:1;transform:scale(1.15);}}
+.spark{position:absolute;color:var(--cyanB);font-size:.7rem;pointer-events:none;animation:twk 2.6s ease-in-out infinite;text-shadow:0 0 8px var(--cyanB);}
+.spark.p{color:var(--pink);text-shadow:0 0 8px var(--pink);}
+.spark.y{color:var(--yellowB);text-shadow:0 0 8px var(--yellowB);}
+h2{position:relative;}
+h2::after{content:"✦";color:var(--cyanB);font-size:.8rem;margin-left:6px;animation:twk 2s ease-in-out infinite;text-shadow:0 0 10px var(--cyanB);}
+
+/* ===== header ===== */
+header{
+  position:sticky;top:0;z-index:50;
+  background:rgba(255,255,255,.88);
+  backdrop-filter:blur(10px);
+  border-bottom:2px solid transparent;
+  border-image:linear-gradient(90deg,var(--cyanB),var(--pink),var(--yellowB),var(--cyanB)) 1;
+  padding:8px 12px;
+}
+.hud{max-width:960px;margin:0 auto;display:flex;align-items:center;gap:10px;position:relative;}
+.logo{font-weight:900;font-size:.95rem;line-height:1.3;}
+.logo .mini{color:var(--cyan);font-size:.6rem;display:block;font-weight:700;letter-spacing:.16em;}
+.hud-right{margin-left:auto;display:flex;align-items:center;gap:8px;}
+#sndBtn,#langBtn,#qrBtn,#plazaBtn{
+  background:var(--panel2);border:1px solid var(--line);border-radius:10px;
+  font-size:1rem;padding:5px 9px;cursor:pointer;font-family:inherit;
+}
+#langBtn{font-size:.78rem;font-weight:900;color:var(--cyan);font-family:"Orbitron","Zen Kaku Gothic New",sans-serif;}
+#plazaBtn{text-decoration:none;display:inline-flex;align-items:center;border-color:#ffd76a;box-shadow:0 0 8px rgba(255,215,106,.35);}
+#sndBtn.on,#langBtn:active,#qrBtn:active{border-color:var(--cyanB);box-shadow:0 0 10px rgba(34,211,238,.4);}
+.xp-bar{width:84px;height:10px;background:#e4ecf8;border:1px solid var(--line);border-radius:99px;overflow:hidden;}
+.xp-fill{height:100%;width:0%;border-radius:99px;background:linear-gradient(90deg,var(--cyanB),var(--pink));transition:width .5s ease;box-shadow:0 0 8px rgba(34,211,238,.6);}
+.xp-num{font-size:.74rem;color:var(--yellow);font-weight:900;white-space:nowrap;}
+.lv-badge{
+  font-size:.7rem;font-weight:900;padding:3px 9px;border-radius:99px;
+  background:linear-gradient(135deg,rgba(34,211,238,.15),rgba(236,72,153,.15));
+  border:1px solid var(--cyanB);color:var(--cyan);white-space:nowrap;
+  box-shadow:0 0 10px rgba(34,211,238,.25);
+}
+
+/* ===== tabs ===== */
+nav{
+  max-width:960px;margin:12px auto 0;padding:0 12px;
+  display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;
+}
+nav::-webkit-scrollbar{display:none;}
+.tab{
+  flex:0 0 auto;
+  background:var(--panel);
+  border:1px solid var(--line);
+  color:var(--sub);
+  border-radius:12px;
+  padding:7px 13px;
+  font-size:.8rem;font-weight:700;
+  cursor:pointer;
+  font-family:inherit;
+  position:relative;
+  transition:all .2s;
+}
+.tab.active{
+  background:linear-gradient(135deg,#e5fbff,#fdf0f8);
+  border-color:var(--cyanB);
+  color:var(--text);
+  box-shadow:0 0 14px rgba(34,211,238,.45);
+}
+.tab .st{display:block;font-size:.58rem;letter-spacing:.14em;color:var(--cyan);}
+.tab .lk{display:none;position:absolute;inset:0;background:rgba(240,245,252,.78);border-radius:12px;font-size:1rem;align-items:center;justify-content:center;}
+.tab.locked .lk{display:flex;}
+.tab.done::after{
+  content:"✓";
+  position:absolute;top:-7px;right:-5px;
+  width:18px;height:18px;border-radius:50%;
+  background:var(--green);color:#fff;
+  font-size:.7rem;font-weight:900;
+  display:flex;align-items:center;justify-content:center;
+  box-shadow:0 0 8px rgba(22,163,74,.6);
+}
+@keyframes shakeX{0%,100%{transform:translateX(0);}20%{transform:translateX(-6px);}40%{transform:translateX(6px);}60%{transform:translateX(-4px);}80%{transform:translateX(4px);}}
+.shake{animation:shakeX .4s ease;}
+
+/* ===== layout ===== */
+main{max-width:960px;margin:0 auto;padding:14px 12px 90px;}
+section{display:none;animation:fadeUp .35s ease;}
+section.show{display:block;}
+@keyframes fadeUp{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:none;}}
+h2{font-size:1.2rem;font-weight:900;margin:8px 0 4px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+h2 .chip{font-size:.6rem;letter-spacing:.15em;color:#fff;background:linear-gradient(135deg,var(--cyan),#38bdf8);border-radius:6px;padding:2px 8px;font-weight:900;box-shadow:0 0 10px rgba(34,211,238,.5);}
+.lead{color:var(--sub);font-size:.9rem;margin-bottom:12px;}
+.card{
+  background:var(--panel);
+  border:1px solid var(--line);
+  border-radius:16px;
+  padding:14px;
+  margin-bottom:12px;
+  position:relative;
+  box-shadow:0 2px 10px rgba(28,39,66,.05);
+}
+.card::before{
+  content:"";position:absolute;top:0;left:14px;right:14px;height:2px;border-radius:2px;
+  background:linear-gradient(90deg,transparent,rgba(34,211,238,.6),transparent);
+}
+.card h3{font-size:1rem;font-weight:900;margin-bottom:8px;display:flex;align-items:center;gap:8px;}
+.card h3 .dot{width:9px;height:9px;border-radius:50%;background:var(--cyanB);box-shadow:0 0 10px var(--cyanB);flex:0 0 auto;}
+.card p{font-size:.9rem;margin-bottom:8px;}
+.card p:last-child{margin-bottom:0;}
+.hl-c{color:var(--cyan);font-weight:900;}
+.hl-p{color:var(--pink);font-weight:900;}
+.hl-y{color:var(--yellow);font-weight:900;}
+.hl-g{color:var(--green);font-weight:900;}
+.formula{
+  background:var(--navy);border:1px solid #2a3560;color:#e8ecfb;
+  border-radius:12px;padding:10px 12px;margin:10px 0;
+  font-size:.92rem;text-align:center;overflow-x:auto;
+  box-shadow:inset 0 0 24px rgba(34,211,238,.08), 0 0 10px rgba(34,211,238,.12);
+}
+.formula .fc{color:var(--cyanB);font-weight:900;}
+.formula .fp{color:#f9a8d4;font-weight:900;}
+.formula .fy{color:var(--yellowB);font-weight:900;}
+.formula .fg{color:#86efac;font-weight:900;}
+.note{
+  font-size:.82rem;color:var(--sub);
+  border-left:3px solid var(--pink);
+  padding:4px 10px;margin:10px 0;
+  background:rgba(236,72,153,.05);border-radius:0 8px 8px 0;
+}
+.btn{
+  display:inline-flex;align-items:center;gap:8px;
+  background:linear-gradient(135deg,var(--cyanB),#38bdf8);
+  color:#06333f;border:none;border-radius:12px;
+  padding:11px 18px;font-size:.9rem;font-weight:900;
+  font-family:inherit;cursor:pointer;
+  box-shadow:0 4px 14px rgba(34,211,238,.4);
+  position:relative;overflow:hidden;
+}
+.btn::after{
+  content:"";position:absolute;top:0;bottom:0;width:40%;
+  background:linear-gradient(110deg,transparent,rgba(255,255,255,.75),transparent);
+  transform:translateX(-180%) skewX(-18deg);
+  animation:sheen 3.4s ease-in-out infinite;
+}
+@keyframes sheen{0%,60%{transform:translateX(-180%) skewX(-18deg);}90%,100%{transform:translateX(320%) skewX(-18deg);}}
+.btn:active{transform:translateY(1px);}
+.btn.ghost{background:#fff;color:var(--cyan);border:1px solid var(--cyanB);box-shadow:0 0 8px rgba(34,211,238,.2);}
+.btn.big{font-size:1.02rem;padding:14px 26px;border-radius:14px;}
+.btn.pinkbtn{background:linear-gradient(135deg,var(--pink),#f472b6);color:#fff;box-shadow:0 4px 14px rgba(236,72,153,.4);}
+.btn:disabled{opacity:.4;cursor:default;}
+.btn:disabled::after{display:none;}
+.next-area{text-align:center;margin-top:14px;}
+
+/* ===== henry ===== */
+.henry-line{display:flex;gap:10px;align-items:flex-start;margin:10px 0 14px;}
+.h-ava{flex:0 0 auto;width:72px;height:78px;filter:drop-shadow(0 2px 6px rgba(28,39,66,.25));}
+.h-ava.sm{width:58px;height:63px;}
+.h-ava svg{width:100%;height:100%;}
+@keyframes hbob{0%,100%{transform:translateY(0) rotate(-1deg);}50%{transform:translateY(-4px) rotate(1.5deg);}}
+.h-ava svg{animation:hbob 3.4s ease-in-out infinite;}
+@keyframes hboing{0%{transform:scale(1);}30%{transform:scale(1.25) rotate(-4deg);}55%{transform:scale(.92) rotate(3deg);}100%{transform:scale(1);}}
+.boing svg{animation:hboing .6s ease;}
+.h-bubble{
+  flex:1;background:#fff;border:1px solid var(--line);border-radius:4px 14px 14px 14px;
+  padding:8px 12px;font-size:.86rem;font-weight:700;color:var(--text);
+  box-shadow:0 2px 8px rgba(28,39,66,.08), 0 0 12px rgba(34,211,238,.1);
+  position:relative;
+}
+.h-bubble .who{display:block;font-size:.64rem;color:var(--cyan);letter-spacing:.1em;font-weight:900;}
+
+/* ===== canvases ===== */
+#sodaCanvas,#simCanvas,#exCanvas,#whyCanvas,#g4Canvas,#g5Canvas,#tplCanvas{
+  background:var(--navy);border:1px solid #2a3560;border-radius:14px;display:block;
+  box-shadow:inset 0 0 30px rgba(34,211,238,.06), 0 0 14px rgba(34,211,238,.12);
+}
+#simCanvas,#exCanvas,#whyCanvas,#g4Canvas,#g5Canvas,#tplCanvas{width:100%;touch-action:pan-y;}
+input[type=range].glowing{filter:drop-shadow(0 0 7px rgba(34,211,238,.95));}
+.shead .h-ava{width:46px;height:50px;}
+
+/* ===== qr modal ===== */
+#qrOv{
+  display:none;position:fixed;inset:0;z-index:220;
+  background:rgba(14,20,48,.55);backdrop-filter:blur(4px);
+  align-items:center;justify-content:center;padding:18px;
+}
+#qrOv.show{display:flex;}
+#qrCard{
+  background:#fff;border-radius:18px;padding:20px;text-align:center;
+  border:2px solid var(--cyanB);
+  box-shadow:0 0 0 4px rgba(34,211,238,.15), 0 0 40px rgba(34,211,238,.5);
+  animation:misin .4s cubic-bezier(.2,.9,.3,1.25);
+  max-width:320px;width:100%;
+}
+#qrCard h3{font-size:1rem;font-weight:900;margin-bottom:10px;}
+#qrBox{display:flex;justify-content:center;margin:8px 0;}
+#qrBox img,#qrBox canvas{border:8px solid #fff;outline:1px solid var(--line);}
+#qrUrl{font-size:.68rem;color:var(--sub);word-break:break-all;margin:8px 0 12px;}
+
+/* ===== soda ===== */
+.soda-wrap{display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap;justify-content:center;}
+.soda-stage{flex:0 0 auto;}
+.soda-text{flex:1 1 250px;min-width:250px;}
+.expbox{border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-bottom:10px;display:none;animation:fadeUp .3s ease;}
+.expbox.show{display:block;}
+.expbox.closedC{border-color:var(--cyanB);background:rgba(34,211,238,.06);box-shadow:0 0 10px rgba(34,211,238,.15);}
+.expbox.openP{border-color:var(--pink);background:rgba(236,72,153,.05);box-shadow:0 0 10px rgba(236,72,153,.15);}
+.expbox h4{font-size:.88rem;font-weight:900;margin-bottom:4px;}
+.expbox p{font-size:.86rem;margin:0;}
+
+/* ===== sliders & controls ===== */
+.sim-grid{display:grid;grid-template-columns:1fr;gap:14px;}
+@media(min-width:760px){.sim-grid{grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);}}
+.ctrl{margin:10px 0 2px;}
+.ctrl .lab{font-size:.84rem;font-weight:900;display:flex;justify-content:space-between;align-items:center;}
+.ctrl .val{color:var(--yellow);font-weight:900;}
+input[type=range]{width:100%;height:30px;appearance:none;-webkit-appearance:none;background:transparent;cursor:pointer;}
+input[type=range]::-webkit-slider-runnable-track{height:8px;border-radius:99px;background:#e0eaf7;border:1px solid var(--line);}
+input[type=range]::-webkit-slider-thumb{
+  -webkit-appearance:none;width:24px;height:24px;border-radius:50%;
+  background:var(--cyanB);margin-top:-9px;
+  box-shadow:0 0 12px rgba(34,211,238,.8);border:3px solid #fff;
+}
+input[type=range]::-moz-range-track{height:8px;border-radius:99px;background:#e0eaf7;border:1px solid var(--line);}
+input[type=range]::-moz-range-thumb{width:22px;height:22px;border-radius:50%;background:var(--cyanB);border:3px solid #fff;box-shadow:0 0 12px rgba(34,211,238,.8);}
+input[type=range].pinkr::-webkit-slider-thumb{background:var(--pink);box-shadow:0 0 12px rgba(236,72,153,.8);}
+input[type=range].pinkr::-moz-range-thumb{background:var(--pink);box-shadow:0 0 12px rgba(236,72,153,.8);}
+input[type=range].greenr::-webkit-slider-thumb{background:var(--green);box-shadow:0 0 12px rgba(22,163,74,.7);}
+input[type=range].greenr::-moz-range-thumb{background:var(--green);box-shadow:0 0 12px rgba(22,163,74,.7);}
+.meter-row{display:flex;justify-content:space-between;align-items:baseline;font-size:.84rem;margin-top:10px;font-weight:700;}
+.meter{height:14px;background:#e4ecf8;border:1px solid var(--line);border-radius:99px;overflow:hidden;margin-top:3px;}
+.meter>i{display:block;height:100%;border-radius:99px;transition:width .4s ease;background:linear-gradient(90deg,var(--cyanB),#38bdf8);box-shadow:0 0 8px rgba(34,211,238,.7);}
+
+/* ===== seg toggle ===== */
+.seg{display:flex;gap:6px;margin-top:6px;}
+.seg button{
+  flex:1;background:var(--panel2);border:1px solid var(--line);color:var(--sub);
+  border-radius:10px;padding:10px 2px;font-weight:900;font-size:.88rem;
+  font-family:inherit;cursor:pointer;transition:all .15s;
+}
+.seg button.on{background:var(--cyanB);color:#06333f;border-color:var(--cyanB);box-shadow:0 0 12px rgba(34,211,238,.6);}
+
+/* ===== extraction lab ===== */
+.exbtns{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;}
+.exbtns .btn{flex:1 1 auto;font-size:.82rem;padding:11px 10px;justify-content:center;}
+.ex-reads{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:12px;}
+@media(max-width:520px){.ex-reads{grid-template-columns:1fr;}}
+.exr{
+  background:var(--panel2);border:1px solid var(--line);border-radius:12px;
+  padding:8px 6px;text-align:center;font-size:.72rem;color:var(--sub);font-weight:700;
+  transition:all .3s;
+}
+.exr b{display:block;font-size:1.02rem;margin-top:2px;color:var(--text);font-weight:900;}
+.exr.litc{border-color:var(--cyanB);background:rgba(34,211,238,.08);box-shadow:0 0 10px rgba(34,211,238,.25);}
+.exr.litc b{color:var(--cyan);}
+.exr.lit{border-color:var(--yellowB);background:rgba(251,191,36,.1);box-shadow:0 0 10px rgba(251,191,36,.3);}
+.exr.lit b{color:var(--yellow);}
+.exr.litp{border-color:var(--pink);background:rgba(236,72,153,.07);box-shadow:0 0 10px rgba(236,72,153,.25);}
+.exr.litp b{color:var(--pink);}
+#exNote{display:none;margin-top:10px;}
+#exNote.show{display:block;animation:fadeUp .4s ease;}
+
+/* ===== steps ===== */
+.stepbox{
+  border:1px solid var(--line);border-radius:14px;
+  background:var(--panel2);padding:13px;margin-top:12px;
+}
+.stepbox .shead{display:flex;align-items:center;gap:10px;margin-bottom:6px;}
+.snum{
+  font-family:"Orbitron";font-size:.7rem;font-weight:900;
+  background:var(--pink);color:#fff;border-radius:8px;padding:2px 9px;letter-spacing:.08em;white-space:nowrap;
+  box-shadow:0 0 8px rgba(236,72,153,.5);
+}
+.stepnav{display:flex;gap:8px;align-items:center;justify-content:center;margin-top:10px;}
+.stepnav .btn{padding:9px 16px;font-size:.84rem;}
+.step-ind{font-family:"Orbitron";font-size:.8rem;font-weight:900;color:var(--cyan);min-width:70px;text-align:center;}
+.steptext{font-size:.9rem;font-weight:700;min-height:3.2em;}
+.ans-chip{
+  display:inline-block;background:rgba(251,191,36,.14);border:1px solid var(--yellowB);
+  color:var(--yellow);font-weight:900;border-radius:10px;padding:4px 14px;margin-top:6px;
+  box-shadow:0 0 10px rgba(251,191,36,.3);
+}
+
+/* ===== quiz ===== */
+.quiz-q{font-weight:900;font-size:.94rem;margin-bottom:10px;}
+.quiz-opts{display:grid;gap:8px;}
+.quiz-opts button{
+  text-align:left;background:var(--panel2);border:1px solid var(--line);color:var(--text);
+  border-radius:12px;padding:12px 14px;font-size:.9rem;font-family:inherit;cursor:pointer;transition:all .2s;font-weight:700;
+}
+.quiz-opts button.correct{border-color:var(--green);background:rgba(22,163,74,.1);box-shadow:0 0 12px rgba(22,163,74,.35);}
+.quiz-opts button.wrong{border-color:#ef4444;background:rgba(239,68,68,.08);}
+.quiz-fb{font-size:.85rem;margin-top:8px;min-height:1.4em;font-weight:900;}
+.qnum{font-family:"Orbitron";color:var(--cyan);font-weight:900;margin-right:6px;}
+
+/* ===== template rows ===== */
+.tpl{display:flex;gap:10px;align-items:center;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:8px 12px;margin-bottom:6px;font-size:.86rem;font-weight:700;transition:all .3s;}
+.tpl .ti{font-family:"Orbitron";font-weight:900;color:var(--sub);}
+.tpl.lit{border-color:var(--yellowB);background:rgba(251,191,36,.12);box-shadow:0 0 12px rgba(251,191,36,.4);transform:scale(1.02);}
+.tpl.lit .ti{color:var(--yellow);}
+
+/* ===== mission overlay ===== */
+#misOv{
+  display:none;position:fixed;inset:0;z-index:200;
+  background:rgba(14,20,48,.55);backdrop-filter:blur(4px);
+  align-items:center;justify-content:center;padding:18px;
+}
+#misOv.show{display:flex;}
+#misCard{
+  width:100%;max-width:470px;background:#fff;border-radius:18px;padding:18px;
+  border:2px solid var(--pink);
+  box-shadow:0 0 0 4px rgba(236,72,153,.15), 0 0 40px rgba(236,72,153,.5);
+  animation:misin .45s cubic-bezier(.2,.9,.3,1.25);
+}
+@keyframes misin{from{opacity:0;transform:scale(.7) translateY(40px);}to{opacity:1;transform:none;}}
+.mis-head{display:flex;gap:10px;align-items:center;margin-bottom:8px;}
+.mis-k{
+  font-family:"Orbitron";font-size:.66rem;letter-spacing:.2em;font-weight:900;color:#fff;
+  background:linear-gradient(90deg,var(--pink),#f97316);border-radius:6px;padding:2px 8px;display:inline-block;
+  animation:twk 1.2s ease-in-out infinite;
+}
+#misTitle{font-weight:900;font-size:1.02rem;}
+#misText{font-size:.9rem;font-weight:700;margin:8px 0 10px;}
+#misHint{font-size:.82rem;font-weight:900;color:var(--pink);min-height:1.4em;margin-top:8px;}
+#misTaskBtn{width:100%;justify-content:center;margin-top:6px;}
+
+/* mission chip */
+#misChip{
+  display:none;position:fixed;left:50%;bottom:16px;transform:translateX(-50%);
+  z-index:90;background:#fff;border:2px solid var(--pink);border-radius:99px;
+  padding:8px 16px;font-size:.8rem;font-weight:900;font-family:inherit;color:var(--text);
+  box-shadow:0 4px 16px rgba(236,72,153,.4);cursor:pointer;
+  max-width:92vw;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+#misChip.show{display:block;animation:fadeUp .3s ease;}
+#misChip .mc{color:var(--pink);}
+
+/* ===== clear overlay ===== */
+#clrOv{
+  display:none;position:fixed;inset:0;z-index:210;
+  background:radial-gradient(ellipse at 50% 40%, rgba(34,211,238,.25), rgba(14,20,48,.82));
+  backdrop-filter:blur(5px);
+  align-items:center;justify-content:center;padding:18px;text-align:center;
+}
+#clrOv.show{display:flex;}
+.clr-in{max-width:440px;animation:misin .5s cubic-bezier(.2,.9,.3,1.3);}
+.clr-title{
+  font-family:"Orbitron";font-size:1.7rem;font-weight:900;letter-spacing:.06em;
+  background:linear-gradient(90deg,#fff,var(--cyanB),#fff);
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+  text-shadow:0 0 30px rgba(34,211,238,.8);
+  margin:8px 0;
+}
+#clrExp{color:#fff;font-size:.92rem;font-weight:700;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.3);border-radius:12px;padding:10px 14px;margin:10px 0 16px;}
+#clrHenry{width:130px;height:140px;margin:0 auto;}
+#clrHenry svg{width:100%;height:100%;animation:hboing .7s ease;}
+
+/* ===== fx ===== */
+#fxCanvas{position:fixed;inset:0;width:100vw;height:100vh;pointer-events:none;z-index:300;}
+#flash{position:fixed;inset:0;pointer-events:none;z-index:150;opacity:0;transition:opacity .4s;}
+#flash.good{background:rgba(74,222,128,.22);opacity:1;transition:opacity .05s;}
+#flash.bad{background:rgba(239,68,68,.25);opacity:1;transition:opacity .05s;}
+#toast{
+  position:fixed;left:50%;bottom:70px;transform:translateX(-50%) translateY(120px);
+  background:linear-gradient(135deg,var(--yellowB),#fb923c);color:#43260a;
+  font-weight:900;font-size:.9rem;padding:10px 22px;border-radius:99px;
+  box-shadow:0 8px 24px rgba(251,191,36,.5);transition:transform .35s cubic-bezier(.2,.9,.3,1.3);
+  z-index:95;pointer-events:none;white-space:nowrap;
+}
+#toast.pop{transform:translateX(-50%) translateY(0);}
+
+/* ===== quiz progress ===== */
+.qprog{display:flex;align-items:center;gap:10px;margin-bottom:12px;}
+.qprog .meter{flex:1;margin-top:0;}
+#qProgTxt{font-family:"Orbitron";font-weight:900;color:var(--cyan);font-size:.86rem;white-space:nowrap;}
+.clear-banner{
+  display:none;text-align:center;padding:26px 16px;
+  background:linear-gradient(135deg,rgba(34,211,238,.1),rgba(236,72,153,.1));
+  border:1px solid var(--cyanB);border-radius:18px;margin-top:14px;
+  box-shadow:0 0 20px rgba(34,211,238,.25);
+}
+.clear-banner.show{display:block;animation:fadeUp .5s ease;}
+.clear-banner .big{font-size:1.4rem;font-weight:900;letter-spacing:.05em;}
+
+/* ===== ending ===== */
+#ending{
+  display:none;position:fixed;inset:0;z-index:180;overflow-y:auto;
+  background:radial-gradient(ellipse 90% 60% at 50% 0%, #15224d, #0a0f24);
+  color:#eef2ff;padding:28px 16px 60px;text-align:center;
+}
+#ending.show{display:block;}
+.end-in{max-width:560px;margin:0 auto;animation:fadeUp .5s ease;}
+.end-k{font-family:"Orbitron";letter-spacing:.3em;font-size:.7rem;color:var(--cyanB);font-weight:900;text-shadow:0 0 12px var(--cyanB);}
+#endTitle{font-size:1.3rem;font-weight:900;margin:8px 0 10px;}
+#endScene{margin:10px auto;max-width:420px;}
+#endScene svg{width:100%;height:auto;filter:drop-shadow(0 0 20px rgba(34,211,238,.25));}
+#endBody{font-size:.92rem;font-weight:500;text-align:left;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.18);border-radius:14px;padding:12px 14px;margin:10px 0;}
+.end-henry{display:flex;gap:10px;align-items:flex-start;margin:12px 0;text-align:left;}
+.end-henry .h-bubble{background:rgba(255,255,255,.1);border-color:rgba(255,255,255,.25);color:#eef2ff;}
+.end-dots{display:flex;gap:6px;justify-content:center;margin:10px 0;}
+.end-dots i{width:8px;height:8px;border-radius:50%;background:rgba(255,255,255,.25);}
+.end-dots i.on{background:var(--cyanB);box-shadow:0 0 8px var(--cyanB);}
+sub,sup{font-size:.68em;}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="hud">
+    <span class="spark" style="left:36%;top:4px;">✦</span>
+    <span class="spark p" style="left:55%;top:26px;animation-delay:.8s;">✦</span>
+    <span class="spark y" style="left:70%;top:6px;animation-delay:1.5s;">✦</span>
+    <div class="logo"><span class="mini">GAS SOLUBILITY LAB</span>気体の溶解ラボ</div>
+    <div class="hud-right">
+      <a id="plazaBtn" href="../" title="セキオロック中央広場へ戻る">⛩</a>
+      <button id="langBtn" title="Language">EN</button>
+      <button id="qrBtn" title="QR">📱</button>
+      <button id="sndBtn" class="on" title="サウンド">🔊</button>
+      <span class="lv-badge num" id="lvBadge">LV.1</span>
+      <div>
+        <div class="xp-num num" id="xpNum">0 XP</div>
+        <div class="xp-bar"><div class="xp-fill" id="xpFill"></div></div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<nav id="tabs">
+  <button class="tab active" data-goto="s1"><span class="st">STAGE 1</span>炭酸で直感<span class="lk">🔒</span></button>
+  <button class="tab" data-goto="s2"><span class="st">STAGE 2</span>分子シミュ<span class="lk">🔒</span></button>
+  <button class="tab" data-goto="s3"><span class="st">STAGE 3</span>体積のワナ<span class="lk">🔒</span></button>
+  <button class="tab" data-goto="s4"><span class="st">STAGE 4</span>計算ラボ<span class="lk">🔒</span></button>
+  <button class="tab" data-goto="s5"><span class="st">STAGE 5</span>混合気体<span class="lk">🔒</span></button>
+  <button class="tab" data-goto="s6"><span class="st">FINAL</span>腕試し<span class="lk">🔒</span></button>
+</nav>
+
+<main>
+
+<!-- ============ STAGE 1 ============ -->
+<section id="s1" class="show">
+  <h2><span class="chip">STAGE 1</span>炭酸ジュースで直感をつかめ</h2>
+  <div class="henry-line">
+    <div class="h-ava" data-henry="cool"></div>
+    <div class="h-bubble"><span class="who">ヘンリー男爵</span>ワシが「溶解度の男」ヘンリー男爵だ。まずはこの炭酸ボトル、フタを開けたり閉めたりしてよーく観察したまえ。</div>
+  </div>
+
+  <div class="card">
+    <div class="soda-wrap">
+      <div class="soda-stage">
+        <canvas id="sodaCanvas" width="220" height="300"></canvas>
+        <div style="text-align:center;margin-top:10px;">
+          <button class="btn" id="capBtn">🔓 フタを開ける</button>
+        </div>
+      </div>
+      <div class="soda-text">
+        <div class="expbox closedC show" id="expClosed">
+          <h4>🔒 いまは「フタ閉め」= <span class="hl-c">高圧力モード</span></h4>
+          <p>上のすき間にはCO<sub>2</sub>がぎゅうぎゅう。この強い圧力が押しこむから、CO<sub>2</sub>は水の中に<span class="hl-c">たくさん溶けていられる</span>。</p>
+        </div>
+        <div class="expbox openP" id="expOpen">
+          <h4>🔓 いまは「フタ開け」= <span class="hl-p">低圧力モード</span></h4>
+          <p>圧力がガクッと下がった! すき間のCO<sub>2</sub>はスカスカになり、水に<span class="hl-p">溶けきれなくなったCO<sub>2</sub>が泡になって脱出中</span>。これがシュワシュワの正体。</p>
+        </div>
+        <div class="formula" id="f1a">圧力が高い → 気体はたくさん溶ける<br>圧力が低い → 溶けきれず出ていく</div>
+        <p style="font-size:.9rem;" id="p1law">これを式にしたのが<span class="hl-y">ヘンリーの法則</span>:</p>
+        <div class="formula" id="f1b"><b>水に溶ける気体の物質量 n〔mol〕は、<br>その気体の圧力(分圧)に<span class="fc">比例</span>する</b></div>
+      </div>
+    </div>
+  </div>
+  <div class="next-area"><button class="btn" data-goto="s2" id="go2">STAGE 2へ ▶ 分子の動きを見る</button></div>
+</section>
+
+<!-- ============ STAGE 2 ============ -->
+<section id="s2">
+  <h2><span class="chip">STAGE 2</span>分子シミュレーター</h2>
+  <div class="henry-line">
+    <div class="h-ava" data-henry="cool"></div>
+    <div class="h-bubble"><span class="who">ヘンリー男爵</span>スライダーで圧力・温度・水の量を自由にいじってみたまえ。下の式は正直者だぞ。</div>
+  </div>
+
+  <div class="card">
+    <div class="sim-grid">
+      <div>
+        <canvas id="simCanvas"></canvas>
+      </div>
+      <div>
+        <div class="ctrl">
+          <div class="lab" id="lab2p">圧力(ピストン)<span class="val num" id="pVal2">1.0 ×10⁵ Pa</span></div>
+          <input type="range" id="pS2" min="10" max="30" value="10" step="1">
+        </div>
+        <div class="ctrl">
+          <div class="lab" id="lab2t">温度<span class="val num" id="tVal2">20 ℃</span></div>
+          <input type="range" id="tS2" class="pinkr" min="0" max="60" value="20" step="5">
+        </div>
+        <div class="ctrl">
+          <div class="lab" id="lab2w">水の体積<span class="val num" id="wVal2">1.0 L</span></div>
+          <input type="range" id="wS2" class="greenr" min="10" max="30" value="10" step="5">
+        </div>
+        <div class="meter-row"><span id="dissLab">水に溶けている分子</span><span class="num" id="dissNum" style="color:var(--cyan);">4個</span></div>
+        <div class="meter"><i id="dissMeter" style="width:10%;"></i></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3 id="s2FH3"><span class="dot"></span>式に代入すると(リアルタイム)</h3>
+    <div class="formula" id="s2Formula"></div>
+    <p class="note" id="s2TempNote">※ 基準 n₀ は「1.0×10⁵Pa・水1.0L」で溶ける量。<b>温度が上がると n₀ 自体が小さくなる</b>(だから式の前に温度をチェック!)。</p>
+  </div>
+  <div class="next-area"><button class="btn" data-goto="s3" id="go3">STAGE 3へ ▶ 最大の難所「体積のワナ」</button></div>
+</section>
+
+<!-- ============ STAGE 3 ============ -->
+<section id="s3">
+  <h2><span class="chip">STAGE 3</span>体積のワナを見破れ</h2>
+  <div class="henry-line">
+    <div class="h-ava" data-henry="cool"></div>
+    <div class="h-bubble"><span class="who">ヘンリー男爵</span>ここが最初の山場。「溶けた気体の体積」には<b>2つの顔</b>がある…。取り出したり戻したりして、自分の目で確かめたまえ。</div>
+  </div>
+
+  <div class="card">
+    <h3 id="s3H3a"><span class="dot"></span>取り出し実験ラボ(O₂・0℃・水1.0L)</h3>
+    <p style="font-size:.86rem;" id="s3Basis">基準:O₂は0℃・1.0×10⁵Paで水1.0Lに <b>0.049L</b>(標準状態換算)溶ける。</p>
+    <div class="ctrl">
+      <div class="lab" id="lab3p">溶かすときの圧力<span class="val num" id="exPVal">2.0 ×10⁵ Pa</span></div>
+      <div class="seg" id="exSeg">
+        <button data-v="1">×1</button>
+        <button data-v="2" class="on">×2</button>
+        <button data-v="3">×3</button>
+      </div>
+    </div>
+    <div style="margin-top:12px;"></div>
+    <canvas id="exCanvas"></canvas>
+    <div class="exbtns">
+      <button class="btn" id="exBtnA">① 溶けた気体を取り出す</button>
+      <button class="btn pinkbtn" id="exBtnB" disabled>② 標準状態(1.0×10⁵Pa)へ</button>
+    </div>
+    <div class="ex-reads">
+      <div class="exr litc" id="exrN">溶けているO₂の物質量<b id="exN">4.4×10⁻³ mol</b></div>
+      <div class="exr" id="exrV1">その圧力のままの体積<b id="exV1">?</b></div>
+      <div class="exr" id="exrV2">標準状態での体積<b id="exV2">?</b></div>
+    </div>
+    <p class="note" id="exNote"></p>
+  </div>
+
+  <div class="card">
+    <h3 id="s3H3b"><span class="dot"></span>なぜ「その圧力のまま」だと体積が変わらないの?</h3>
+    <p style="font-size:.86rem;" id="s3WhyP">ここが一番つまずくポイント。<b>4コマアニメ</b>でゆっくり見よう。</p>
+    <canvas id="whyCanvas"></canvas>
+    <div class="henry-line" style="margin-top:10px;">
+      <div class="h-ava sm" data-henry="cool"></div>
+      <div class="h-bubble" id="whyCap"><span class="who">ヘンリー男爵</span>▶ スタートを押したまえ。</div>
+    </div>
+    <div class="next-area" style="margin-top:6px;"><button class="btn" id="whyBtn">▶ スタート</button></div>
+  </div>
+  <div class="next-area"><button class="btn" data-goto="s4" id="go4">STAGE 4へ ▶ 計算ラボ</button></div>
+</section>
+
+<!-- ============ STAGE 4 ============ -->
+<section id="s4">
+  <h2><span class="chip">STAGE 4</span>計算ラボ 〜溶ける量を求めよ〜</h2>
+  <div class="henry-line">
+    <div class="h-ava" data-henry="cool"></div>
+    <div class="h-bubble"><span class="who">ヘンリー男爵</span>計算はたった1つ、「<b>基準 × 倍率</b>」だ。ステップを進めると下のラボが勝手に動くぞ。スライダーを自分でいじってもよい。</div>
+  </div>
+
+  <div class="card">
+    <h3 id="s4H3"><span class="dot"></span>練習問題</h3>
+    <p id="s4Prob">酸素は20℃・1.0×10⁵Paで、水1.0Lに <b>1.4×10⁻³ mol</b> 溶ける。<br>20℃のまま、<span class="hl-c">圧力2.0×10⁵Pa</span>・<span class="hl-g">水10L</span>にすると、酸素は何mol溶ける?</p>
+  </div>
+
+  <div class="card">
+    <canvas id="g4Canvas"></canvas>
+    <div class="ctrl">
+      <div class="lab" id="lab4p">圧力<span class="val num" id="p4Val">1.0 ×10⁵ Pa</span></div>
+      <input type="range" id="p4" min="10" max="30" value="10" step="1">
+    </div>
+    <div class="ctrl">
+      <div class="lab" id="lab4w">水の体積<span class="val num" id="w4Val">1.0 L</span></div>
+      <input type="range" id="w4" class="greenr" min="1" max="10" value="1" step="1">
+    </div>
+    <div class="formula" id="s4Formula"></div>
+    <div class="stepbox">
+      <div class="shead"><div class="h-ava" id="s4Henry"></div><span class="snum" id="s4Num">STEP 1</span><span style="font-weight:900;" id="s4SbTitle">解き方ステップ(ラボと連動)</span></div>
+      <div class="steptext" id="s4StepText"></div>
+      <div style="text-align:center;"><span class="ans-chip" id="s4Chip" style="display:none;">答え: 2.8×10⁻² mol</span></div>
+      <div class="stepnav">
+        <button class="btn ghost" id="s4Prev">◀ 前へ</button>
+        <span class="step-ind num" id="s4Ind">1 / 3</span>
+        <button class="btn" id="s4Next">次へ ▶</button>
+      </div>
+    </div>
+  </div>
+  <div class="next-area"><button class="btn" data-goto="s5" id="go5">STAGE 5へ ▶ 混合気体</button></div>
+</section>
+
+<!-- ============ STAGE 5 ============ -->
+<section id="s5">
+  <h2><span class="chip">STAGE 5</span>混合気体ラボ 〜まず分圧〜</h2>
+  <div class="henry-line">
+    <div class="h-ava" data-henry="cool"></div>
+    <div class="h-bubble"><span class="who">ヘンリー男爵</span>空気はまぜもの。あわてるな、<b>まず分圧</b>だ。各気体は「自分の分圧」だけを見て溶ける。</div>
+  </div>
+
+  <div class="card">
+    <h3 id="s5H3"><span class="dot"></span>練習問題</h3>
+    <p id="s5Prob">窒素は40℃・1.0×10⁵Paで、水1.0Lに <b>5.5×10⁻⁴ mol</b> 溶ける。<br>40℃・1.0×10⁵Paの<span class="hl-c">空気(N₂:O₂ = 4:1)</span>が<span class="hl-g">水10L</span>に接しているとき、溶けている窒素は何g?(N₂ = 28)</p>
+  </div>
+
+  <div class="card">
+    <canvas id="g5Canvas"></canvas>
+    <div class="ctrl">
+      <div class="lab" id="lab5p">全圧<span class="val num" id="pt5Val">1.0 ×10⁵ Pa</span></div>
+      <input type="range" id="pt5" min="10" max="30" value="10" step="1">
+    </div>
+    <div class="ctrl">
+      <div class="lab" id="lab5r">N₂の割合<span class="val num" id="r5Val">80 %</span></div>
+      <input type="range" id="r5" class="pinkr" min="50" max="100" value="80" step="10">
+    </div>
+    <div class="ctrl">
+      <div class="lab" id="lab5w">水の体積<span class="val num" id="w5Val">1.0 L</span></div>
+      <input type="range" id="w5" class="greenr" min="1" max="10" value="1" step="1">
+    </div>
+    <div class="formula" id="s5Formula"></div>
+    <div class="stepbox">
+      <div class="shead"><div class="h-ava" id="s5Henry"></div><span class="snum" id="s5Num">STEP 1</span><span style="font-weight:900;" id="s5SbTitle">解き方ステップ(ラボと連動)</span></div>
+      <div class="steptext" id="s5StepText"></div>
+      <div style="text-align:center;"><span class="ans-chip" id="s5Chip" style="display:none;">答え: 約 0.12 g</span></div>
+      <div class="stepnav">
+        <button class="btn ghost" id="s5Prev">◀ 前へ</button>
+        <span class="step-ind num" id="s5Ind">1 / 4</span>
+        <button class="btn" id="s5Next">次へ ▶</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3><span class="dot"></span><span id="tplTitle">最強の解法テンプレ</span> <button class="btn ghost" id="tplBtn" style="padding:6px 14px;font-size:.78rem;margin-left:auto;">▶ 再生</button></h3>
+    <canvas id="tplCanvas" style="margin-bottom:10px;"></canvas>
+    <div class="tpl" id="tpl0"><span class="ti">01</span><span>基準をメモ(1.0×10⁵Pa・水1Lで○mol)</span></div>
+    <div class="tpl" id="tpl1"><span class="ti">02</span><span>混合気体なら<b>分圧</b>を出す</span></div>
+    <div class="tpl" id="tpl2"><span class="ti">03</span><span><b>基準 × 圧力の倍率 × 水の倍率</b> で mol</span></div>
+    <div class="tpl" id="tpl3"><span class="ti">04</span><span>gやLは最後に変換(体積は「どの圧力で測るか」注意!)</span></div>
+  </div>
+  <div class="next-area"><button class="btn" data-goto="s6" id="go6">FINAL STAGEへ ▶ 腕試しクイズ</button></div>
+</section>
+
+<!-- ============ STAGE 6 ============ -->
+<section id="s6">
+  <h2><span class="chip">FINAL</span>腕試しクイズ 全8問</h2>
+  <div class="henry-line">
+    <div class="h-ava" data-henry="cool"></div>
+    <div class="h-bubble"><span class="who">ヘンリー男爵</span>腕試しの時間だ。<b>8問すべて正解</b>でエンディングが解放される。まちがえても何度でも挑戦できるぞ。</div>
+  </div>
+  <div class="qprog">
+    <span id="qProgTxt" class="num">CLEAR 0/8</span>
+    <div class="meter"><i id="qProgFill" style="width:0%;"></i></div>
+  </div>
+  <div id="quizWrap"></div>
+  <div class="clear-banner" id="clearBanner">
+    <div style="font-size:2.2rem;">🏆</div>
+    <div class="big" id="cbT">ALL QUESTIONS CLEAR!</div>
+    <p style="color:var(--sub);margin:6px 0 12px;" id="cbP">ヘンリーの法則マスター認定。男爵が君を待っている…</p>
+    <button class="btn big pinkbtn" id="endGoBtn">🎬 エンディングへ ▶</button>
+  </div>
+</section>
+
+</main>
+
+<!-- ============ ENDING ============ -->
+<div id="ending">
+  <div class="end-in">
+    <div class="end-k">EPILOGUE — HENRY'S WORLD</div>
+    <h3 id="endTitle"></h3>
+    <div id="endScene"></div>
+    <div id="endBody"></div>
+    <div class="end-henry">
+      <div class="h-ava" id="endHenry"></div>
+      <div class="h-bubble" id="endSay" style="flex:1;"><span class="who">ヘンリー男爵</span></div>
+    </div>
+    <div class="end-dots" id="endDots"></div>
+    <button class="btn big" id="endNext">つぎへ ▶</button>
+    <div style="margin-top:14px;"><a class="btn ghost" id="endPlaza" href="../">⛩ 中央広場に戻る</a></div>
+  </div>
+</div>
+
+<!-- ============ overlays ============ -->
+<div id="qrOv">
+  <div id="qrCard">
+    <h3 id="qrTitle">📱 友だちに紹介しよう!</h3>
+    <div id="qrBox"></div>
+    <div id="qrUrl"></div>
+    <button class="btn" id="qrClose">とじる</button>
+  </div>
+</div>
+
+<div id="misOv">
+  <div id="misCard">
+    <div class="mis-head">
+      <div class="h-ava sm" id="misHenry"></div>
+      <div>
+        <span class="mis-k">!! SUDDEN MISSION !!</span>
+        <div id="misTitle">突然のミッション!</div>
+      </div>
+    </div>
+    <p id="misText"></p>
+    <div id="misOpts" class="quiz-opts"></div>
+    <div id="misHint"></div>
+    <button class="btn" id="misTaskBtn">了解! やってみる</button>
+  </div>
+</div>
+
+<button id="misChip"><span class="mc">📜 MISSION:</span> <span id="misChipText"></span></button>
+
+<div id="clrOv">
+  <div class="clr-in">
+    <div id="clrHenry"></div>
+    <div class="clr-title" id="clrTitle">MISSION CLEAR!</div>
+    <p id="clrExp"></p>
+    <button class="btn big" id="clrBtn">つぎのステージへ ▶</button>
+  </div>
+</div>
+
+<canvas id="fxCanvas"></canvas>
+<div id="flash"></div>
+<div id="toast">+10 XP!</div>
+
+<script>
+"use strict";
+/* ================= helpers ================= */
+function $(id){ return document.getElementById(id); }
+function roundRect(ctx,x,y,w,h,r){
+  ctx.beginPath();
+  ctx.moveTo(x+r,y);
+  ctx.arcTo(x+w,y,x+w,y+h,r);
+  ctx.arcTo(x+w,y+h,x,y+h,r);
+  ctx.arcTo(x,y+h,x,y,r);
+  ctx.arcTo(x,y,x+w,y,r);
+  ctx.closePath();
+}
+var shadeCache = {};
+function shade(c){
+  if(shadeCache[c]) return shadeCache[c];
+  var n = parseInt(c.slice(1),16);
+  var r=(n>>16)&255, g=(n>>8)&255, b=n&255;
+  var s = 'rgb('+Math.floor(r*0.35)+','+Math.floor(g*0.35)+','+Math.floor(b*0.45)+')';
+  shadeCache[c]=s; return s;
+}
+function ball(ctx,x,y,r,color){
+  var g = ctx.createRadialGradient(x-r*0.35,y-r*0.35,r*0.1,x,y,r);
+  g.addColorStop(0,'#ffffff');
+  g.addColorStop(0.3,color);
+  g.addColorStop(1, shade(color));
+  ctx.beginPath(); ctx.arc(x,y,r,0,6.2832);
+  ctx.fillStyle = g; ctx.fill();
+}
+function arrowIn(ctx,x1,y1,x2,y2,col,w){ /* arrow from (x1,y1) pointing to (x2,y2) */
+  var ang = Math.atan2(y2-y1,x2-x1);
+  ctx.strokeStyle = col; ctx.fillStyle = col; ctx.lineWidth = w;
+  ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke();
+  var ah = 5 + w*1.6;
+  ctx.beginPath();
+  ctx.moveTo(x2,y2);
+  ctx.lineTo(x2-ah*Math.cos(ang-0.42), y2-ah*Math.sin(ang-0.42));
+  ctx.lineTo(x2-ah*Math.cos(ang+0.42), y2-ah*Math.sin(ang+0.42));
+  ctx.closePath(); ctx.fill();
+}
+function sci(x,sig){ /* -> "2.8×10<sup>-2</sup>" */
+  if(!isFinite(x)) return '-';
+  if(x===0) return '0';
+  var e = Math.floor(Math.log(Math.abs(x))/Math.LN10);
+  var m = x/Math.pow(10,e);
+  var ms = m.toFixed((sig||2)-1);
+  if(parseFloat(ms)>=10){ e++; m=x/Math.pow(10,e); ms=m.toFixed((sig||2)-1); }
+  if(e===0) return ms;
+  return ms+'×10<sup>'+e+'</sup>';
+}
+function easeIO(t){ return t<0.5 ? 2*t*t : 1-Math.pow(-2*t+2,2)/2; }
+
+/* ================= i18n ================= */
+var LANG = 'ja';
+var RF = []; // refreshers re-run after language switch
+function T(ja,en){ return LANG==='ja' ? ja : en; }
+function tx(pair){ return LANG==='ja' ? pair[0] : pair[1]; }
+var APP_URL = location.origin + location.pathname; // このページ自身のURL(セキオダイブ同梱版)
+var STATIC = [
+ ['#tabs .tab:nth-child(1)','<span class="st">STAGE 1</span>Soda Start<span class="lk">🔒</span>'],
+ ['#tabs .tab:nth-child(2)','<span class="st">STAGE 2</span>Molecule Sim<span class="lk">🔒</span>'],
+ ['#tabs .tab:nth-child(3)','<span class="st">STAGE 3</span>Volume Trap<span class="lk">🔒</span>'],
+ ['#tabs .tab:nth-child(4)','<span class="st">STAGE 4</span>Calc Lab<span class="lk">🔒</span>'],
+ ['#tabs .tab:nth-child(5)','<span class="st">STAGE 5</span>Gas Mixture<span class="lk">🔒</span>'],
+ ['#tabs .tab:nth-child(6)','<span class="st">FINAL</span>Challenge<span class="lk">🔒</span>'],
+ ['#s1 h2','<span class="chip">STAGE 1</span>Feel It with Soda'],
+ ['#s2 h2','<span class="chip">STAGE 2</span>Molecule Simulator'],
+ ['#s3 h2','<span class="chip">STAGE 3</span>Beat the Volume Trap'],
+ ['#s4 h2','<span class="chip">STAGE 4</span>Calc Lab: How Much Dissolves?'],
+ ['#s5 h2','<span class="chip">STAGE 5</span>Gas Mixture: Partial Pressure First'],
+ ['#s6 h2','<span class="chip">FINAL</span>Challenge Quiz — 8 Questions'],
+ ['#s1 > .henry-line .h-bubble','<span class="who">Baron Henry</span>I am Baron Henry, the man of solubility! First, open and close this soda bottle and observe very closely.'],
+ ['#s2 > .henry-line .h-bubble','<span class="who">Baron Henry</span>Play with the sliders — pressure, temperature, water volume. The formula below never lies.'],
+ ['#s3 > .henry-line .h-bubble','<span class="who">Baron Henry</span>Here comes the first boss. The "volume" of a dissolved gas has two faces… Extract it, put it back, and see with your own eyes.'],
+ ['#s4 > .henry-line .h-bubble','<span class="who">Baron Henry</span>The math is just one thing: "base × ratios". Step through and the lab moves on its own — or drag the sliders yourself.'],
+ ['#s5 > .henry-line .h-bubble','<span class="who">Baron Henry</span>Air is a mixture. Stay calm: partial pressure first. Each gas only looks at its own partial pressure.'],
+ ['#s6 > .henry-line .h-bubble','<span class="who">Baron Henry</span>Challenge time. Answer all 8 correctly to unlock the ending. Retry as often as you like!'],
+ ['#expClosed','<h4>🔒 Cap closed = <span class="hl-c">HIGH pressure</span></h4><p>CO<sub>2</sub> is packed tight in the headspace. That pressure pushes CO<sub>2</sub> into the water, so <span class="hl-c">a lot of it stays dissolved</span>.</p>'],
+ ['#expOpen','<h4>🔓 Cap open = <span class="hl-p">LOW pressure</span></h4><p>The pressure just dropped! The headspace thins out, and <span class="hl-p">CO<sub>2</sub> that can no longer stay dissolved escapes as bubbles</span>. That is the fizz.</p>'],
+ ['#f1a','High pressure → lots of gas dissolves<br>Low pressure → gas escapes'],
+ ['#p1law','Written as a law, this is <span class="hl-y">Henry&#39;s Law</span>:'],
+ ['#f1b','<b>The amount n [mol] of gas that dissolves in water is <span class="fc">proportional</span> to its (partial) pressure</b>'],
+ ['#go2','STAGE 2 ▶ Watch the molecules'],
+ ['#go3','STAGE 3 ▶ The Volume Trap'],
+ ['#go4','STAGE 4 ▶ Calc Lab'],
+ ['#go5','STAGE 5 ▶ Gas Mixtures'],
+ ['#go6','FINAL ▶ Challenge Quiz'],
+ ['#lab2p','Pressure (piston)<span class="val num" id="pVal2"></span>'],
+ ['#lab2t','Temperature<span class="val num" id="tVal2"></span>'],
+ ['#lab2w','Water volume<span class="val num" id="wVal2"></span>'],
+ ['#dissLab','Molecules dissolved'],
+ ['#s2FH3','<span class="dot"></span>Plug in the numbers (live)'],
+ ['#s3H3a','<span class="dot"></span>Extraction Lab (O₂ · 0°C · 1.0 L water)'],
+ ['#s3Basis','Base: O₂ dissolves <b>0.049 L</b> (converted to STP) in 1.0 L of water at 0°C and 1.0×10⁵ Pa.'],
+ ['#lab3p','Dissolving pressure<span class="val num" id="exPVal"></span>'],
+ ['#exrN','Dissolved O₂ (mol)<b id="exN">?</b>'],
+ ['#exrV1','Volume at that pressure<b id="exV1">?</b>'],
+ ['#exrV2','Volume at STP<b id="exV2">?</b>'],
+ ['#s3H3b','<span class="dot"></span>Why is the volume unchanged "at that pressure"?'],
+ ['#s3WhyP','The single most confusing point. Watch the <b>4-panel animation</b>, slowly.'],
+ ['#s4H3','<span class="dot"></span>Practice Problem'],
+ ['#s4Prob','Oxygen dissolves <b>1.4×10⁻³ mol</b> in 1.0 L of water at 20°C and 1.0×10⁵ Pa.<br>Still at 20°C, with <span class="hl-c">2.0×10⁵ Pa</span> and <span class="hl-g">10 L of water</span> — how many mol dissolve?'],
+ ['#lab4p','Pressure<span class="val num" id="p4Val"></span>'],
+ ['#lab4w','Water volume<span class="val num" id="w4Val"></span>'],
+ ['#s4SbTitle','Solution steps (synced with the lab)'],
+ ['#s4Chip','Answer: 2.8×10⁻² mol'],
+ ['#s4Prev','◀ Back'],
+ ['#s4Next','Next ▶'],
+ ['#s5H3','<span class="dot"></span>Practice Problem'],
+ ['#s5Prob','Nitrogen dissolves <b>5.5×10⁻⁴ mol</b> in 1.0 L of water at 40°C and 1.0×10⁵ Pa.<br><span class="hl-c">Air (N₂:O₂ = 4:1)</span> at 1.0×10⁵ Pa and 40°C is in contact with <span class="hl-g">10 L of water</span>. How many grams of N₂ are dissolved? (N₂ = 28)'],
+ ['#lab5p','Total pressure<span class="val num" id="pt5Val"></span>'],
+ ['#lab5r','N₂ fraction<span class="val num" id="r5Val"></span>'],
+ ['#lab5w','Water volume<span class="val num" id="w5Val"></span>'],
+ ['#s5SbTitle','Solution steps (synced with the lab)'],
+ ['#s5Chip','Answer: ≈ 0.12 g'],
+ ['#s5Prev','◀ Back'],
+ ['#s5Next','Next ▶'],
+ ['#tplTitle','Ultimate Solution Template'],
+ ['#tplBtn','▶ Play'],
+ ['#tpl0','<span class="ti">01</span><span>Note the base rate (x mol at 1.0×10⁵ Pa per 1 L of water)</span>'],
+ ['#tpl1','<span class="ti">02</span><span>For a mixture, find the <b>partial pressure</b> first</span>'],
+ ['#tpl2','<span class="ti">03</span><span><b>base × pressure ratio × water ratio</b> gives mol</span>'],
+ ['#tpl3','<span class="ti">04</span><span>Convert to g or L last (volume: check at WHICH pressure!)</span>'],
+ ['#cbT','ALL QUESTIONS CLEAR!'],
+ ['#cbP','Certified Henry&#39;s-Law Master. The Baron is waiting for you…'],
+ ['#endGoBtn','🎬 To the Ending ▶'],
+ ['#endPlaza','⛩ Back to the Central Plaza'],
+ ['#qrTitle','📱 Share with your friends!'],
+ ['#qrClose','Close']
+];
+function applyLang(){
+  for(var i=0;i<STATIC.length;i++){
+    var el = document.querySelector(STATIC[i][0]);
+    if(!el) continue;
+    if(LANG==='en'){
+      if(el.getAttribute('data-ja')===null) el.setAttribute('data-ja', el.innerHTML);
+      el.innerHTML = STATIC[i][1];
+    } else {
+      var ja = el.getAttribute('data-ja');
+      if(ja!==null) el.innerHTML = ja;
+    }
+  }
+  refreshTabs();
+  for(var k=0;k<RF.length;k++){ try{ RF[k](); }catch(e){} }
+}
+function initLang(){
+  var b = $('langBtn');
+  if(!b) return;
+  b.addEventListener('click', function(){
+    LANG = (LANG==='ja') ? 'en' : 'ja';
+    b.textContent = (LANG==='ja') ? 'EN' : 'JP';
+    sClick();
+    applyLang();
+  });
+}
+
+/* ================= QR share ================= */
+var qrMade = false;
+function initQR(){
+  var b=$('qrBtn'), ov=$('qrOv'), cl=$('qrClose'), box=$('qrBox'), url=$('qrUrl');
+  if(!b || !ov) return;
+  if(url) url.textContent = APP_URL;
+  b.addEventListener('click', function(){
+    sClick();
+    ov.classList.add('show');
+    if(!qrMade && box){
+      try{
+        if(window.QRCode){
+          new QRCode(box, {text:APP_URL, width:180, height:180, colorDark:'#0b1020', colorLight:'#ffffff'});
+          qrMade = true;
+        } else if(box){
+          box.innerHTML = '<p style="font-size:.8rem;color:var(--sub);">QR生成ライブラリを読み込めませんでした。URLを共有してください。</p>';
+        }
+      }catch(e){}
+    }
+  });
+  if(cl) cl.addEventListener('click', function(){ ov.classList.remove('show'); sClick(); });
+  ov.addEventListener('click', function(e){ if(e.target===ov) ov.classList.remove('show'); });
+}
+
+/* ================= audio ================= */
+var AU = {ctx:null, master:null, muted:false, bgmTimer:null, bgmStep:0, started:false};
+function auInit(){
+  if(AU.started) return;
+  try{
+    var C = window.AudioContext || window.webkitAudioContext;
+    if(!C) return;
+    AU.ctx = new C();
+    AU.master = AU.ctx.createGain();
+    AU.master.gain.value = 0.9;
+    AU.master.connect(AU.ctx.destination);
+    AU.started = true;
+    bgmStart();
+  }catch(e){}
+}
+document.addEventListener('pointerdown', function(){
+  auInit();
+  try{ if(AU.ctx && AU.ctx.state==='suspended') AU.ctx.resume(); }catch(e){}
+});
+function tone(f,d,type,v,delay,f2){
+  if(!AU.ctx || AU.muted) return;
+  try{
+    var t0 = AU.ctx.currentTime + (delay||0);
+    var o = AU.ctx.createOscillator();
+    var g = AU.ctx.createGain();
+    o.type = type||'sine';
+    o.frequency.setValueAtTime(f,t0);
+    if(f2) o.frequency.exponentialRampToValueAtTime(f2, t0+d);
+    g.gain.setValueAtTime(0.0001,t0);
+    g.gain.exponentialRampToValueAtTime(v||0.08, t0+0.012);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0+d);
+    o.connect(g); g.connect(AU.master);
+    o.start(t0); o.stop(t0+d+0.05);
+  }catch(e){}
+}
+function sClick(){ tone(640,0.05,'triangle',0.05); }
+function sTick(){ tone(920,0.04,'triangle',0.05); }
+function sPop(){ tone(320,0.09,'sine',0.05,0,760); }
+function sGood(){ tone(523,0.1,'triangle',0.1); tone(659,0.1,'triangle',0.1,0.08); tone(784,0.16,'triangle',0.11,0.16); tone(1568,0.2,'sine',0.05,0.2); }
+function sBad(){ tone(190,0.22,'sawtooth',0.09,0,120); tone(140,0.26,'sawtooth',0.07,0.08,95); }
+function sMission(){ tone(880,0.1,'square',0.07); tone(660,0.1,'square',0.07,0.14); tone(880,0.1,'square',0.07,0.28); }
+function sFanfare(){
+  tone(523,0.12,'triangle',0.1); tone(659,0.12,'triangle',0.1,0.1);
+  tone(784,0.12,'triangle',0.1,0.2); tone(1047,0.3,'triangle',0.12,0.3);
+  tone(1319,0.35,'sine',0.07,0.42); tone(1568,0.4,'sine',0.06,0.5);
+}
+function sUnlock(){ tone(440,0.08,'triangle',0.07); tone(660,0.08,'triangle',0.07,0.08); tone(990,0.14,'triangle',0.08,0.16); }
+var BGM_SEQ = [262,392,523,659,523,392, 294,440,587,740,587,440];
+function bgmStart(){
+  if(AU.bgmTimer || !AU.ctx) return;
+  AU.bgmTimer = setInterval(function(){
+    if(AU.muted || !AU.ctx) return;
+    var i = AU.bgmStep % BGM_SEQ.length;
+    tone(BGM_SEQ[i], 0.34, 'triangle', 0.022);
+    tone(BGM_SEQ[i]*2, 0.3, 'sine', 0.012, 0.02);
+    if(AU.bgmStep % 6 === 0) tone(BGM_SEQ[i]/2, 0.6, 'sine', 0.02);
+    AU.bgmStep++;
+  }, 380);
+}
+function initSound(){
+  var b = $('sndBtn');
+  if(!b) return;
+  b.addEventListener('click', function(){
+    AU.muted = !AU.muted;
+    b.textContent = AU.muted ? '🔇' : '🔊';
+    b.classList.toggle('on', !AU.muted);
+    if(!AU.muted) sClick();
+  });
+}
+
+/* ================= XP / toast ================= */
+var G = { xp:0, lvl:1, cur:'s1',
+  unlocked:{s1:true,s2:false,s3:false,s4:false,s5:false,s6:false,ending:false} };
+var awarded = {};
+function toast(txt){
+  var t = $('toast'); if(!t) return;
+  t.textContent = txt;
+  t.classList.remove('pop'); void t.offsetWidth; t.classList.add('pop');
+  setTimeout(function(){ t.classList.remove('pop'); }, 1500);
+}
+function addXP(n,key){
+  if(key){ if(awarded[key]) return; awarded[key]=true; }
+  G.xp += n;
+  var lv = Math.floor(G.xp/100)+1;
+  if($('xpNum')) $('xpNum').textContent = G.xp+' XP';
+  if($('xpFill')) $('xpFill').style.width = (G.xp-(lv-1)*100)+'%';
+  if($('lvBadge')) $('lvBadge').textContent = 'LV.'+lv;
+  if(lv > G.lvl){ G.lvl = lv; sUnlock(); toast('⭐ LEVEL UP! LV.'+lv); }
+  else toast('+'+n+' XP!');
+}
+
+/* ================= FX: confetti / flash / shake ================= */
+var FX = {parts:[], ctx:null, W:0, H:0};
+function fxInit(){
+  var cv = $('fxCanvas'); if(!cv) return;
+  FX.ctx = cv.getContext('2d');
+  function rs(){
+    var dpr = window.devicePixelRatio||1;
+    FX.W = window.innerWidth; FX.H = window.innerHeight;
+    cv.width = FX.W*dpr; cv.height = FX.H*dpr;
+    FX.ctx.setTransform(dpr,0,0,dpr,0,0);
+  }
+  rs(); window.addEventListener('resize', rs);
+  var COLS = ['#22d3ee','#ec4899','#fbbf24','#4ade80','#a78bfa','#ffffff'];
+  function loop(){
+    FX.ctx.clearRect(0,0,FX.W,FX.H);
+    var alive = [];
+    for(var i=0;i<FX.parts.length;i++){
+      var p = FX.parts[i];
+      p.vy += 0.12; p.x += p.vx; p.y += p.vy; p.rot += p.vr; p.life--;
+      if(p.life>0 && p.y < FX.H+30){
+        FX.ctx.save();
+        FX.ctx.translate(p.x,p.y); FX.ctx.rotate(p.rot);
+        FX.ctx.globalAlpha = Math.min(1, p.life/30);
+        FX.ctx.fillStyle = p.c;
+        FX.ctx.fillRect(-p.s/2,-p.s/2,p.s,p.s*0.6);
+        FX.ctx.restore();
+        alive.push(p);
+      }
+    }
+    FX.parts = alive;
+    requestAnimationFrame(loop);
+  }
+  requestAnimationFrame(loop);
+  window.burst = function(x,y,n){
+    for(var i=0;i<(n||40);i++){
+      var a = Math.random()*6.2832, sp = 2+Math.random()*6;
+      FX.parts.push({x:x,y:y,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp-3,
+        vr:(Math.random()-0.5)*0.4, rot:Math.random()*6.28,
+        s:5+Math.random()*7, c:COLS[Math.floor(Math.random()*COLS.length)], life:70+Math.random()*40});
+    }
+  };
+  window.rain = function(n){
+    for(var i=0;i<(n||80);i++){
+      FX.parts.push({x:Math.random()*FX.W, y:-20-Math.random()*200,
+        vx:(Math.random()-0.5)*1.5, vy:1+Math.random()*2,
+        vr:(Math.random()-0.5)*0.3, rot:Math.random()*6.28,
+        s:5+Math.random()*7, c:COLS[Math.floor(Math.random()*COLS.length)], life:200+Math.random()*100});
+    }
+  };
+}
+function flashFx(kind){
+  var f = $('flash'); if(!f) return;
+  f.className = kind;
+  setTimeout(function(){ f.className=''; }, 130);
+}
+function shakeEl(el){
+  if(!el) return;
+  el.classList.remove('shake'); void el.offsetWidth; el.classList.add('shake');
+}
+
+/* ================= Henry Baron SVG ================= */
+function henrySVG(mood){
+  var face;
+  if(mood==='funny'){
+    face =
+      /* mismatched eyebrows */
+      '<path d="M38 48 q8 -8 16 -3" stroke="#4b5568" stroke-width="3.2" fill="none" stroke-linecap="round"/>'+
+      '<path d="M67 56 l13 -3" stroke="#4b5568" stroke-width="3.2" stroke-linecap="round"/>'+
+      /* cross-eyed (yorime): pupils squeezed toward the nose */
+      '<circle cx="47" cy="60" r="8.5" fill="#fff" stroke="#1c2742" stroke-width="2"/>'+
+      '<circle cx="53" cy="63" r="3.6" fill="#1c2742"/>'+
+      '<circle cx="54.2" cy="61.8" r="1.1" fill="#fff"/>'+
+      '<circle cx="73" cy="61" r="6.5" fill="#fff" stroke="#1c2742" stroke-width="2"/>'+
+      '<circle cx="68.5" cy="63.5" r="3.2" fill="#1c2742"/>'+
+      /* puffed cheeks */
+      '<circle cx="36" cy="74" r="8.5" fill="#f6dcc3" stroke="#e3b792" stroke-width="1.5"/>'+
+      '<circle cx="36" cy="74" r="4.5" fill="#ffb3c8" opacity=".7"/>'+
+      '<circle cx="84" cy="74" r="8.5" fill="#f6dcc3" stroke="#e3b792" stroke-width="1.5"/>'+
+      '<circle cx="84" cy="74" r="4.5" fill="#ffb3c8" opacity=".7"/>'+
+      /* squashed mouth + tongue sticking out sideways */
+      '<path d="M48 80 q8 -5 16 0 q4 2 8 -1" stroke="#1c2742" stroke-width="2.6" fill="none" stroke-linecap="round"/>'+
+      '<path d="M66 81 q10 2 13 9 q1 5 -5 4 q-8 -2 -10 -9 Z" fill="#ff8aa8" stroke="#d96088" stroke-width="1.5"/>'+
+      '<line x1="68" y1="84" x2="74" y2="89" stroke="#d96088" stroke-width="1.2"/>'+
+      /* monocle popped off, dangling */
+      '<circle cx="95" cy="92" r="9" fill="none" stroke="#d9a514" stroke-width="2.4" transform="rotate(30 95 92)"/>'+
+      '<path d="M80 69 q10 8 12 16" stroke="#d9a514" stroke-width="1.6" fill="none"/>'+
+      /* sweat drop */
+      '<path d="M30 52 q-4 7 0 9 q4 -2 0 -9" fill="#8ed4f7"/>';
+  } else {
+    face =
+      '<path d="M40 54 l14 2" stroke="#4b5568" stroke-width="3" stroke-linecap="round"/>'+
+      '<path d="M80 54 l-14 2" stroke="#4b5568" stroke-width="3" stroke-linecap="round"/>'+
+      '<path d="M42 61 q5 3 10 0" stroke="#1c2742" stroke-width="2.6" fill="none" stroke-linecap="round"/>'+
+      '<circle cx="47" cy="61" r="1.9" fill="#1c2742"/>'+
+      '<path d="M68 61 q5 3 10 0" stroke="#1c2742" stroke-width="2.6" fill="none" stroke-linecap="round"/>'+
+      '<circle cx="73" cy="61" r="1.9" fill="#1c2742"/>'+
+      '<circle cx="73" cy="62" r="9.5" fill="none" stroke="#d9a514" stroke-width="2"/>'+
+      '<line x1="80" y1="69" x2="88" y2="84" stroke="#d9a514" stroke-width="1.4"/>'+
+      '<path d="M53 80 q7 4 15 1" stroke="#1c2742" stroke-width="2.6" fill="none" stroke-linecap="round"/>';
+  }
+  return '<svg viewBox="0 0 120 130" xmlns="http://www.w3.org/2000/svg">'+
+    '<path d="M18 130 q4 -26 22 -30 l20 -4 l20 4 q18 4 22 30 Z" fill="#27406e"/>'+
+    '<path d="M44 100 l16 -6 l16 6 l-16 14 Z" fill="#ffffff"/>'+
+    '<path d="M55 104 l5 -4 l5 4 l-3 10 l-4 0 Z" fill="#8a1538"/>'+
+    '<ellipse cx="60" cy="62" rx="27" ry="31" fill="#f6dcc3"/>'+
+    '<path d="M33 62 q-3 -34 27 -36 q30 2 27 36 q0 -22 -10 -26 q-8 8 -22 6 q-14 -2 -14 8 q-6 2 -8 12 Z" fill="#9aa3b5"/>'+
+    '<path d="M33 60 q-2 14 4 20 l4 -2 q-4 -8 -3 -18 Z" fill="#9aa3b5"/>'+
+    '<path d="M87 60 q2 14 -4 20 l-4 -2 q4 -8 3 -18 Z" fill="#9aa3b5"/>'+
+    '<path d="M50 48 q10 4 20 0" stroke="#8d96a8" stroke-width="2" fill="none"/>'+
+    '<path d="M57 68 q3 4 6 0" stroke="#caa07a" stroke-width="2" fill="none"/>'+
+    face +
+    '</svg>';
+}
+function henryFillAll(){
+  var els = document.querySelectorAll('[data-henry]');
+  for(var i=0;i<els.length;i++){
+    els[i].innerHTML = henrySVG(els[i].getAttribute('data-henry'));
+  }
+}
+function henryBoing(el){
+  if(!el) return;
+  el.classList.remove('boing'); void el.offsetWidth; el.classList.add('boing');
+}
+function stepFace(elId, funny){
+  var el = $(elId); if(!el) return;
+  el.innerHTML = henrySVG(funny?'funny':'cool');
+  henryBoing(el);
+  if(funny) setTimeout(function(){ if(el) el.innerHTML = henrySVG('cool'); }, 1800);
+}
+
+/* ================= mission system ================= */
+var ORDER = ['s1','s2','s3','s4','s5','s6','ending'];
+var MIS = {
+  s1:[{trigger:2, type:'quiz',
+      title:['炭酸の謎を解け!','Solve the Soda Mystery!'],
+      text:['フタを開けたときに泡が出てくる、いちばんの理由は?','Bubbles appear when you open the cap. The main reason is…?'],
+      opts:[['水の温度が急に上がったから','The water suddenly got hotter'],
+            ['圧力が下がって、溶けきれなくなったから','The pressure dropped, so less gas can stay dissolved'],
+            ['ボトルをふったから','Because the bottle was shaken']],
+      ans:1,
+      exp:['圧力が下がると「溶けていられる量」が減る。あふれた分が泡になる。これがヘンリーの法則の入り口だ!','Lower pressure means less gas can stay dissolved. The overflow becomes bubbles — your doorway into Henry&#39;s Law!'],
+      hint:['フタを開けた瞬間に変わったのは、温度かな? 圧力かな?','What changed the instant the cap opened — temperature, or pressure?']}],
+  s2:[{trigger:4, type:'task',
+      title:['式を操れ!','Command the Formula!'],
+      text:['温度20℃のまま、圧力を 2.0×10⁵Pa、水を 3.0L にせよ! 溶ける量nが「6倍」になるはずだ…','Keep 20°C. Set pressure to 2.0×10⁵ Pa and water to 3.0 L! n should become ×6…'],
+      chk:function(){ return !!window.S2COND; },
+      exp:['n = n₀ × 2.0 × 3.0 = 6倍。圧力と水の量のかけ算、式の通りだったろう?','n = n₀ × 2.0 × 3.0 = six times. Pressure × water — exactly as the formula says!']},
+     {trigger:12, type:'quiz',
+      title:['温度のワナ!','The Temperature Trap!'],
+      text:['温度を60℃まで上げると、溶けている気体の量は?','Raise the temperature to 60°C — the amount of dissolved gas will…?'],
+      opts:[['増える','Increase'],['減る','Decrease'],['変わらない','Stay the same']],
+      ans:1,
+      exp:['分子が熱で暴れて水から飛び出す。高温ほど溶けにくい!','Heat makes molecules jump out of the water. Hotter = less dissolves!'],
+      hint:['ぬるくなった炭酸ジュースを思い出せ…!','Think of warm, flat soda…!']}],
+  s3:[{trigger:3, type:'quiz',
+      title:['体積のワナを見破れ!','See Through the Volume Trap!'],
+      text:['圧力3倍で溶かした気体を「その圧力のまま」取り出すと、体積は?','Gas dissolved at ×3 pressure is extracted "at that same pressure". Its volume is…?'],
+      opts:[['3倍になる','3 times larger'],['変わらない','Unchanged'],['3分の1になる','One third']],
+      ans:1,
+      exp:['分子は3倍。でも3倍の圧力が1/3におしつぶす。3 × 1/3 = 1、だから変わらない!','3× molecules, but 3× pressure squeezes them to 1/3. 3 × 1/3 = 1 — unchanged!'],
+      hint:['分子は3倍にふえる。でも3倍の圧力でギュッとおしつぶされると…?','Molecules triple. But squeezed by triple pressure…?']},
+     {trigger:6, type:'task',
+      title:['限界実験!','Push It to ×3!'],
+      text:['圧力×3で溶かして、「②標準状態へ」まで進めてみよ!(合計0.147Lになるはず)','Dissolve at ×3 pressure, then go all the way to ② STP! (Total should be 0.147 L)'],
+      chk:function(){ return !!window.S3COND; },
+      exp:['分子3倍→標準状態では3倍の0.147L。でも取り出した直後は0.049Lのままだった!','3× molecules → 0.147 L at STP. Yet right after extraction it was still 0.049 L!']}],
+  s4:[{trigger:5, type:'quiz',
+      title:['計算チャレンジ!','Calculation Challenge!'],
+      text:['基準:1.0×10⁵Pa・水1Lで 2.0×10⁻³mol 溶ける気体がある。圧力1.5倍・水4Lなら何mol?','Base: a gas dissolves 2.0×10⁻³ mol at 1.0×10⁵ Pa per 1 L of water. At ×1.5 pressure and 4 L of water…?'],
+      opts:[['1.2×10⁻² mol','1.2×10⁻² mol'],['8.0×10⁻³ mol','8.0×10⁻³ mol'],['3.0×10⁻³ mol','3.0×10⁻³ mol']],
+      ans:0,
+      exp:['2.0×10⁻³ × 1.5 × 4 = 1.2×10⁻² mol。「基準×倍率」テンプレ完全マスターだ!','2.0×10⁻³ × 1.5 × 4 = 1.2×10⁻² mol. The "base × ratios" template, mastered!'],
+      hint:['基準 2.0×10⁻³ に、1.5 と 4 をかけるだけだ。','Just multiply the base 2.0×10⁻³ by 1.5 and then 4.']}],
+  s5:[{trigger:5, type:'quiz',
+      title:['分圧を見抜け!','Spot the Partial Pressure!'],
+      text:['全圧 2.0×10⁵Pa で N₂:O₂ = 1:1 のとき、N₂の分圧は?','Total pressure 2.0×10⁵ Pa, N₂:O₂ = 1:1. The partial pressure of N₂ is…?'],
+      opts:[['2.0×10⁵ Pa','2.0×10⁵ Pa'],['1.0×10⁵ Pa','1.0×10⁵ Pa'],['5.0×10⁴ Pa','5.0×10⁴ Pa']],
+      ans:1,
+      exp:['1:1なら取り分は半分こ。2.0×10⁵ × 1/2 = 1.0×10⁵ Pa。混合気体はまず分圧!','1:1 means half shares: 2.0×10⁵ × 1/2 = 1.0×10⁵ Pa. Mixtures: partial pressure first!'],
+      hint:['1:1 ということは、N₂の「取り分」は全体の半分だ。','1:1 means N₂&#39;s share is half of the total.']}],
+  s6:[{trigger:3, type:'task',
+      title:['最後の試練!','The Final Trial!'],
+      text:['残りの問題もすべて正解し、8問コンプリートせよ! エンディングが解放される…','Answer every remaining question — complete all 8 to unlock the ending…'],
+      chk:function(){ return quizSolved>=8; },
+      exp:['全問正解! 君はもう立派な「溶解度の弟子」だ。','A perfect score! You are now a true apprentice of solubility.']}]
+};
+var misState = {}; // id -> {idx, active}
+var misCount = {};
+var misCurrent = null;
+function misSt(id){ return misState[id] || (misState[id] = {idx:0, active:false}); }
+function misDone(id){ return !MIS[id] || misSt(id).idx >= MIS[id].length; }
+function misDef(id){ var st=misSt(id); return (MIS[id] && st.idx<MIS[id].length) ? MIS[id][st.idx] : null; }
+
+function misBump(id){
+  if(G.cur!==id) return;
+  var st = misSt(id);
+  if(st.active || misDone(id)) return;
+  misCount[id] = (misCount[id]||0)+1;
+  var def = misDef(id);
+  if(def && misCount[id] >= def.trigger) misOffer(id);
+}
+function misRender(id){
+  var def = misDef(id); if(!def) return;
+  if($('misHenry')) $('misHenry').innerHTML = henrySVG('cool');
+  if($('misTitle')) $('misTitle').textContent = tx(def.title);
+  if($('misText')) $('misText').textContent = tx(def.text);
+  if($('misHint')) $('misHint').textContent = '';
+  var opts=$('misOpts'), tbtn=$('misTaskBtn');
+  if(opts) opts.innerHTML = '';
+  if(def.type==='quiz'){
+    if(tbtn) tbtn.style.display='none';
+    if(opts){
+      for(var i=0;i<def.opts.length;i++){
+        (function(i){
+          var b = document.createElement('button');
+          b.textContent = tx(def.opts[i]);
+          b.addEventListener('click', function(){
+            if(i===def.ans){
+              b.classList.add('correct');
+              setTimeout(function(){ misClear(id); }, 350);
+            } else {
+              misFail(b, def);
+            }
+          });
+          opts.appendChild(b);
+        })(i);
+      }
+    }
+  } else {
+    if(tbtn){
+      tbtn.style.display='';
+      tbtn.textContent = T('了解! やってみる','Got it! Let me try');
+      tbtn.onclick = function(){
+        sClick();
+        var ov=$('misOv'); if(ov) ov.classList.remove('show');
+        var chip=$('misChip'), ct=$('misChipText');
+        if(chip && ct){ ct.textContent = tx(def.text); chip.classList.add('show'); }
+        setTimeout(function(){ if(def.chk && def.chk()) misClear(id); }, 400);
+      };
+    }
+  }
+}
+function misOffer(id){
+  if(misDone(id)) return;
+  misSt(id).active = true;
+  misCurrent = id;
+  misRender(id);
+  var ov=$('misOv'); if(ov) ov.classList.add('show');
+  sMission();
+  flashFx('bad');
+}
+function misFail(btn, def){
+  btn.classList.add('wrong');
+  shakeEl($('misCard'));
+  flashFx('bad');
+  sBad();
+  if($('misHint')) $('misHint').textContent = T('△ おしい! ヒント: ','△ So close! Hint: ')+tx(def.hint||['','']);
+  setTimeout(function(){ btn.classList.remove('wrong'); }, 900);
+}
+function misTaskCheck(id, ok){
+  var st=misSt(id), def=misDef(id);
+  if(st.active && def && def.type==='task' && ok) misClear(id);
+}
+function misClear(id){
+  var st=misSt(id), def=misDef(id);
+  if(!def) return;
+  st.active = false;
+  st.idx++;
+  var ov=$('misOv'); if(ov) ov.classList.remove('show');
+  var chip=$('misChip'); if(chip) chip.classList.remove('show');
+  var allDone = misDone(id);
+  if(allDone){
+    var i = ORDER.indexOf(id);
+    var nx = ORDER[i+1];
+    if(nx) G.unlocked[nx] = true;
+    refreshTabs();
+    var tab = document.querySelector('.tab[data-goto="'+id+'"]');
+    if(tab) tab.classList.add('done');
+  }
+  addXP(50, 'mis'+id+'-'+st.idx);
+  if($('clrHenry')) $('clrHenry').innerHTML = henrySVG('funny');
+  if($('clrTitle')) $('clrTitle').textContent = 'MISSION CLEAR!';
+  if($('clrExp')) $('clrExp').innerHTML = tx(def.exp) + (allDone ? '<br><b>🔓 '+T('次のステージが解放された! 下の「▶」ボタンから進もう。','Next stage unlocked! Use the stage&#39;s ▶ button to move on.')+'</b>' : '');
+  var cbtn = $('clrBtn');
+  if(cbtn){
+    cbtn.textContent = T('▶ ステージに戻る','▶ Back to the stage');
+    cbtn.onclick = function(){ var o=$('clrOv'); if(o) o.classList.remove('show'); sClick(); };
+  }
+  if($('clrOv')) $('clrOv').classList.add('show');
+  sFanfare();
+  flashFx('good');
+  if(window.burst){
+    window.burst(FX.W/2, FX.H*0.35, 70);
+    setTimeout(function(){ window.burst(FX.W*0.25, FX.H*0.3, 40); },200);
+    setTimeout(function(){ window.burst(FX.W*0.75, FX.H*0.3, 40); },380);
+  }
+}
+function misForceClear(id){
+  var st = misSt(id);
+  if(MIS[id]) st.idx = MIS[id].length-1;
+  st.active = true;
+  misClear(id);
+}
+function initMisChip(){
+  var chip = $('misChip');
+  if(chip) chip.addEventListener('click', function(){
+    if(misCurrent && misSt(misCurrent).active){
+      misRender(misCurrent);
+      var ov=$('misOv'); if(ov) ov.classList.add('show');
+      chip.classList.remove('show');
+    }
+  });
+  RF.push(function(){
+    if(!misCurrent) return;
+    var def = misDef(misCurrent);
+    if(!def) return;
+    var ov=$('misOv');
+    if(ov && ov.classList.contains('show')) misRender(misCurrent);
+    var ct=$('misChipText'), ch=$('misChip');
+    if(ct && ch && ch.classList.contains('show')) ct.textContent = tx(def.text);
+  });
+}
+
+/* ================= navigation / lock ================= */
+function refreshTabs(){
+  var tabs = document.querySelectorAll('.tab');
+  for(var i=0;i<tabs.length;i++){
+    var id = tabs[i].dataset.goto;
+    tabs[i].classList.toggle('locked', !G.unlocked[id]);
+  }
+}
+function gotoSec(id){
+  if(!G.unlocked[id]){
+    // locked: force the current stage's mission to appear
+    var tab = document.querySelector('.tab[data-goto="'+id+'"]');
+    shakeEl(tab);
+    sBad();
+    var cur = G.cur;
+    if(!misDone(cur)){
+      if(misSt(cur).active){
+        misRender(cur);
+        var ov=$('misOv'); if(ov) ov.classList.add('show');
+        var ch=$('misChip'); if(ch) ch.classList.remove('show');
+      } else {
+        misOffer(cur);
+      }
+    } else {
+      toast(T('🔒 ミッションをクリアせよ!','🔒 Clear the mission first!'));
+    }
+    return;
+  }
+  G.cur = id;
+  var secs = document.querySelectorAll('section');
+  for(var i=0;i<secs.length;i++) secs[i].classList.toggle('show', secs[i].id===id);
+  var tabs = document.querySelectorAll('.tab');
+  for(var j=0;j<tabs.length;j++) tabs[j].classList.toggle('active', tabs[j].dataset.goto===id);
+  // show task chip again if this stage has an active task mission
+  var chip=$('misChip');
+  if(chip){
+    var d = misDef(id);
+    if(misCurrent===id && misSt(id).active && d && d.type==='task') chip.classList.add('show');
+    else if(misCurrent!==id) chip.classList.remove('show');
+  }
+  window.scrollTo(0,0);
+  sClick();
+}
+function initNav(){
+  document.body.addEventListener('click', function(e){
+    var el = e.target.closest ? e.target.closest('[data-goto]') : null;
+    if(el) gotoSec(el.dataset.goto);
+  });
+  refreshTabs();
+}
+
+/* ================= STAGE 1: soda ================= */
+function initSoda(){
+  var cv = $('sodaCanvas'), btn = $('capBtn');
+  if(!cv || !btn) return;
+  var ctx = cv.getContext('2d');
+  var dpr = window.devicePixelRatio||1;
+  var W=220, H=300;
+  cv.width = W*dpr; cv.height = H*dpr;
+  cv.style.width = W+'px'; cv.style.height = H+'px';
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+
+  var open=false, frame=0;
+  var dissolved=[], head=[], fizz=[], escp=[], pops=[];
+  var i;
+  for(i=0;i<24;i++) dissolved.push({x:62+Math.random()*96, y:130+Math.random()*138, a:Math.random()*6.28});
+  for(i=0;i<9;i++) head.push({x:62+Math.random()*96, y:82+Math.random()*30, vx:(Math.random()-0.5)*2.4, vy:(Math.random()-0.5)*1.6});
+
+  function updCap(){ btn.textContent = open ? T('🔒 フタを閉める','🔒 Close the cap') : T('🔓 フタを開ける','🔓 Open the cap'); }
+  RF.push(updCap);
+  btn.addEventListener('click', function(){
+    open = !open;
+    updCap();
+    var ec=$('expClosed'), eo=$('expOpen');
+    if(ec) ec.classList.toggle('show', !open);
+    if(eo) eo.classList.toggle('show', open);
+    if(open){ sPop(); addXP(10,'soda'); }
+    else sClick();
+    misBump('s1');
+  });
+
+  function draw(){
+    frame++;
+    ctx.clearRect(0,0,W,H);
+    // bottle
+    ctx.fillStyle = '#10264a';
+    roundRect(ctx,50,70,120,215,18); ctx.fill();
+    ctx.fillRect(88,42,44,34);
+    // liquid
+    ctx.fillStyle = 'rgba(56,189,248,.35)';
+    roundRect(ctx,56,120,108,158,14); ctx.fill();
+    // headspace tint
+    ctx.fillStyle = open ? 'rgba(236,72,153,.12)' : 'rgba(34,211,238,.16)';
+    ctx.fillRect(56,76,108,42);
+    ctx.font = '700 11px "Zen Kaku Gothic New", sans-serif';
+    ctx.textAlign='center';
+    ctx.fillStyle = open ? '#f472b6' : '#22d3ee';
+    ctx.fillText(open ? T('圧力 低い!','LOW pressure!') : T('圧力 高い','HIGH pressure'), 110, 73);
+    // cap
+    ctx.fillStyle = '#fbbf24';
+    if(!open){ roundRect(ctx,84,28,52,18,5); ctx.fill(); }
+    else { roundRect(ctx,152,8,52,16,5); ctx.fill(); }
+
+    var k, m;
+    // headspace molecules (CO2 = pink)
+    var headTarget = open ? 3 : 9;
+    if(head.length < headTarget && frame%20===0) head.push({x:70+Math.random()*80, y:112, vx:(Math.random()-0.5)*2.4, vy:-1});
+    for(k=0;k<head.length;k++){
+      m = head[k];
+      m.x += m.vx; m.y += m.vy;
+      if(m.x<62){m.x=62;m.vx=Math.abs(m.vx);} if(m.x>158){m.x=158;m.vx=-Math.abs(m.vx);}
+      if(m.y<80){m.y=80;m.vy=Math.abs(m.vy)||1;} if(m.y>112){m.y=112;m.vy=-Math.abs(m.vy)||-1;}
+      ball(ctx,m.x,m.y,4.5,'#f472b6');
+    }
+    if(open && head.length>headTarget && frame%12===0){
+      var esc = head.splice(Math.floor(Math.random()*head.length),1)[0];
+      escp.push({x:esc.x, y:esc.y, vy:-2.6});
+    }
+    // escaping molecules fly out the neck
+    var ealive=[];
+    for(k=0;k<escp.length;k++){
+      m = escp[k];
+      m.x += (110-m.x)*0.12; m.y += m.vy; m.vy -= 0.08;
+      if(m.y > -12){ ball(ctx,m.x,m.y,4.5,'#f472b6'); ealive.push(m); }
+    }
+    escp = ealive;
+
+    // dissolved molecules (cyan)
+    var dTarget = open ? 9 : 24;
+    for(k=0;k<dissolved.length;k++){
+      m = dissolved[k];
+      m.a += 0.03;
+      m.x += Math.sin(m.a)*0.3; m.y += Math.cos(m.a*0.7)*0.25;
+      if(m.x<62)m.x=62; if(m.x>158)m.x=158;
+      if(m.y<128)m.y=128; if(m.y>270)m.y=270;
+      ball(ctx,m.x,m.y,4.5,'#22d3ee');
+    }
+    if(!open && dissolved.length<dTarget && frame%14===0)
+      dissolved.push({x:62+Math.random()*96, y:240, a:Math.random()*6.28});
+
+    // bubbles
+    if(open){
+      if(Math.random()<0.4 && dissolved.length>dTarget){
+        var s = dissolved.splice(Math.floor(Math.random()*dissolved.length),1)[0];
+        fizz.push({x:s.x, y:s.y, r:2.5+Math.random()*3, v:1+Math.random()*1.4});
+      }
+      if(Math.random()<0.4) fizz.push({x:64+Math.random()*92, y:272, r:2+Math.random()*2.5, v:1+Math.random()*1.5});
+    }
+    var falive=[];
+    for(k=0;k<fizz.length;k++){
+      var b = fizz[k];
+      b.y -= b.v; b.x += Math.sin(b.y*0.1)*0.5;
+      if(b.y <= 124){
+        pops.push({x:b.x,y:124,r:3,a:1});
+        head.push({x:b.x, y:112, vx:(Math.random()-0.5)*2.4, vy:-1.2});
+        if(Math.random()<0.25) sPop();
+      } else {
+        ctx.beginPath(); ctx.arc(b.x,b.y,b.r,0,6.2832);
+        ctx.strokeStyle='rgba(232,236,251,.75)'; ctx.lineWidth=1.4; ctx.stroke();
+        falive.push(b);
+      }
+    }
+    fizz = falive;
+    // pop rings
+    var palive=[];
+    for(k=0;k<pops.length;k++){
+      var pr = pops[k];
+      pr.r += 0.8; pr.a -= 0.07;
+      if(pr.a>0){
+        ctx.beginPath(); ctx.arc(pr.x,pr.y,pr.r,0,6.2832);
+        ctx.strokeStyle='rgba(255,255,255,'+pr.a+')'; ctx.lineWidth=1.5; ctx.stroke();
+        palive.push(pr);
+      }
+    }
+    pops = palive;
+    requestAnimationFrame(draw);
+  }
+  requestAnimationFrame(draw);
+}
+
+/* ================= STAGE 2: molecule sim ================= */
+function initSim(){
+  var cv = $('simCanvas');
+  if(!cv) return;
+  var ctx = cv.getContext('2d');
+  var W=600, H=400;
+  function resize(){
+    var parent = cv.parentElement;
+    var w = (parent && parent.clientWidth) ? parent.clientWidth : 600;
+    if(w<100) w=320;
+    var dpr = window.devicePixelRatio||1;
+    W = w; H = Math.min(420, Math.max(300, Math.round(w*0.8)));
+    cv.width = W*dpr; cv.height = H*dpr;
+    cv.style.height = H+'px';
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+  }
+  resize();
+  window.addEventListener('resize', resize);
+
+  var P=1.0, Tc=20, Wv=1.0; // pressure x1e5, temp(C), water L
+  var TOTAL=52, BASE=4;
+  function tf(t){ return (100-t)/80; }
+  function targetDiss(){ return Math.min(TOTAL-6, Math.round(BASE*P*Wv*tf(Tc))); }
+  function floorY(){ return H-12; }
+  function surfaceY(){ return floorY() - (H*0.44)*(Wv/3); }
+  function pistonY(){ var mg = surfaceY()-34; return surfaceY() - mg/P; }
+  function speed(){ return 1.1 + Tc*0.045; }
+
+  var mols=[], pops=[];
+  var i;
+  for(i=0;i<TOTAL;i++) mols.push({state:'g', x:0, y:0, vx:(Math.random()-0.5)*3, vy:(Math.random()-0.5)*3});
+  function seed(){
+    var want = targetDiss();
+    for(var k=0;k<mols.length;k++){
+      var m = mols[k];
+      if(k<want){ m.state='d'; m.x=30+Math.random()*(W-60); m.y=surfaceY()+16+Math.random()*(floorY()-surfaceY()-30); }
+      else { m.state='g'; m.x=30+Math.random()*(W-60); m.y=pistonY()+18+Math.random()*(surfaceY()-pistonY()-34); }
+    }
+  }
+  seed();
+
+  var lastAdjust=0;
+  function adjust(ts){
+    if(ts-lastAdjust < 180) return;
+    lastAdjust = ts;
+    var want = targetDiss(), have=0, g=null, d=null;
+    for(var k=0;k<mols.length;k++){
+      var m = mols[k];
+      if(m.state==='d'||m.state==='sink') have++;
+      if(m.state==='g' && !g) g=m;
+      if(m.state==='d' && !d) d=m;
+    }
+    if(have<want && g) g.state='sink';
+    else if(have>want && d){ d.state='rise'; d.bub=true; }
+  }
+
+  function step(){
+    var sY=surfaceY(), pY=pistonY(), fY=floorY(), sp=speed();
+    var L=16, R=W-16;
+    for(var k=0;k<mols.length;k++){
+      var m = mols[k];
+      if(m.state==='g'){
+        m.x += m.vx*sp*0.5; m.y += m.vy*sp*0.5;
+        if(m.x<L){m.x=L;m.vx=Math.abs(m.vx);} if(m.x>R){m.x=R;m.vx=-Math.abs(m.vx);}
+        if(m.y<pY+15){m.y=pY+15;m.vy=Math.abs(m.vy)||1;}
+        if(m.y>sY-8){m.y=sY-8;m.vy=-Math.abs(m.vy)||-1;}
+      } else if(m.state==='d'){
+        m.x += m.vx*0.4; m.y += m.vy*0.4;
+        if(m.x<L){m.x=L;m.vx=Math.abs(m.vx);} if(m.x>R){m.x=R;m.vx=-Math.abs(m.vx);}
+        if(m.y<sY+12){m.y=sY+12;m.vy=Math.abs(m.vy)||1;}
+        if(m.y>fY-10){m.y=fY-10;m.vy=-Math.abs(m.vy)||-1;}
+      } else if(m.state==='sink'){
+        m.y += 2.6;
+        if(m.y > sY+22){ m.state='d'; }
+      } else if(m.state==='rise'){
+        m.y -= 2.4; m.x += Math.sin(m.y*0.12)*1.2;
+        if(m.y < sY-6){
+          m.state='g'; m.vy=-2;
+          if(m.bub){ pops.push({x:m.x,y:sY-4,r:3,a:1}); if(Math.random()<0.4) sPop(); m.bub=false; }
+        }
+      }
+    }
+  }
+
+  function draw(ts){
+    adjust(ts||0);
+    step();
+    ctx.clearRect(0,0,W,H);
+    var sY=surfaceY(), pY=pistonY(), fY=floorY();
+    // water
+    var wg = ctx.createLinearGradient(0,sY,0,fY);
+    wg.addColorStop(0,'rgba(56,189,248,.30)');
+    wg.addColorStop(1,'rgba(29,78,216,.38)');
+    ctx.fillStyle = wg;
+    ctx.fillRect(10,sY,W-20,fY-sY);
+    // surface
+    ctx.strokeStyle='rgba(125,211,252,.85)'; ctx.lineWidth=2;
+    ctx.beginPath();
+    for(var x=10;x<=W-10;x+=8) ctx.lineTo(x, sY+Math.sin(x*0.07+(ts||0)*0.003)*2.5);
+    ctx.stroke();
+    // walls
+    ctx.strokeStyle='#2a3560'; ctx.lineWidth=3;
+    ctx.strokeRect(10,16,W-20,H-26);
+    // gas tint
+    ctx.fillStyle = 'rgba(244,114,182,'+(0.035*P)+')';
+    ctx.fillRect(12,pY+8,W-24,sY-pY-8);
+    // piston
+    ctx.fillStyle='#39456f'; roundRect(ctx,12,pY-10,W-24,20,4); ctx.fill();
+    ctx.fillStyle='#4a588a'; ctx.fillRect(W/2-7,18,14,Math.max(0,pY-12-18));
+    ctx.fillStyle='#fbbf24';
+    ctx.font='900 12px "Zen Kaku Gothic New", sans-serif'; ctx.textAlign='center';
+    ctx.fillText(T('ピストン ','Piston ')+P.toFixed(1)+'×10^5 Pa', W/2, pY+26);
+    ctx.fillStyle='rgba(154,167,214,.9)';
+    ctx.font='700 12px "Zen Kaku Gothic New", sans-serif'; ctx.textAlign='left';
+    ctx.fillText(T('気体','Gas'), 20, pY+28);
+    ctx.fillText(T('水 ','Water ')+Wv.toFixed(1)+'L / '+Tc+'°C', 20, sY+22);
+    // molecules
+    var dc=0;
+    for(var k=0;k<mols.length;k++){
+      var m = mols[k];
+      if(m.state==='d'||m.state==='sink') dc++;
+      ball(ctx, m.x, m.y, 6, (m.y>sY)?'#22d3ee':'#f472b6');
+    }
+    // pop rings
+    var palive=[];
+    for(k=0;k<pops.length;k++){
+      var pr=pops[k]; pr.r+=0.9; pr.a-=0.06;
+      if(pr.a>0){
+        ctx.beginPath(); ctx.arc(pr.x,pr.y,pr.r,0,6.2832);
+        ctx.strokeStyle='rgba(255,255,255,'+pr.a+')'; ctx.lineWidth=1.6; ctx.stroke();
+        palive.push(pr);
+      }
+    }
+    pops=palive;
+    ctx.fillStyle='#22d3ee';
+    ctx.font='900 13px "Orbitron", sans-serif'; ctx.textAlign='right';
+    ctx.fillText(T('溶解中: ','Dissolved: ')+dc, W-20, H-18);
+    requestAnimationFrame(draw);
+  }
+  requestAnimationFrame(draw);
+
+  function fmtFormula(){
+    var n0 = tf(Tc)*1.0e-3;
+    var n = n0*P*Wv;
+    var el = $('s2Formula');
+    if(el) el.innerHTML =
+      'n = n₀ × <span class="fc">'+T('圧力の倍率','pressure ratio')+'</span> × <span class="fg">'+T('水の倍率','water ratio')+'</span><br>'+
+      '= <span class="fy">'+sci(n0,2)+' mol</span> × <span class="fc">'+P.toFixed(1)+'</span> × <span class="fg">'+Wv.toFixed(1)+'</span>'+
+      ' = <b style="font-size:1.1em;" class="fy">'+sci(n,2)+' mol</b>';
+    var tn = $('s2TempNote');
+    if(tn) tn.innerHTML = (Tc===20)
+      ? T('※ 基準 n₀ は「1.0×10⁵Pa・水1.0L」で溶ける量(いまは20℃で n₀ = 1.0×10⁻³ mol とする)。','※ The base n₀ is the amount dissolved at 1.0×10⁵ Pa per 1.0 L of water (at 20°C we take n₀ = 1.0×10⁻³ mol).')
+      : T('※ いま '+Tc+'℃。<b>温度が変わると n₀ 自体が変わる</b>(高温ほど小さい)。だから式の前に温度チェック!','※ Now at '+Tc+'°C. <b>Changing temperature changes n₀ itself</b> (smaller when hotter). Check the temperature before using the formula!');
+  }
+  function updateUI(){
+    if($('pVal2')) $('pVal2').textContent = P.toFixed(1)+' ×10⁵ Pa';
+    if($('tVal2')) $('tVal2').textContent = Tc+' °C';
+    if($('wVal2')) $('wVal2').textContent = Wv.toFixed(1)+' L';
+    var want = targetDiss();
+    if($('dissNum')) $('dissNum').textContent = want+T('個',' pcs');
+    if($('dissMeter')) $('dissMeter').style.width = (want/(TOTAL-6)*100)+'%';
+    fmtFormula();
+    misBump('s2');
+    window.S2COND = (Math.abs(P-2.0)<0.001 && Math.abs(Wv-3.0)<0.001 && Tc===20);
+    misTaskCheck('s2', window.S2COND);
+  }
+  var pS=$('pS2'), tS=$('tS2'), wS=$('wS2');
+  if(pS) pS.addEventListener('input', function(){ P = pS.value/10; updateUI(); });
+  if(tS) tS.addEventListener('input', function(){ Tc = +tS.value; updateUI(); });
+  if(wS) wS.addEventListener('input', function(){ Wv = wS.value/10; updateUI(); });
+  updateUI();
+  RF.push(updateUI);
+}
+
+/* ================= STAGE 3: extraction lab ================= */
+function initExtract(){
+  var cv = $('exCanvas');
+  if(!cv) return;
+  var ctx = cv.getContext('2d');
+  var W=600, H=380, frame=0;
+  function resize(){
+    var parent = cv.parentElement;
+    var w = (parent && parent.clientWidth) ? parent.clientWidth-28 : 600;
+    if(w<100) w=300;
+    var dpr = window.devicePixelRatio||1;
+    W = w; H = Math.min(420, Math.max(320, Math.round(w*0.72)));
+    cv.width = W*dpr; cv.height = H*dpr;
+    cv.style.height = H+'px';
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+  }
+  resize();
+  window.addEventListener('resize', resize);
+
+  var P=2;
+  var phase='water'; // water | toCube | cube | toStd | std | toWater
+  var mols=[];
+  var NMAP={1:'2.2×10⁻³ mol',2:'4.4×10⁻³ mol',3:'6.6×10⁻³ mol'};
+  var VSTD={1:'0.049 L',2:'0.098 L',3:'0.147 L'};
+
+  function beaker(){ var bw=Math.min(150, W*0.32); return {x:12, y:H*0.2, w:bw, h:H*0.72}; }
+  function zone(){ var b=beaker(); return {x:b.x+b.w+24, y:14, w:W-(b.x+b.w+24)-12, h:H-28}; }
+  function dOf(s){ return s*0.26; }
+  function cubeRect(){
+    var z=zone();
+    var s=Math.min(110, z.w-70, z.h-150);
+    if(s<40) s=40;
+    return {x:z.x+(z.w-s-dOf(s))/2, y:z.y+z.h-s-56, s:s};
+  }
+  function stdRects(){
+    var z=zone();
+    var s=Math.min(90, z.w-70, Math.floor((z.h-100)/(P*1.32)));
+    if(s<30) s=30;
+    var d=dOf(s), out=[];
+    for(var i=0;i<P;i++) out.push({x:z.x+(z.w-s-d)/2, y:z.y+z.h-50-(i+1)*s-i*(d+6), s:s});
+    return out;
+  }
+  function randBeaker(){
+    var b=beaker();
+    return {x:b.x+14+Math.random()*(b.w-28), y:b.y+16+Math.random()*(b.h-32)};
+  }
+  function fixCount(){
+    var n=6*P;
+    while(mols.length<n){ var p=randBeaker(); mols.push({x:p.x,y:p.y,tx:0,ty:0,delay:0,wig:Math.random()*6.28}); }
+    while(mols.length>n) mols.pop();
+  }
+  fixCount();
+
+  var transFrames = 0;
+  function stagger(){
+    transFrames = 0;
+    for(var i=0;i<mols.length;i++) mols[i].delay = i*3 + Math.random()*10;
+  }
+  function setTargetsCube(){
+    var c=cubeRect(), n=mols.length;
+    var cols=Math.ceil(Math.sqrt(n)), rows=Math.ceil(n/cols);
+    for(var i=0;i<n;i++){
+      var col=i%cols, row=Math.floor(i/cols);
+      mols[i].tx = c.x + c.s*(col+0.5)/cols;
+      mols[i].ty = c.y + c.s - c.s*(row+0.5)/rows;
+    }
+    stagger();
+  }
+  function setTargetsStd(){
+    var rects=stdRects();
+    for(var i=0;i<mols.length;i++){
+      var r = rects[Math.min(rects.length-1, Math.floor(i/6))];
+      var j=i%6, col=j%3, row=Math.floor(j/3);
+      mols[i].tx = r.x + r.s*(col+0.5)/3;
+      mols[i].ty = r.y + r.s - r.s*(row+0.5)/2;
+    }
+    stagger();
+  }
+  function setTargetsWater(){
+    for(var i=0;i<mols.length;i++){
+      var p=randBeaker();
+      mols[i].tx=p.x; mols[i].ty=p.y;
+    }
+    stagger();
+  }
+
+  function drawCube(x,y,s,dashed,col){
+    var d=dOf(s);
+    ctx.lineWidth=2;
+    ctx.strokeStyle=col||'#38bdf8';
+    if(dashed) ctx.setLineDash([6,5]); else ctx.setLineDash([]);
+    ctx.fillStyle='rgba(56,189,248,.07)';
+    ctx.beginPath(); ctx.rect(x,y,s,s);
+    if(!dashed) ctx.fill();
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(x,y); ctx.lineTo(x+d,y-d); ctx.lineTo(x+s+d,y-d); ctx.lineTo(x+s,y);
+    ctx.closePath();
+    if(!dashed){ ctx.fillStyle='rgba(56,189,248,.16)'; ctx.fill(); }
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(x+s,y); ctx.lineTo(x+s+d,y-d); ctx.lineTo(x+s+d,y+s-d); ctx.lineTo(x+s,y+s);
+    ctx.closePath();
+    if(!dashed){ ctx.fillStyle='rgba(56,189,248,.10)'; ctx.fill(); }
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+  function pressArrows(x,y,s,plv,col){
+    var d=dOf(s);
+    var cx=x+s/2, cy=y+s/2;
+    var len=Math.min(34, 8+9*plv), lenS=Math.min(24,len), w=1.6+plv*0.8;
+    arrowIn(ctx, cx, y-d-8-len, cx, y-d-8, col, w);                 // top
+    arrowIn(ctx, cx, y+s+8+Math.min(16,len), cx, y+s+8, col, w);    // bottom
+    arrowIn(ctx, x-8-lenS, cy, x-8, cy, col, w);                    // left
+    arrowIn(ctx, x+s+d+8+lenS, cy, x+s+d+8, cy, col, w);            // right
+  }
+  function label(txt,x,y,col,size){
+    ctx.fillStyle=col;
+    ctx.font='900 '+(size||13)+'px "Zen Kaku Gothic New", sans-serif';
+    ctx.textAlign='center';
+    ctx.fillText(txt,x,y);
+  }
+
+  function step(){
+    frame++;
+    var i,m;
+    if(phase==='water'){
+      var b=beaker();
+      for(i=0;i<mols.length;i++){
+        m=mols[i]; m.wig+=0.03;
+        m.x+=Math.sin(m.wig)*0.5; m.y+=Math.cos(m.wig*0.7)*0.4;
+        if(m.x<b.x+12)m.x=b.x+12; if(m.x>b.x+b.w-12)m.x=b.x+b.w-12;
+        if(m.y<b.y+14)m.y=b.y+14; if(m.y>b.y+b.h-14)m.y=b.y+b.h-14;
+      }
+    } else if(phase==='toCube'||phase==='toStd'||phase==='toWater'){
+      transFrames++;
+      var maxd=0, waiting=false;
+      for(i=0;i<mols.length;i++){
+        m=mols[i];
+        if(m.delay>0){ m.delay--; waiting=true; m.x+=Math.sin(frame*0.3+m.wig)*0.8; m.y+=Math.cos(frame*0.25+m.wig)*0.8; continue; }
+        var dx=m.tx-m.x, dy=m.ty-m.y;
+        var dist=Math.abs(dx)+Math.abs(dy);
+        var amp=Math.min(1, dist/60); // ゆらぎは目標に近づくほど減衰→必ず整列完了する
+        m.x += dx*0.08 + Math.sin(frame*0.16+m.wig)*1.6*amp;
+        m.y += dy*0.08 + Math.cos(frame*0.13+m.wig)*1.4*amp;
+        if(dist>maxd) maxd=dist;
+      }
+      if((!waiting && maxd<3) || transFrames>480){ // 失敗保険: 8秒で強制整列
+        for(i=0;i<mols.length;i++){ mols[i].x=mols[i].tx; mols[i].y=mols[i].ty; mols[i].delay=0; }
+        phase = (phase==='toCube')?'cube':(phase==='toStd')?'std':'water';
+        if(phase==='water') fixCount();
+        onSettle();
+      }
+    } else {
+      for(i=0;i<mols.length;i++) mols[i].wig+=0.05;
+    }
+  }
+
+  function draw(){
+    step();
+    ctx.clearRect(0,0,W,H);
+    var b=beaker(), i;
+    ctx.fillStyle='rgba(56,189,248,.22)';
+    roundRect(ctx,b.x,b.y,b.w,b.h,10); ctx.fill();
+    ctx.strokeStyle='#2a3560'; ctx.lineWidth=3;
+    ctx.beginPath();
+    ctx.moveTo(b.x,b.y-14); ctx.lineTo(b.x,b.y+b.h); ctx.lineTo(b.x+b.w,b.y+b.h); ctx.lineTo(b.x+b.w,b.y-14);
+    ctx.stroke();
+    label(T('水 1.0L(0℃)','Water 1.0L (0°C)'), b.x+b.w/2, b.y+b.h-10, 'rgba(154,167,214,.95)', 12);
+
+    if(phase==='water'){
+      var c0=cubeRect();
+      drawCube(c0.x,c0.y,c0.s,true,'rgba(56,189,248,.4)');
+      label(T('ここに取り出す','Extract it here'), c0.x+c0.s/2, c0.y+c0.s/2, 'rgba(154,167,214,.6)', 12);
+    } else if(phase==='toCube'||phase==='cube'){
+      var c=cubeRect();
+      drawCube(c.x,c.y,c.s, phase==='toCube');
+      if(phase==='cube'){
+        pressArrows(c.x,c.y,c.s,P,'#fbbf24');
+        label(P.toFixed(1)+T('×10^5 Paでおしている','×10^5 Pa pressing'), c.x+c.s/2+dOf(c.s)/2, c.y-dOf(c.s)-46, '#fbbf24', 12);
+        label(T('体積 0.049 L','Volume 0.049 L'), c.x+c.s/2, c.y+c.s+44, '#fbbf24', 14);
+      }
+    } else {
+      var rects=stdRects();
+      for(i=0;i<rects.length;i++)
+        drawCube(rects[i].x,rects[i].y,rects[i].s, phase==='toStd', phase==='toStd'?'rgba(244,114,182,.5)':'#f472b6');
+      if(phase==='std' && rects.length){
+        var top=rects[rects.length-1], bot=rects[0];
+        var sx=top.x, ss=top.s, sd=dOf(ss);
+        var cy2=(top.y-sd + bot.y+bot.s)/2;
+        arrowIn(ctx, sx+ss/2, top.y-sd-26, sx+ss/2, top.y-sd-6, '#f9a8d4', 2.2);
+        arrowIn(ctx, sx+ss/2, bot.y+bot.s+24, sx+ss/2, bot.y+bot.s+6, '#f9a8d4', 2.2);
+        arrowIn(ctx, sx-26, cy2, sx-6, cy2, '#f9a8d4', 2.2);
+        arrowIn(ctx, sx+ss+sd+26, cy2, sx+ss+sd+6, cy2, '#f9a8d4', 2.2);
+        label('1.0×10^5 Pa', sx+ss/2, top.y-sd-32, '#f472b6', 12);
+        label(T('合計 ','Total ')+VSTD[P], sx+ss/2, bot.y+bot.s+42, '#f472b6', 14);
+      }
+    }
+    for(i=0;i<mols.length;i++){
+      var m=mols[i], ox=0, oy=0;
+      if(phase==='cube'||phase==='std'){ ox=Math.sin(m.wig)*1.8; oy=Math.cos(m.wig*0.8)*1.5; }
+      ball(ctx, m.x+ox, m.y+oy, 5.5, (phase==='std'||phase==='toStd')?'#f472b6':'#22d3ee');
+    }
+    requestAnimationFrame(draw);
+  }
+  requestAnimationFrame(draw);
+
+  /* --- UI --- */
+  var btnA=$('exBtnA'), btnB=$('exBtnB'), exNote=$('exNote');
+  function refreshUI(){
+    if($('exN')) $('exN').textContent = NMAP[P];
+    var v1=$('exV1'), v2=$('exV2'), r1=$('exrV1'), r2=$('exrV2');
+    var hasCube = (phase==='cube'||phase==='toStd'||phase==='std');
+    if(v1) v1.textContent = hasCube ? '0.049 L' : '?';
+    if(r1) r1.classList.toggle('lit', hasCube);
+    if(v2) v2.textContent = (phase==='std') ? VSTD[P] : '?';
+    if(r2) r2.classList.toggle('litp', phase==='std');
+    if(btnA){
+      btnA.disabled = !(phase==='water'||phase==='cube');
+      btnA.textContent = (phase==='cube') ? T('① 水に戻す','① Put it back in water') : T('① 溶けた気体を取り出す','① Extract the dissolved gas');
+    }
+    if(btnB){
+      btnB.disabled = !(phase==='cube'||phase==='std');
+      btnB.textContent = (phase==='std') ? T('② 元の圧力(','② Back to ')+P.toFixed(1)+T('×10⁵Pa)に戻す','×10⁵Pa') : T('② 標準状態(1.0×10⁵Pa)へ','② To STP (1.0×10⁵Pa)');
+    }
+    window.S3COND = (phase==='std' && P===3);
+  }
+  function onSettle(){
+    refreshUI();
+    misBump('s3');
+    if(phase==='cube'){
+      addXP(10,'exCube'); sGood();
+      if(exNote){ exNote.textContent=T('圧力を変えても、この箱の大きさ(0.049L)は変わらない。②で標準状態にするとどうなる?','Change the pressure — this box stays 0.049 L. What happens at STP (button ②)?'); exNote.classList.add('show'); }
+    } else if(phase==='std'){
+      addXP(10,'exStd'); sGood();
+      var msg;
+      if(P===1) msg=T('×1ではもともと1.0×10⁵Paだから、②にしても0.049Lのまま。','At ×1 it was already 1.0×10⁵ Pa, so it stays 0.049 L.');
+      else if(P===2) msg=T('標準状態に直すと2倍の0.098L。でも「その圧力のまま」なら0.049L。どの圧力で測るかで答えが変わる!','At STP it doubles to 0.098 L. Yet "at that pressure" it was 0.049 L. The answer depends on WHICH pressure you measure at!');
+      else msg=T('分子は3倍→標準状態では3倍の0.147L。でも「その圧力のまま」なら0.049Lで同じ!','3× molecules → 0.147 L at STP. But "at that pressure" it stays 0.049 L!');
+      if(exNote){ exNote.textContent=msg; exNote.classList.add('show'); }
+    } else if(phase==='water'){
+      if(exNote){ exNote.textContent=T('水に戻った! 圧力を変えて、もう一度やってみよう。','Back in the water! Change the pressure and try again.'); exNote.classList.add('show'); }
+    }
+    misTaskCheck('s3', !!window.S3COND);
+  }
+  if(btnA) btnA.addEventListener('click', function(){
+    sClick();
+    if(phase==='water'){ setTargetsCube(); phase='toCube'; }
+    else if(phase==='cube'){ setTargetsWater(); phase='toWater'; }
+    refreshUI();
+  });
+  if(btnB) btnB.addEventListener('click', function(){
+    sClick();
+    if(phase==='cube'){ setTargetsStd(); phase='toStd'; }
+    else if(phase==='std'){ setTargetsCube(); phase='toCube'; }
+    refreshUI();
+  });
+  var seg=$('exSeg');
+  if(seg){
+    var sbtns=seg.querySelectorAll('button');
+    for(var si=0;si<sbtns.length;si++){
+      (function(bn){
+        bn.addEventListener('click', function(){
+          for(var j=0;j<sbtns.length;j++) sbtns[j].classList.remove('on');
+          bn.classList.add('on');
+          P = +bn.dataset.v;
+          if($('exPVal')) $('exPVal').textContent = P.toFixed(1)+' ×10⁵ Pa';
+          sClick();
+          if(phase==='water'){ fixCount(); }
+          else { setTargetsWater(); phase='toWater'; }
+          refreshUI();
+        });
+      })(sbtns[si]);
+    }
+  }
+  refreshUI();
+  RF.push(refreshUI);
+}
+
+/* ================= STAGE 3: why animation ================= */
+function initWhy(){
+  var cv=$('whyCanvas'), btn=$('whyBtn'), cap=$('whyCap');
+  if(!cv||!btn) return;
+  var ctx=cv.getContext('2d');
+  var LW=460, LH=250;
+  var dpr=window.devicePixelRatio||1;
+  cv.width=LW*dpr; cv.height=LH*dpr;
+  cv.style.height='auto';
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+
+  var sc=0, from=0, t=1;
+  var BOXY=86, BOXH=118;
+  function boxFor(s){
+    if(s===0) return {x:175,w:110,ghost:0,arrow:0};
+    if(s===1) return {x:120,w:220,ghost:0,arrow:0};
+    if(s===2) return {x:175,w:110,ghost:0,arrow:1};
+    return {x:255,w:110,ghost:1,arrow:0};
+  }
+  function gridIn(x,w,n,cols){
+    var rows=Math.ceil(n/cols), out=[];
+    for(var i=0;i<n;i++){
+      var c=i%cols, r=Math.floor(i/cols);
+      out.push({x:x+w*(c+0.5)/cols, y:BOXY+BOXH-BOXH*(r+0.5)/rows, a:1});
+    }
+    return out;
+  }
+  function posFor(s){
+    var b=boxFor(s), out;
+    if(s===0){
+      out=gridIn(b.x,b.w,6,3);
+      for(var i=0;i<6;i++) out.push({x:470,y:60+i*20,a:0});
+      return out;
+    }
+    return gridIn(b.x,b.w,12,4);
+  }
+  var CAPS=[
+    ['① ふつうの圧力(1.0×10⁵Pa)。分子6個がとけだしてきた。体積は V。','① Normal pressure (1.0×10⁵ Pa). Six molecules came out. Volume: V.'],
+    ['② 圧力を2倍にすると、とける分子も2倍の12個! そのままなら体積は 2V …','② Double the pressure → double the molecules: 12! Left alone, the volume would be 2V…'],
+    ['③ でも、2倍の圧力が気体をギュッ!! 2V → V までおしつぶす。','③ But the doubled pressure SQUEEZES the gas!! From 2V down to V.'],
+    ['④ けっきょく「2倍 × 半分」= もとと同じ体積V! これが②のヒミツだ。','④ In the end, "double × half" = the same volume V! That is the secret of ②.']
+  ];
+  var LBL=[
+    ['1.0×10^5 Pa / 6個 / 体積V','1.0×10^5 Pa / 6 pcs / volume V'],
+    ['2.0×10^5 Pa / 12個 / このままなら2V','2.0×10^5 Pa / 12 pcs / would be 2V'],
+    ['2.0×10^5 Pa / 12個 / → V に圧縮!','2.0×10^5 Pa / 12 pcs / squeezed to V!'],
+    ['左:1.0×10^5Paで6個=V   右:2.0×10^5Paで12個=V','Left: 6 pcs at 1.0×10^5 Pa = V   Right: 12 pcs at 2.0×10^5 Pa = V']
+  ];
+  function setCap(){
+    if(cap) cap.innerHTML='<span class="who">'+T('ヘンリー男爵','Baron Henry')+'</span>'+tx(CAPS[sc]);
+    btn.textContent = (sc===0) ? T('▶ スタート','▶ Start') : (sc===3) ? T('↺ もういちど','↺ Once more') : T('つぎへ ▶','Next ▶');
+  }
+  RF.push(setCap);
+  btn.addEventListener('click', function(){
+    sTick();
+    from=sc; sc=(sc+1)%4; t=0;
+    setCap();
+    btn.textContent = (sc===3) ? T('↺ もういちど','↺ Once more') : T('つぎへ ▶','Next ▶');
+    if(sc===3) sGood();
+  });
+  setCap();
+
+  function lerp(a,b,k){ return a+(b-a)*k; }
+  function draw(){
+    if(t<1) t=Math.min(1,t+0.025);
+    var k=easeIO(t);
+    var bA=boxFor(from), bB=boxFor(sc);
+    var bx=lerp(bA.x,bB.x,k), bw=lerp(bA.w,bB.w,k);
+    var ghost=lerp(bA.ghost,bB.ghost,k), arrow=lerp(bA.arrow,bB.arrow,k);
+    var pA=posFor(from), pB=posFor(sc);
+    ctx.clearRect(0,0,LW,LH);
+    // ghost box (scene 3)
+    if(ghost>0.02){
+      ctx.globalAlpha=ghost;
+      ctx.strokeStyle='#64748b'; ctx.lineWidth=2; ctx.setLineDash([5,5]);
+      ctx.strokeRect(70,BOXY,110,BOXH); ctx.setLineDash([]);
+      var gp=gridIn(70,110,6,3);
+      for(var gi=0;gi<gp.length;gi++) ball(ctx,gp[gi].x,gp[gi].y,7,'#64748b');
+      ctx.fillStyle='#94a3b8'; ctx.font='900 13px "Zen Kaku Gothic New",sans-serif'; ctx.textAlign='center';
+      ctx.fillText(T('V(6個)','V (6 pcs)'),125,BOXY+BOXH+22);
+      ctx.font='900 26px "Orbitron",sans-serif';
+      ctx.fillStyle='#fbbf24';
+      ctx.fillText('=',215,BOXY+BOXH/2+8);
+      ctx.globalAlpha=1;
+    }
+    // main box
+    ctx.strokeStyle='#38bdf8'; ctx.lineWidth=2.5;
+    ctx.fillStyle='rgba(56,189,248,.08)';
+    ctx.fillRect(bx,BOXY,bw,BOXH);
+    ctx.strokeRect(bx,BOXY,bw,BOXH);
+    if(ghost>0.5){
+      ctx.fillStyle='#f9a8d4'; ctx.font='900 13px "Zen Kaku Gothic New",sans-serif'; ctx.textAlign='center';
+      ctx.fillText(T('V(12個)','V (12 pcs)'),bx+bw/2,BOXY+BOXH+22);
+    }
+    // squeeze arrows
+    if(arrow>0.02){
+      ctx.globalAlpha=arrow;
+      var wob=Math.sin(Date.now()*0.008)*5;
+      arrowIn(ctx, bx-46-wob, BOXY+BOXH/2, bx-8, BOXY+BOXH/2, '#fbbf24', 4);
+      arrowIn(ctx, bx+bw+46+wob, BOXY+BOXH/2, bx+bw+8, BOXY+BOXH/2, '#fbbf24', 4);
+      ctx.globalAlpha=1;
+    }
+    // molecules
+    for(var i=0;i<12;i++){
+      var a1=pA[i], a2=pB[i];
+      var mx=lerp(a1.x,a2.x,k), my=lerp(a1.y,a2.y,k), ma=lerp(a1.a,a2.a,k);
+      if(ma<=0.02) continue;
+      ctx.globalAlpha=ma;
+      ball(ctx,mx,my,8,'#22d3ee');
+      ctx.globalAlpha=1;
+    }
+    // label
+    ctx.fillStyle='#e8ecfb'; ctx.font='900 13px "Zen Kaku Gothic New",sans-serif'; ctx.textAlign='center';
+    ctx.fillText(tx(LBL[t>0.5?sc:from]), LW/2, 30);
+    requestAnimationFrame(draw);
+  }
+  requestAnimationFrame(draw);
+}
+
+/* ================= shared: random dot table ================= */
+var RND = [];
+(function(){ for(var i=0;i<300;i++) RND.push({x:Math.random(), y:Math.random(), p:Math.random()*6.28}); })();
+
+/* ================= STAGE 4: calc lab ================= */
+function initS4(){
+  var cv=$('g4Canvas');
+  if(!cv) return;
+  var ctx=cv.getContext('2d');
+  var W=600, H=270;
+  function resize(){
+    var parent=cv.parentElement;
+    var w=(parent&&parent.clientWidth)?parent.clientWidth-28:600;
+    if(w<100)w=300;
+    var dpr=window.devicePixelRatio||1;
+    W=w; H=Math.max(230, Math.min(290, Math.round(w*0.5)));
+    cv.width=W*dpr; cv.height=H*dpr;
+    cv.style.height=H+'px';
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+  }
+  resize();
+  window.addEventListener('resize', resize);
+
+  var P=1.0, Wv=1, PT=1.0, WT=1; // current & target (glide)
+  var BASEN=1.4e-3;
+  var idx=0;
+  var STEPS=[
+    {t:['<b>STEP1: 基準をメモ。</b>「1.0×10⁵Pa・水1.0Lで 1.4×10⁻³ mol」。これが君の"レート表"だ。','<b>STEP1: Note the base.</b> "1.4×10⁻³ mol at 1.0×10⁵ Pa per 1.0 L of water." That is your rate card.'], P:1.0, W:1},
+    {t:['<b>STEP2: 何倍になった?</b> 圧力は<span class="hl-c">×2.0</span>、水は<span class="hl-g">×10</span>。上のラボが勝手に動くぞ、スライダーと水そうに注目!','<b>STEP2: How many times?</b> Pressure <span class="hl-c">×2.0</span>, water <span class="hl-g">×10</span>. The lab above moves on its own — watch the sliders and the tank!'], P:2.0, W:10},
+    {t:['<b>STEP3: かけ算で完成!</b> n = 1.4×10⁻³ × 2.0 × 10 = <span class="hl-y">2.8×10⁻² mol</span>。それだけだ。','<b>STEP3: Just multiply!</b> n = 1.4×10⁻³ × 2.0 × 10 = <span class="hl-y">2.8×10⁻² mol</span>. That is all.'], P:2.0, W:10}
+  ];
+
+  function fmt(){
+    var n=BASEN*P*Wv;
+    var el=$('s4Formula');
+    if(el) el.innerHTML='n = <span class="fy">1.4×10<sup>-3</sup> mol</span> × <span class="fc">'+P.toFixed(1)+'</span> × <span class="fg">'+(Math.round(Wv*10)/10)+'</span>'+
+      ' = <b style="font-size:1.1em;" class="fy">'+sci(n,2)+' mol</b>';
+  }
+  function renderStep(){
+    var s=STEPS[idx];
+    if($('s4StepText')) $('s4StepText').innerHTML=tx(s.t);
+    if($('s4Num')) $('s4Num').textContent='STEP '+(idx+1);
+    if($('s4Ind')) $('s4Ind').textContent=(idx+1)+' / '+STEPS.length;
+    if($('s4Chip')) $('s4Chip').style.display = (idx===STEPS.length-1)?'inline-block':'none';
+    if($('s4Prev')) $('s4Prev').disabled = (idx===0);
+    if($('s4Next')) $('s4Next').disabled = (idx===STEPS.length-1);
+  }
+  function applyStep(user){
+    var s=STEPS[idx];
+    var moved = (Math.abs(P-s.P)>0.02 || Math.abs(Wv-s.W)>0.1);
+    PT=s.P; WT=s.W;
+    renderStep();
+    if(user){
+      stepFace('s4Henry', idx===STEPS.length-1);
+      if(moved && G.cur==='s4'){ try{ cv.scrollIntoView({behavior:'smooth',block:'center'}); }catch(e){} }
+      if(idx===STEPS.length-1){ if(!awarded['s4done']) sGood(); addXP(15,'s4done'); }
+    }
+  }
+  function syncSliders(){
+    var p=$('p4'), w=$('w4');
+    if(p) p.value=Math.round(P*10);
+    if(w) w.value=Wv;
+    if($('p4Val')) $('p4Val').textContent=P.toFixed(1)+' ×10⁵ Pa';
+    if($('w4Val')) $('w4Val').textContent=Wv.toFixed(1)+' L';
+  }
+
+  function draw(ts){
+    // glide to targets (slow & visible)
+    var auto=false;
+    if(Math.abs(P-PT)>0.005){ P+=(PT-P)*0.035; syncSliders(); fmt(); auto=true; }
+    if(Math.abs(Wv-WT)>0.05){ Wv+=(WT-Wv)*0.035; syncSliders(); fmt(); auto=true; }
+    else if(Wv!==WT){ Wv=WT; syncSliders(); fmt(); }
+    var pe=$('p4'), we=$('w4');
+    if(pe) pe.classList.toggle('glowing', auto);
+    if(we) we.classList.toggle('glowing', auto);
+    ctx.clearRect(0,0,W,H);
+    if(auto){
+      ctx.fillStyle='rgba(34,211,238,'+(0.55+0.45*Math.sin((ts||0)*0.02))+')';
+      ctx.font='900 14px "Orbitron", sans-serif'; ctx.textAlign='right';
+      ctx.fillText('AUTO ▶▶', W-14, 26);
+    }
+    // baseline panel (left)
+    var bx=10, bw=Math.min(128, W*0.26);
+    ctx.strokeStyle='#2a3560'; ctx.lineWidth=2;
+    ctx.strokeRect(bx,14,bw,H-28);
+    ctx.fillStyle='#9aa7d6'; ctx.font='900 11px "Zen Kaku Gothic New",sans-serif'; ctx.textAlign='center';
+    ctx.fillText(T('基準','BASE'), bx+bw/2, 30);
+    ctx.fillText('1.0×10^5Pa・1.0L', bx+bw/2, 44);
+    var bk={x:bx+14,y:H*0.42,w:bw-28,h:H*0.42};
+    ctx.fillStyle='rgba(56,189,248,.25)';
+    roundRect(ctx,bk.x,bk.y,bk.w,bk.h,6); ctx.fill();
+    for(var i=0;i<4;i++) ball(ctx, bk.x+6+RND[i].x*(bk.w-12), bk.y+6+RND[i].y*(bk.h-12), 4.5, '#22d3ee');
+    ctx.fillStyle='#fbbf24'; ctx.fillText('1.4×10^-3 mol', bx+bw/2, H-18);
+    // multiplier badges
+    var mx=bx+bw+8;
+    ctx.textAlign='left';
+    if(P>1.04){ ctx.fillStyle='#f472b6'; ctx.font='900 15px "Orbitron",sans-serif'; ctx.fillText('×'+P.toFixed(1), mx, H*0.3); }
+    if(Wv>1.04){ ctx.fillStyle='#4ade80'; ctx.font='900 15px "Orbitron",sans-serif'; ctx.fillText('×'+Math.round(Wv*10)/10, mx, H*0.3+22); }
+    // current beaker (right)
+    var zx=mx+58, zw=W-zx-12;
+    var cw=Math.max(60, zw*(0.25+0.75*(Wv-1)/9));
+    var cx2=zx+(zw-cw)/2;
+    var cy=H*0.40, ch=H*0.46;
+    // piston / gas
+    var gasH=Math.max(10, 44/P);
+    ctx.fillStyle='rgba(244,114,182,'+(0.08*P)+')';
+    ctx.fillRect(cx2, cy-gasH, cw, gasH);
+    ctx.fillStyle='#39456f';
+    ctx.fillRect(cx2-4, cy-gasH-8, cw+8, 8);
+    ctx.fillStyle='#f9a8d4'; ctx.font='900 11px "Zen Kaku Gothic New",sans-serif'; ctx.textAlign='center';
+    ctx.fillText(P.toFixed(1)+'×10^5 Pa', cx2+cw/2, cy-gasH-14);
+    // water
+    ctx.fillStyle='rgba(56,189,248,.28)';
+    roundRect(ctx,cx2,cy,cw,ch,8); ctx.fill();
+    ctx.strokeStyle='#2a3560'; ctx.lineWidth=2;
+    ctx.strokeRect(cx2,cy,cw,ch);
+    var n=Math.min(RND.length, Math.round(4*P*Wv));
+    var rr = n>40 ? 3 : 4.5;
+    for(i=0;i<n;i++){
+      var dx=cx2+5+RND[i].x*(cw-10), dy=cy+5+RND[i].y*(ch-10);
+      dy+=Math.sin((ts||0)*0.002+RND[i].p)*1.5;
+      ball(ctx,dx,dy,rr,'#22d3ee');
+    }
+    ctx.fillStyle='#4ade80'; ctx.font='900 11px "Zen Kaku Gothic New",sans-serif';
+    ctx.fillText(T('水 ','Water ')+(Math.round(Wv*10)/10)+' L', cx2+cw/2, cy+ch+14);
+    requestAnimationFrame(draw);
+  }
+  requestAnimationFrame(draw);
+
+  var p=$('p4'), w=$('w4');
+  if(p) p.addEventListener('input', function(){ P=PT=p.value/10; syncSliders(); fmt(); misBump('s4'); });
+  if(w) w.addEventListener('input', function(){ Wv=WT=+w.value; syncSliders(); fmt(); misBump('s4'); });
+  var pv=$('s4Prev'), nx=$('s4Next');
+  if(pv) pv.addEventListener('click', function(){ if(idx>0){ idx--; applyStep(true); sTick(); misBump('s4'); } });
+  if(nx) nx.addEventListener('click', function(){ if(idx<STEPS.length-1){ idx++; applyStep(true); sTick(); addXP(10,'s4st'+idx); misBump('s4'); } });
+  applyStep(false); syncSliders(); fmt();
+  stepFace('s4Henry', false);
+  RF.push(function(){ renderStep(); fmt(); });
+}
+
+/* ================= STAGE 5: mixed gas lab ================= */
+function initS5(){
+  var cv=$('g5Canvas');
+  if(!cv) return;
+  var ctx=cv.getContext('2d');
+  var W=600, H=300;
+  function resize(){
+    var parent=cv.parentElement;
+    var w=(parent&&parent.clientWidth)?parent.clientWidth-28:600;
+    if(w<100)w=300;
+    var dpr=window.devicePixelRatio||1;
+    W=w; H=Math.max(250, Math.min(310, Math.round(w*0.55)));
+    cv.width=W*dpr; cv.height=H*dpr;
+    cv.style.height=H+'px';
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+  }
+  resize();
+  window.addEventListener('resize', resize);
+
+  var Pt=1.0, R=0.8, Wv=1, PtT=1.0, RT=0.8, WT=1;
+  var BASEN=5.5e-4;
+  var idx=0, hlBar=true;
+  var STEPS=[
+    {t:['<b>STEP1: まず分圧!</b> N₂の取り分は <span class="hl-c">全圧 × 0.80 = 8.0×10⁴Pa</span>。右上の分圧バーが光っているぞ。','<b>STEP1: Partial pressure first!</b> N₂&#39;s share is <span class="hl-c">total × 0.80 = 8.0×10⁴ Pa</span>. See the glowing bar.'], P:1.0,R:0.8,W:1, hl:true},
+    {t:['<b>STEP2: 倍率をそろえる。</b>圧力の倍率は 8.0×10⁴/1.0×10⁵ = <span class="hl-c">0.80</span>、水は<span class="hl-g">×10</span>。水そうが広がるぞ!','<b>STEP2: Line up the ratios.</b> Pressure ratio 8.0×10⁴/1.0×10⁵ = <span class="hl-c">0.80</span>; water <span class="hl-g">×10</span>. Watch the tank grow!'], P:1.0,R:0.8,W:10, hl:false},
+    {t:['<b>STEP3: かけ算!</b> n = 5.5×10⁻⁴ × 0.80 × 10 = <span class="hl-y">4.4×10⁻³ mol</span>。','<b>STEP3: Multiply!</b> n = 5.5×10⁻⁴ × 0.80 × 10 = <span class="hl-y">4.4×10⁻³ mol</span>.'], P:1.0,R:0.8,W:10, hl:false},
+    {t:['<b>STEP4: 仕上げのg変換。</b> 4.4×10⁻³ × 28 = <span class="hl-y">0.12 g</span>! 酸素が混ざっていてもN₂は自分の分圧しか見ない。','<b>STEP4: Convert to grams.</b> 4.4×10⁻³ × 28 = <span class="hl-y">0.12 g</span>! Even mixed with O₂, nitrogen only sees its own partial pressure.'], P:1.0,R:0.8,W:10, hl:false}
+  ];
+
+  function fmt(){
+    var pn=Pt*R; // ×1e5
+    var n=BASEN*pn*Wv;
+    var m=n*28;
+    var el=$('s5Formula');
+    if(el) el.innerHTML=
+      'p(N₂) = <span class="fc">'+Pt.toFixed(1)+'×10<sup>5</sup></span> × <span class="fp">'+R.toFixed(2)+'</span> = <b class="fc">'+sci(pn*1e5,2)+' Pa</b><br>'+
+      'n = <span class="fy">5.5×10<sup>-4</sup></span> × <span class="fc">'+pn.toFixed(2)+'</span> × <span class="fg">'+Wv+'</span> = <b class="fy">'+sci(n,2)+' mol</b><br>'+
+      'm = n × 28 = <b style="font-size:1.1em;" class="fy">'+(Math.round(m*100)/100).toFixed(2)+' g</b>';
+  }
+  function renderStep(){
+    var s=STEPS[idx];
+    if($('s5StepText')) $('s5StepText').innerHTML=tx(s.t);
+    if($('s5Num')) $('s5Num').textContent='STEP '+(idx+1);
+    if($('s5Ind')) $('s5Ind').textContent=(idx+1)+' / '+STEPS.length;
+    if($('s5Chip')) $('s5Chip').style.display=(idx===STEPS.length-1)?'inline-block':'none';
+    if($('s5Prev')) $('s5Prev').disabled=(idx===0);
+    if($('s5Next')) $('s5Next').disabled=(idx===STEPS.length-1);
+  }
+  function applyStep(user){
+    var s=STEPS[idx];
+    var moved = (Math.abs(Pt-s.P)>0.02 || Math.abs(R-s.R)>0.02 || Math.abs(Wv-s.W)>0.1);
+    PtT=s.P; RT=s.R; WT=s.W; hlBar=s.hl;
+    renderStep();
+    if(user){
+      stepFace('s5Henry', idx===STEPS.length-1);
+      if((moved||s.hl) && G.cur==='s5'){ try{ cv.scrollIntoView({behavior:'smooth',block:'center'}); }catch(e){} }
+      if(idx===STEPS.length-1){ if(!awarded['s5done']) sGood(); addXP(15,'s5done'); }
+    }
+  }
+  function syncSliders(){
+    if($('pt5')) $('pt5').value=Math.round(Pt*10);
+    if($('r5')) $('r5').value=Math.round(R*100);
+    if($('w5')) $('w5').value=Wv;
+    if($('pt5Val')) $('pt5Val').textContent=Pt.toFixed(1)+' ×10⁵ Pa';
+    if($('r5Val')) $('r5Val').textContent=Math.round(R*100)+' %';
+    if($('w5Val')) $('w5Val').textContent=Wv.toFixed(1)+' L';
+  }
+
+  function draw(ts){
+    var auto=false;
+    if(Math.abs(Pt-PtT)>0.005){ Pt+=(PtT-Pt)*0.035; syncSliders(); fmt(); auto=true; }
+    if(Math.abs(R-RT)>0.004){ R+=(RT-R)*0.035; syncSliders(); fmt(); auto=true; }
+    if(Math.abs(Wv-WT)>0.05){ Wv+=(WT-Wv)*0.035; syncSliders(); fmt(); auto=true; }
+    else if(Wv!==WT){ Wv=WT; syncSliders(); fmt(); }
+    var e1=$('pt5'), e2=$('r5'), e3=$('w5');
+    if(e1) e1.classList.toggle('glowing', auto);
+    if(e2) e2.classList.toggle('glowing', auto);
+    if(e3) e3.classList.toggle('glowing', auto);
+    ctx.clearRect(0,0,W,H);
+    if(auto){
+      ctx.fillStyle='rgba(34,211,238,'+(0.55+0.45*Math.sin((ts||0)*0.02))+')';
+      ctx.font='900 14px "Orbitron", sans-serif'; ctx.textAlign='right';
+      ctx.fillText('AUTO ▶▶', W-14, 14);
+    }
+    var gy=14, gh=H*0.40, gx=10, gw=W-20;
+    // gas box
+    ctx.fillStyle='rgba(244,114,182,'+(0.05*Pt)+')';
+    ctx.fillRect(gx,gy,gw,gh);
+    ctx.strokeStyle='#2a3560'; ctx.lineWidth=2;
+    ctx.strokeRect(gx,gy,gw,gh);
+    // gas molecules: N2 pink, O2 pale
+    var tot=18, nN=Math.round(tot*R);
+    for(var i=0;i<tot;i++){
+      var rx=gx+10+RND[i+30].x*(gw-70), ry=gy+8+RND[i+30].y*(gh-16);
+      rx+=Math.sin((ts||0)*0.003+RND[i+30].p)*3;
+      ry+=Math.cos((ts||0)*0.0025+RND[i+30].p)*2.5;
+      ball(ctx,rx,ry,5,(i<nN)?'#f472b6':'#cbd5e1');
+    }
+    ctx.fillStyle='rgba(154,167,214,.95)'; ctx.font='700 11px "Zen Kaku Gothic New",sans-serif'; ctx.textAlign='left';
+    ctx.fillText(T('空気(●N₂ ●O₂) 全圧 ','Air (●N₂ ●O₂) total P ')+Pt.toFixed(1)+'×10^5 Pa', gx+8, gy+gh+14);
+    // partial pressure bar (right)
+    var bw2=26, bx2=gx+gw-bw2-8, bh2=gh-16, by2=gy+8;
+    var nh=bh2*R;
+    ctx.fillStyle='#64748b'; ctx.fillRect(bx2,by2,bw2,bh2-nh);
+    ctx.fillStyle='#f472b6'; ctx.fillRect(bx2,by2+bh2-nh,bw2,nh);
+    ctx.strokeStyle = hlBar ? '#fbbf24' : '#2a3560';
+    ctx.lineWidth = hlBar ? 3 : 2;
+    if(hlBar){ ctx.shadowColor='#fbbf24'; ctx.shadowBlur=10; }
+    ctx.strokeRect(bx2,by2,bw2,bh2);
+    ctx.shadowBlur=0;
+    ctx.fillStyle='#f9a8d4'; ctx.font='900 10px "Zen Kaku Gothic New",sans-serif'; ctx.textAlign='center';
+    ctx.fillText(T('N₂分圧','N₂ p.p.'), bx2+bw2/2, by2+bh2+12);
+    // water
+    var cy=gy+gh+26, ch=H-cy-26;
+    var cw=Math.max(70, (W-24)*(0.3+0.7*(Wv-1)/9));
+    var cx2=gx+( (W-20)-cw )/2;
+    ctx.fillStyle='rgba(56,189,248,.28)';
+    roundRect(ctx,cx2,cy,cw,ch,8); ctx.fill();
+    ctx.strokeStyle='#2a3560'; ctx.lineWidth=2; ctx.strokeRect(cx2,cy,cw,ch);
+    var n=Math.min(RND.length, Math.round(4*Pt*R*Wv));
+    var rr=n>40?3:4.5;
+    for(i=0;i<n;i++){
+      var dx=cx2+5+RND[i+60].x*(cw-10), dy=cy+5+RND[i+60].y*(ch-10);
+      dy+=Math.sin((ts||0)*0.002+RND[i+60].p)*1.5;
+      ball(ctx,dx,dy,rr,'#f472b6');
+    }
+    ctx.fillStyle='#4ade80'; ctx.font='900 11px "Zen Kaku Gothic New",sans-serif'; ctx.textAlign='center';
+    ctx.fillText(T('水 ','Water ')+(Math.round(Wv*10)/10)+T(' L(溶けたN₂)',' L (dissolved N₂)'), cx2+cw/2, cy+ch+16);
+    requestAnimationFrame(draw);
+  }
+  requestAnimationFrame(draw);
+
+  var pt=$('pt5'), r=$('r5'), w=$('w5');
+  if(pt) pt.addEventListener('input', function(){ Pt=PtT=pt.value/10; syncSliders(); fmt(); misBump('s5'); });
+  if(r) r.addEventListener('input', function(){ R=RT=r.value/100; syncSliders(); fmt(); misBump('s5'); });
+  if(w) w.addEventListener('input', function(){ Wv=WT=+w.value; syncSliders(); fmt(); misBump('s5'); });
+  var pv=$('s5Prev'), nx=$('s5Next');
+  if(pv) pv.addEventListener('click', function(){ if(idx>0){ idx--; applyStep(true); sTick(); misBump('s5'); } });
+  if(nx) nx.addEventListener('click', function(){ if(idx<STEPS.length-1){ idx++; applyStep(true); sTick(); addXP(10,'s5st'+idx); misBump('s5'); } });
+  applyStep(false); syncSliders(); fmt();
+  stepFace('s5Henry', false);
+  RF.push(function(){ renderStep(); fmt(); });
+
+  // ---- solution-template animation (synced with rows 01-04) ----
+  var tplStep=-1;
+  var tcv=$('tplCanvas');
+  if(tcv){
+    var tctx=tcv.getContext('2d');
+    var TW=600, TH=160;
+    var tres=function(){
+      var par=tcv.parentElement;
+      var tw=(par&&par.clientWidth)?par.clientWidth-28:600;
+      if(tw<100)tw=300;
+      var dpr=window.devicePixelRatio||1;
+      TW=tw; TH=160;
+      tcv.width=TW*dpr; tcv.height=TH*dpr;
+      tcv.style.height=TH+'px';
+      tctx.setTransform(dpr,0,0,dpr,0,0);
+    };
+    tres(); window.addEventListener('resize', tres);
+    var tdraw=function(ts2){
+      var c=tctx;
+      c.clearRect(0,0,TW,TH);
+      var pulse=0.55+0.45*Math.sin((ts2||0)*0.012);
+      // gas box (left) with N2/O2 mixture
+      var gx2=10, gy2=12, gw2=TW*0.42, gh2=72;
+      c.fillStyle='rgba(244,114,182,.05)';
+      c.fillRect(gx2,gy2,gw2,gh2);
+      c.strokeStyle='#2a3560'; c.lineWidth=2; c.strokeRect(gx2,gy2,gw2,gh2);
+      for(var i=0;i<10;i++){
+        var mx=gx2+10+RND[i+120].x*(gw2-44), my=gy2+10+RND[i+120].y*(gh2-20);
+        mx+=Math.sin((ts2||0)*0.003+RND[i+120].p)*2;
+        if(tplStep===1 && i<8){
+          c.beginPath(); c.arc(mx,my,8,0,6.2832);
+          c.strokeStyle='rgba(251,191,36,'+pulse+')'; c.lineWidth=1.6; c.stroke();
+        }
+        ball(c,mx,my,4.5,(i<8)?'#f472b6':'#cbd5e1');
+      }
+      // partial-pressure bar
+      var pbw=14, pbx=gx2+gw2-pbw-6, pby=gy2+6, pbh=gh2-12;
+      c.fillStyle='#64748b'; c.fillRect(pbx,pby,pbw,pbh*0.2);
+      c.fillStyle='#f472b6'; c.fillRect(pbx,pby+pbh*0.2,pbw,pbh*0.8);
+      c.lineWidth=(tplStep===1)?3:1.5;
+      c.strokeStyle=(tplStep===1)?'rgba(251,191,36,'+pulse+')':'#2a3560';
+      c.strokeRect(pbx,pby,pbw,pbh);
+      // base rate tag (step 0)
+      c.font='900 11px "Zen Kaku Gothic New", sans-serif'; c.textAlign='left';
+      c.fillStyle=(tplStep===0)?'rgba(251,191,36,'+pulse+')':'rgba(154,167,214,.8)';
+      c.fillText(T('① 基準: 1.0×10⁵Pa・水1Lで n₀ mol','① Base: n₀ mol at 1.0×10⁵Pa / 1L'), 12, TH-12);
+      // water tank (right)
+      var wx2=TW*0.56, wy2=22, ww2=TW*0.44-14, wh2=72;
+      // arrow gas -> water (step 2+)
+      if(tplStep>=2){
+        arrowIn(c, gx2+gw2+4, gy2+gh2/2, wx2-4, wy2+wh2/2, 'rgba(34,211,238,'+(tplStep===2?pulse:0.5)+')', 3);
+      }
+      c.fillStyle='rgba(56,189,248,.25)';
+      roundRect(c,wx2,wy2,ww2,wh2,8); c.fill();
+      c.strokeStyle='#2a3560'; c.lineWidth=2; c.strokeRect(wx2,wy2,ww2,wh2);
+      var dn=(tplStep>=2)?10:4;
+      for(i=0;i<dn;i++) ball(c, wx2+8+RND[i+150].x*(ww2-16), wy2+8+RND[i+150].y*(wh2-16), 4, '#f472b6');
+      if(tplStep>=2){
+        c.fillStyle=(tplStep===2)?'rgba(74,222,128,'+pulse+')':'#4ade80';
+        c.font='900 12px "Orbitron", sans-serif'; c.textAlign='center';
+        c.fillText('n0 × p × W', wx2+ww2/2, wy2-7);
+      }
+      if(tplStep>=3){
+        c.fillStyle='rgba(251,191,36,'+(tplStep===3?pulse:0.9)+')';
+        c.font='900 13px "Orbitron", sans-serif'; c.textAlign='center';
+        c.fillText('mol × 28 = g !', wx2+ww2/2, wy2+wh2+24);
+      }
+      requestAnimationFrame(tdraw);
+    };
+    requestAnimationFrame(tdraw);
+  }
+  var tb=$('tplBtn');
+  if(tb) tb.addEventListener('click', function(){
+    var rows=[$('tpl0'),$('tpl1'),$('tpl2'),$('tpl3')];
+    for(var k=0;k<4;k++){ if(rows[k]) rows[k].classList.remove('lit'); }
+    tplStep=-1;
+    sClick();
+    for(k=0;k<4;k++){
+      (function(k){
+        setTimeout(function(){
+          tplStep=k;
+          if(rows[k]){ rows[k].classList.add('lit'); sTick(); }
+          if(k===3) setTimeout(sGood, 500);
+        }, 300+k*1100);
+      })(k);
+    }
+  });
+}
+
+/* ================= FINAL: quiz ================= */
+var QUIZ = [
+  {q:['温度一定で、気体の圧力を3倍にすると、水に溶ける気体の物質量〔mol〕は?','At constant temperature, tripling the gas pressure makes the dissolved amount (mol)…?'],
+   o:[['変わらない','Unchanged'],['3倍になる','3 times larger'],['1/3になる','One third']], a:1,
+   e:['ヘンリーの法則:溶ける物質量は圧力(分圧)に比例。だから3倍!','Henry&#39;s Law: the dissolved amount is proportional to the (partial) pressure. So ×3!'],
+   h:['ヘンリーの法則は「圧力に◯◯する」…。','Henry&#39;s Law says "proportional to ___"…']},
+  {q:['圧力を2倍にしたとき、溶けた気体の体積を「その圧力のまま」測ると?','At doubled pressure, the volume of the dissolved gas measured "at that same pressure" is…?'],
+   o:[['2倍になる','Doubled'],['半分になる','Halved'],['変わらない','Unchanged']], a:2,
+   e:['分子2倍 × 圧縮1/2 = 変わらない。体積のワナ、完全攻略!','2× molecules × 1/2 compression = unchanged. Volume trap, conquered!'],
+   h:['STAGE3の4コマを思い出せ。2 × 1/2 = ?','Remember the 4-panel animation. 2 × 1/2 = ?']},
+  {q:['圧力を2倍にしたとき、溶けた気体の体積を「標準状態に換算」すると?','At doubled pressure, the dissolved gas volume "converted to STP" is…?'],
+   o:[['変わらない','Unchanged'],['2倍になる','Doubled'],['4倍になる','Quadrupled']], a:1,
+   e:['同じ圧力に直して測れば、体積は分子の数どおり2倍。','Measured at one common pressure, volume follows the number of molecules: doubled.'],
+   h:['標準状態=みんな同じ圧力で測る。分子は何倍になった?','STP = everyone measured at the same pressure. How many times the molecules?']},
+  {q:['空気(N₂:O₂ = 4:1)の全圧が1.0×10⁵Paのとき、N₂の分圧は?','Air (N₂:O₂ = 4:1) at total 1.0×10⁵ Pa. Partial pressure of N₂?'],
+   o:[['8.0×10⁴ Pa','8.0×10⁴ Pa'],['1.0×10⁵ Pa','1.0×10⁵ Pa'],['2.0×10⁴ Pa','2.0×10⁴ Pa']], a:0,
+   e:['N₂の取り分は4/5。1.0×10⁵ × 0.8 = 8.0×10⁴ Pa。','N₂&#39;s share is 4/5. 1.0×10⁵ × 0.8 = 8.0×10⁴ Pa.'],
+   h:['N₂の取り分は 4/(4+1)。','N₂&#39;s share is 4/(4+1).']},
+  {q:['温度を上げると、気体の水への溶解度は?','When temperature rises, gas solubility in water…?'],
+   o:[['大きくなる','Increases'],['小さくなる','Decreases'],['変わらない','Stays the same']], a:1,
+   e:['分子が熱で暴れて水から飛び出す。ぬるい炭酸の気が抜けるアレだ。','Hot molecules jump out of the water — warm soda going flat.'],
+   h:['ぬるくなった炭酸ジュースを思い出せ。','Think of warm, flat soda.']},
+  {q:['圧力を2倍、水の量を5倍にすると、溶ける物質量は?','Double the pressure and ×5 the water: the dissolved amount becomes…?'],
+   o:[['7倍','×7'],['10倍','×10'],['2.5倍','×2.5']], a:1,
+   e:['倍率はかけ算。2 × 5 = 10倍。','Ratios multiply. 2 × 5 = ×10.'],
+   h:['たし算ではない。2 × 5 = ?','Not addition. 2 × 5 = ?']},
+  {q:['基準:1.0×10⁵Pa・水1Lで1.0×10⁻³mol溶ける。3.0×10⁵Pa・水2Lでは?','Base: 1.0×10⁻³ mol dissolves at 1.0×10⁵ Pa per 1 L. At 3.0×10⁵ Pa and 2 L…?'],
+   o:[['6.0×10⁻³ mol','6.0×10⁻³ mol'],['5.0×10⁻³ mol','5.0×10⁻³ mol'],['1.5×10⁻³ mol','1.5×10⁻³ mol']], a:0,
+   e:['1.0×10⁻³ × 3 × 2 = 6.0×10⁻³ mol。テンプレ通り!','1.0×10⁻³ × 3 × 2 = 6.0×10⁻³ mol. Straight from the template!'],
+   h:['基準 × 3 × 2 を計算せよ。','Compute base × 3 × 2.']},
+  {q:['ヘンリーの法則が「成り立ちにくい」気体はどれ?','For which gas does Henry&#39;s Law NOT hold well?'],
+   o:[['窒素 N₂','Nitrogen N₂'],['酸素 O₂','Oxygen O₂'],['アンモニア NH₃','Ammonia NH₃']], a:2,
+   e:['水にケタ違いに溶けやすい(水と反応する)NH₃やHClでは成り立たない。良問だった!','Gases that dissolve enormously (reacting with water) like NH₃ or HCl break the law. Nice one!'],
+   h:['水に「ものすごく」よく溶ける気体はどれだ?','Which gas dissolves absurdly well in water?']}
+];
+var quizSolved = 0;
+var quizDone = {};
+function buildQuiz(){
+  var wrap=$('quizWrap');
+  if(!wrap) return;
+  wrap.innerHTML='';
+  for(var qi=0;qi<QUIZ.length;qi++){
+    (function(qi){
+      var Q=QUIZ[qi];
+      var card=document.createElement('div');
+      card.className='card';
+      var qd=document.createElement('div');
+      qd.className='quiz-q';
+      qd.innerHTML='<span class="qnum">Q'+(qi+1)+'</span>'+tx(Q.q);
+      card.appendChild(qd);
+      var opts=document.createElement('div');
+      opts.className='quiz-opts';
+      var fb=document.createElement('div');
+      fb.className='quiz-fb';
+      var done=!!quizDone[qi];
+      for(var oi=0;oi<Q.o.length;oi++){
+        (function(oi){
+          var b=document.createElement('button');
+          b.innerHTML=tx(Q.o[oi]);
+          if(done && oi===Q.a){
+            b.classList.add('correct');
+            fb.innerHTML='<span style="color:var(--green)">'+T('◎ 正解!','◎ Correct!')+'</span> '+tx(Q.e);
+          }
+          b.addEventListener('click', function(){
+            if(done) return;
+            if(oi===Q.a){
+              done=true; quizDone[qi]=true;
+              b.classList.add('correct');
+              fb.innerHTML='<span style="color:var(--green)">'+T('◎ 正解!','◎ Correct!')+'</span> '+tx(Q.e);
+              sGood(); flashFx('good');
+              var r=b.getBoundingClientRect();
+              if(window.burst) window.burst(r.left+r.width/2, r.top, 26);
+              addXP(15,'qz'+qi);
+              quizSolved++;
+              updQuizProg();
+              misBump('s6');
+              misTaskCheck('s6', quizSolved>=8);
+              if(quizSolved>=8){
+                var cb=$('clearBanner');
+                if(cb) cb.classList.add('show');
+                if(window.rain) window.rain(100);
+                sFanfare();
+                if(!misDone('s6')) misForceClear('s6');
+              }
+            } else {
+              b.classList.add('wrong');
+              shakeEl(card);
+              flashFx('bad'); sBad();
+              fb.innerHTML='<span style="color:var(--pink)">'+T('△ おしい…でも次はいけるぞ。','△ So close… you&#39;ll get it next time.')+'</span> '+T('ヒント: ','Hint: ')+tx(Q.h);
+              setTimeout(function(){ b.classList.remove('wrong'); }, 1200);
+            }
+          });
+          opts.appendChild(b);
+        })(oi);
+      }
+      card.appendChild(opts);
+      card.appendChild(fb);
+      wrap.appendChild(card);
+    })(qi);
+  }
+  updQuizProg();
+}
+function updQuizProg(){
+  if($('qProgTxt')) $('qProgTxt').textContent='CLEAR '+quizSolved+'/8';
+  if($('qProgFill')) $('qProgFill').style.width=(quizSolved/8*100)+'%';
+}
+function initQuiz(){
+  buildQuiz();
+  RF.push(buildQuiz);
+  var eg=$('endGoBtn');
+  if(eg) eg.addEventListener('click', showEnding);
+}
+
+/* ================= ENDING ================= */
+function endsData(){
+ return [
+  {t:T('ALL STAGE CLEAR!','ALL STAGES CLEAR!'), mood:'funny',
+   svg:'<svg viewBox="0 0 300 150"><circle cx="150" cy="70" r="46" fill="none" stroke="#fbbf24" stroke-width="3"/><path d="M128 52 h44 v24 a22 22 0 0 1 -44 0 Z" fill="#fbbf24"/><rect x="142" y="96" width="16" height="14" fill="#d9a514"/><rect x="128" y="110" width="44" height="8" rx="3" fill="#fbbf24"/><text x="150" y="74" text-anchor="middle" font-size="16" font-weight="900" fill="#7c4a03">1st</text><text x="60" y="40" font-size="18" fill="#22d3ee">✦</text><text x="235" y="55" font-size="14" fill="#ec4899">✦</text><text x="80" y="120" font-size="12" fill="#fbbf24">✦</text><text x="225" y="115" font-size="18" fill="#22d3ee">✦</text></svg>',
+   b:T('おめでとう! 君はヘンリーの法則を完全攻略した。だが…この法則、実は教科書の外でこそ大活躍している。最後に、男爵の世界を案内しよう。','Congratulations! You have fully conquered Henry&#39;s Law. But this law does its greatest work outside the textbook. Let me show you my world.'),
+   s:T('ふぉっふぉっふぉ…ここからが本当の授業だ。','Ho ho ho… the real lesson starts now.')},
+  {t:T('① ダイバーの命を守る計算','① The Math That Keeps Divers Alive'), mood:'cool',
+   svg:'<svg viewBox="0 0 300 150"><rect x="0" y="0" width="300" height="150" rx="10" fill="#0a2e52"/><rect x="0" y="0" width="300" height="26" fill="#1769aa" opacity=".6"/><circle cx="110" cy="78" r="13" fill="#f6dcc3"/><rect x="98" y="90" width="24" height="30" rx="8" fill="#223a5e" stroke="#38bdf8"/><rect x="92" y="94" width="8" height="22" rx="4" fill="#38bdf8"/><path d="M122 120 l14 10 l-14 4 Z" fill="#223a5e"/><circle cx="128" cy="66" r="3" fill="none" stroke="#9fd8ff"/><circle cx="136" cy="54" r="4" fill="none" stroke="#9fd8ff"/><circle cx="146" cy="40" r="5" fill="none" stroke="#9fd8ff"/><text x="210" y="60" font-size="12" font-weight="900" fill="#fbbf24">'+T('水深30m ≈ 4気圧','30 m deep ≈ 4 atm')+'</text><text x="210" y="78" font-size="11" fill="#9fd8ff">'+T('溶けるN₂も約4倍!','Dissolved N₂ ≈ ×4!')+'</text><path d="M225 90 l0 26 M219 110 l6 8 l6 -8" stroke="#f472b6" stroke-width="2.5" fill="none"/></svg>',
+   b:T('水深30mでは圧力が約4倍。ヘンリーの法則どおり、血液や体の組織に溶けこむ窒素も数倍に増える。そこから急に浮上すると…フタを開けた炭酸と同じで、体の中に泡ができてしまう。これが「減圧症(潜水病)」。だからダイバーはゆっくり浮上し、ダイブコンピュータが溶解度計算で「安全に潜れる時間」を教えてくれる。','At 30 m deep, pressure is about 4 atm. Just as Henry&#39;s Law says, several times more nitrogen dissolves into the blood and tissues. Surface too fast and — like opening a soda cap — bubbles form inside the body. That is decompression sickness. So divers ascend slowly, and dive computers use solubility math to show the safe time underwater.'),
+   s:T('君が今日やった計算は、ダイバーの命を守る計算そのものなのだ。','The very calculation you did today keeps divers alive.')},
+  {t:T('② シュワシュワは工学だ','② Fizz Is Engineering'), mood:'cool',
+   svg:'<svg viewBox="0 0 300 150"><rect x="30" y="30" width="70" height="90" rx="10" fill="#1b2d52" stroke="#38bdf8"/><text x="65" y="80" text-anchor="middle" font-size="12" font-weight="900" fill="#9fd8ff">CO₂</text><text x="65" y="96" text-anchor="middle" font-size="10" fill="#fbbf24">'+T('3〜4気圧','3–4 atm')+'</text><path d="M100 70 h50 M144 64 l10 6 l-10 6" stroke="#fbbf24" stroke-width="2.5" fill="none"/><path d="M190 48 h36 v14 l-6 6 v50 a8 8 0 0 1 -8 8 h-8 a8 8 0 0 1 -8 -8 v-50 l-6 -6 Z" fill="#12395e" stroke="#38bdf8"/><circle cx="202" cy="100" r="3" fill="none" stroke="#9fd8ff"/><circle cx="212" cy="88" r="2.5" fill="none" stroke="#9fd8ff"/><circle cx="206" cy="112" r="2" fill="none" stroke="#9fd8ff"/><text x="208" y="42" text-anchor="middle" font-size="10" fill="#9fd8ff">'+T('5℃に冷却','Chilled to 5°C')+'</text><text x="255" y="130" font-size="16" fill="#22d3ee">✦</text></svg>',
+   b:T('炭酸飲料の工場では、低温に冷やした飲みものへ約3〜4気圧でCO₂を圧入する。「低温ほど溶ける」「高圧ほど溶ける」— 今日学んだ2つのルールをフル活用した製造技術だ。ビールの泡立ちも、シャンパンのコルクが飛ぶのも、ぜんぶ開栓後の圧力低下のしわざ。','In a soda factory, CO₂ is forced into chilled drinks at about 3–4 atm. "Colder dissolves more" and "higher pressure dissolves more" — manufacturing built on the two rules you learned today. Beer foam and flying champagne corks are all the work of pressure dropping at opening.'),
+   s:T('STAGE1の炭酸ボトルは、工場の技術のミニチュアだったのだよ。','That soda bottle in Stage 1 was a miniature of factory engineering.')},
+  {t:T('③ 魚の呼吸を数える','③ Counting the Breath of Fish'), mood:'cool',
+   svg:'<svg viewBox="0 0 300 150"><rect x="0" y="30" width="300" height="120" rx="10" fill="#0a2e52"/><circle cx="40" cy="14" r="10" fill="#fbbf24"/><ellipse cx="110" cy="80" rx="26" ry="13" fill="#f472b6"/><path d="M84 80 l-16 -10 v20 Z" fill="#f472b6"/><circle cx="122" cy="76" r="2.5" fill="#1c2742"/><ellipse cx="200" cy="105" rx="20" ry="10" fill="#38bdf8"/><path d="M180 105 l-13 -8 v16 Z" fill="#38bdf8"/><circle cx="209" cy="102" r="2" fill="#1c2742"/><rect x="140" y="138" width="40" height="7" rx="3" fill="#64748b"/><circle cx="150" cy="128" r="3" fill="none" stroke="#9fd8ff"/><circle cx="160" cy="116" r="4" fill="none" stroke="#9fd8ff"/><circle cx="154" cy="102" r="3" fill="none" stroke="#9fd8ff"/><circle cx="164" cy="88" r="5" fill="none" stroke="#9fd8ff"/><text x="238" y="60" font-size="11" font-weight="900" fill="#fbbf24">'+T('溶存酸素(DO)','Dissolved O₂ (DO)')+'</text><text x="238" y="75" font-size="10" fill="#9fd8ff">'+T('センサーで監視中','Watched by sensors')+'</text></svg>',
+   b:T('魚は水に溶けた酸素(溶存酸素)で呼吸している。夏の高水温では酸素が溶けにくくなり、養殖場では酸欠の大ピンチに! だからセンサーで溶存酸素を24時間計測し、エアレーション(ぶくぶく)で酸素を送りこむ。水族館も、下水処理場の微生物も、溶解度の管理で生きている。','Fish breathe dissolved oxygen. In hot summer water, less oxygen dissolves — an emergency for fish farms! So sensors monitor dissolved oxygen around the clock, and aeration pumps bubbles in. Aquariums, and even the microbes in sewage plants, live on solubility management.'),
+   s:T('「温度が上がると溶けにくい」…あの1行の知識が、魚を生かしておるのだ。','"Hotter water holds less gas" — that single line of knowledge keeps the fish alive.')},
+  {t:T('④ 医療の最前線で','④ On the Medical Front Line'), mood:'cool',
+   svg:'<svg viewBox="0 0 300 150"><rect x="40" y="50" width="180" height="60" rx="30" fill="#12395e" stroke="#38bdf8" stroke-width="2"/><circle cx="80" cy="80" r="16" fill="none" stroke="#9fd8ff"/><circle cx="80" cy="80" r="9" fill="#f6dcc3"/><rect x="100" y="72" width="70" height="16" rx="8" fill="#223a5e"/><text x="190" y="85" font-size="12" font-weight="900" fill="#fbbf24">'+T('O₂ ×2〜3気圧','O₂ × 2–3 atm')+'</text><rect x="245" y="40" width="34" height="34" rx="6" fill="#e5338f"/><rect x="258" y="46" width="8" height="22" fill="#fff"/><rect x="251" y="53" width="22" height="8" fill="#fff"/><text x="60" y="135" font-size="11" fill="#9fd8ff">'+T('高気圧酸素治療カプセル','Hyperbaric oxygen chamber')+'</text></svg>',
+   b:T('高気圧酸素治療では、2〜3気圧の酸素を吸うことで、血液に物理的に溶ける酸素を10倍以上に増やし、一酸化炭素中毒や傷ついた組織の治療に使う。手術室では麻酔科医が麻酔ガスの「分圧」を細かく調整して、眠りの深さをコントロールしている。','Hyperbaric oxygen therapy has patients breathe oxygen at 2–3 atm, physically dissolving 10+ times more O₂ into the blood — treating carbon-monoxide poisoning and damaged tissue. In the operating room, anesthesiologists fine-tune the partial pressures of anesthetic gases to control how deeply you sleep.'),
+   s:T('分圧を計算できる者だけが、人を安全に眠らせ、目覚めさせられるのだ。','Only those who can compute partial pressures may safely put people to sleep — and wake them.')},
+  {t:T('完 〜君はもう、弟子だ〜','The End — You Are My Apprentice Now'), mood:'funny',
+   svg:'<svg viewBox="0 0 300 150"><text x="150" y="40" text-anchor="middle" font-size="22" font-weight="900" fill="#22d3ee">HENRY&#39;S LAW</text><text x="150" y="66" text-anchor="middle" font-size="13" fill="#9fd8ff">'+T('n = n₀ × 圧力の倍率 × 水の倍率','n = n₀ × pressure ratio × water ratio')+'</text><text x="70" y="100" font-size="20" fill="#fbbf24">✦</text><text x="150" y="110" text-anchor="middle" font-size="26" fill="#ec4899">🏆</text><text x="225" y="95" font-size="16" fill="#22d3ee">✦</text><text x="110" y="130" font-size="12" fill="#fbbf24">✦</text><text x="190" y="135" font-size="18" fill="#ec4899">✦</text></svg>',
+   b:T('圧力・温度・水の量から「どれだけ溶けるか」を正確に言い当てる。たったそれだけのことが、海でも、工場でも、病院でも、だれかを守っている。次に炭酸のフタを開けるとき、君はきっと少しだけ誇らしい。','From pressure, temperature and water volume, you can now say exactly how much gas dissolves. That one skill protects people — at sea, in factories, in hospitals. Next time you open a soda, you will feel just a little proud.'),
+   s:T('では、また会おう。シュワァァ〜ッ!!','Until we meet again. FIZZZZZ!!')}
+ ];
+}
+var endIdx = 0;
+function renderEnd(skipFx){
+  var ENDS=endsData();
+  var E=ENDS[endIdx];
+  if($('endTitle')) $('endTitle').textContent=E.t;
+  if($('endScene')) $('endScene').innerHTML=E.svg;
+  if($('endBody')) $('endBody').textContent=E.b;
+  if($('endHenry')) $('endHenry').innerHTML=henrySVG(E.mood);
+  if($('endSay')) $('endSay').innerHTML='<span class="who">'+T('ヘンリー男爵','Baron Henry')+'</span>'+E.s;
+  var dots=$('endDots');
+  if(dots){
+    var h='';
+    for(var i=0;i<ENDS.length;i++) h+='<i class="'+(i===endIdx?'on':'')+'"></i>';
+    dots.innerHTML=h;
+  }
+  var nb=$('endNext');
+  if(nb) nb.textContent=(endIdx===ENDS.length-1)?T('↺ もう一度あそぶ','↺ Play again'):T('つぎへ ▶','Next ▶');
+  if(E.mood==='funny' && !skipFx){ henryBoing($('endHenry')); if(window.burst) window.burst(FX.W/2, FX.H*0.3, 40); }
+}
+function showEnding(){
+  G.unlocked.ending = true;
+  var cv=$('clrOv'); if(cv) cv.classList.remove('show');
+  document.body.classList.add('endmode');
+  var e=$('ending'); if(e) e.classList.add('show');
+  endIdx=0;
+  renderEnd();
+  sFanfare();
+  if(window.rain) window.rain(120);
+}
+function initEnding(){
+  var nb=$('endNext');
+  if(nb) nb.addEventListener('click', function(){
+    if(endIdx===endsData().length-1){ location.reload(); return; }
+    endIdx++;
+    sTick();
+    renderEnd();
+  });
+  RF.push(function(){
+    var e=$('ending');
+    if(e && e.classList.contains('show')) renderEnd(true);
+  });
+}
+
+/* ================= boot ================= */
+function safeInit(fn){ try{ fn(); }catch(e){ if(window.console) console.error(e); } }
+safeInit(henryFillAll);
+safeInit(initSound);
+safeInit(fxInit);
+safeInit(initMisChip);
+safeInit(initNav);
+safeInit(initLang);
+safeInit(initQR);
+safeInit(initSoda);
+safeInit(initSim);
+safeInit(initExtract);
+safeInit(initWhy);
+safeInit(initS4);
+safeInit(initS5);
+safeInit(initQuiz);
+safeInit(initEnding);
+safeInit(function initSekiDiveLang(){
+  // セキオダイブ側で英語を選んでいる人には、最初から英語で出す
+  try{
+    if(localStorage.getItem('sekidive.lang')==='en' && LANG==='ja'){
+      LANG='en';
+      var lb=$('langBtn'); if(lb) lb.textContent='JP';
+      applyLang();
+    }
+  }catch(e){}
+});
+</script>
+</body>
+</html>

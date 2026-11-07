@@ -98,6 +98,16 @@ export const FX = {
   wavePeriod: 4.5,      // 床を走る光の輪が1回広がる秒数
 };
 
+// 御神体ヘンリー男爵：セキオクリスタロックの門（東）のそばの祠。
+// 祈祷すると、気体の溶解のミニゲーム「気体の溶解ラボ」へ移る。
+// 先生は管理画面（設定 settings/goshintaiOn）で出現・消去を切り替えられる。
+export const SHRINE = {
+  angleDeg: 68,         // クリスタルの門（東=90度）のやや北寄り、門の内側
+  distance: 9.4,        // 広場の中心からの距離（m）
+  labelHeight: 3.7,     // 名札の高さ
+  url: 'henry-lab/',    // 祈祷すると開くページ（気体の溶解ラボ）
+};
+
 // 政府庁舎の前に立つ広報官キタロー（切り絵のような板）
 export const STANDEE = {
   id: 'tsukasa',
