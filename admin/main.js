@@ -195,7 +195,7 @@ function buildHeader() {
 }
 
 function tabs() {
-  const list = ['overview', 'students', 'money', 'notices', 'settings', 'log'];
+  const list = ['overview', 'students', 'denshi', 'money', 'notices', 'settings', 'log'];
   return `
     <div class="adm-user">
       <span>${esc(t('admin.signedInAs', { email: adminBackend.email }))}</span>
@@ -254,6 +254,36 @@ function studentsTab() {
         <span class="adm-row__meta">${esc(t('admin.st.updated'))}：${esc(when(s.updated))}</span>
         <span class="adm-row__issues">${s.issues.length ? `⚠ ${s.issues.map(esc).join('<br>⚠ ')}` : esc(t('admin.st.ok'))}</span>
       </button></li>`).join('')}</ul>` : `<p class="shop__empty">${esc(t('admin.st.empty'))}</p>`}`;
+}
+
+// ───────────── セキオ電子ロックの学習の記録（users/{uid}/worlds/denshi を集計する） ─────────────
+function denshiTab() {
+  const QS = ['q0', 'q1', 'q2'];
+  const rows = Object.entries(state.users).map(([uid, u]) => ({ name: u.nickname || '（no name）', d: (u.worlds || {}).denshi })).filter((r) => r.d)
+    .sort((a, b) => a.name.localeCompare(b.name, 'ja'));
+  if (!rows.length) return `<p class="adm-note">${esc(t('admin.dn.lead'))}</p><p class="shop__empty">${esc(t('admin.dn.none'))}</p>`;
+  const seal = (q) => esc(t(`admin.dn.seal${(q && q.best) || 0}`));
+  const table = (head, body) => `<div class="adm-scroll"><table class="adm-table"><thead><tr>${head.map((h) => `<th>${esc(h)}</th>`).join('')}</tr></thead><tbody>${body}</tbody></table></div>`;
+  const students = table([t('admin.dn.name'), ...QS.map((q) => t('admin.dn.quest', { n: q.slice(1) })), t('admin.dn.plays')],
+    rows.map((r) => `<tr><td>${esc(r.name)}</td>${QS.map((q) => `<td>${seal(r.d[q])}</td>`).join('')}<td>${QS.reduce((a, q) => a + ((r.d[q] && r.d[q].plays) || 0), 0)}</td></tr>`).join(''));
+  // 問いごと：全員の回答数・一発正解の数・誤答を足し合わせる
+  const agg = {}, pred = {};
+  for (const r of rows) {
+    for (const [q, items] of Object.entries(r.d.rec || {})) for (const [id, e] of Object.entries(items || {})) {
+      const a = ((agg[q] = agg[q] || {})[id] = agg[q][id] || { t: e.t || id, n: 0, ok: 0, w: {} });
+      a.n += e.n || 0; a.ok += e.ok || 0;
+      for (const w of Object.values(e.w || {})) a.w[w.t] = (a.w[w.t] || 0) + (w.n || 0);
+    }
+    for (const [q, p] of Object.entries(r.d.pred || {})) { const a = (pred[q] = pred[q] || [0, 0]); a[0] += (p && p[0]) || 0; a[1] += (p && p[1]) || 0; }
+  }
+  const questions = QS.filter((q) => agg[q]).map((q) => `
+    <h3 class="adm-h3">${esc(t('admin.dn.quest', { n: q.slice(1) }))}</h3>
+    ${pred[q] ? `<p class="adm-note">${esc(t('admin.dn.pred', { n: q.slice(1), a: pred[q][0], b: pred[q][1] }))}</p>` : ''}
+    ${table([t('admin.dn.q'), t('admin.dn.n'), t('admin.dn.rate'), t('admin.dn.wrong')], Object.values(agg[q]).sort((a, b) => a.ok / (a.n || 1) - b.ok / (b.n || 1)).map((a) => {
+      const top = Object.entries(a.w).sort((x, y) => y[1] - x[1])[0];
+      return `<tr><td>${esc(a.t)}</td><td>${a.n}</td><td>${a.n ? Math.round((a.ok / a.n) * 100) : 0}%</td><td>${top ? `${esc(top[0])} ×${top[1]}` : ''}</td></tr>`;
+    }).join(''))}`).join('');
+  return `<p class="adm-note">${esc(t('admin.dn.lead'))}</p><h2 class="adm-h2">${esc(t('admin.dn.students'))}</h2>${students}<h2 class="adm-h2">${esc(t('admin.dn.questions'))}</h2>${questions}`;
 }
 
 function studentDetail(uid) {
@@ -433,7 +463,7 @@ function render() {
     const msg = root.dataset.loginError || '';
     root.innerHTML = loginView(msg);
   } else {
-    const body = { overview, students: studentsTab, money: moneyTab, notices: noticesTab, settings: settingsTab, log: logTab }[state.tab]();
+    const body = { overview, students: studentsTab, denshi: denshiTab, money: moneyTab, notices: noticesTab, settings: settingsTab, log: logTab }[state.tab]();
     const scroll = root.querySelector('.adm-panel')?.scrollTop || 0;
     const focusId = document.activeElement && document.activeElement.dataset ? document.activeElement.dataset.input : null;
     root.innerHTML = `${tabs()}<section class="adm-panel">${body}</section>`;

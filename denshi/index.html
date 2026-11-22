@@ -9,7 +9,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <style>
 /* ─────────────────────────────────────────────
-   セキオ電子ロック v0.1.2（試作）
+   セキオ電子ロック v0.2
    高校化学「電池と電気分解」。プレイヤーは電子1個になる。
    見た目：和紙のちぎり絵 × 光の幻想的な世界。3Dの舞台は藍色の夜（明度の対比で淡い色の粒を見やすくする）。まわりの紙は生成りの和紙。
    数値は下の <script> のいちばん上の CONFIG に集めてある。
@@ -148,6 +148,20 @@ button { font-family: inherit; color: inherit; }
 .sum { font-size: 13px; line-height: 1.8; } .sum b { color: var(--ox-ink); }
 .row2 { width: 100%; max-width: 420px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .row2 a.btn { display: grid; place-items: center; text-decoration: none; }
+.eq__pole--s { background: var(--gold); color: #6b5417; }
+.eq__f--s { font-size: 12.5px; white-space: normal; line-height: 1.55; }
+.eq__f span.is-hot { color: var(--ox-ink); transform: scale(1.18); }
+.ov { justify-content: flex-start; } .ov::before, .ov::after { content: ""; flex: 1 0 0; }
+.qlist { width: 100%; max-width: 420px; display: grid; gap: 10px; }
+.qcard { padding: 10px 14px 12px; }
+.qcard__h { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.qcard .card__t { font-size: 18px; margin: 0; }
+.qcard .card__s { margin: 2px 0 8px; font-size: 12px; }
+.qcard__b { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 8px; }
+.qcard__b .btn { min-height: 42px; width: auto; } .qcard__b .btn:nth-child(2) { --tone: var(--gold); }
+#wallet { font-weight: 700; color: var(--gold-ink); min-height: 1.2em; }
+.stamp--3 { color: #B98A1E; background: rgba(239,208,138,.35); } .stamp--0 { color: #8b8496; background: rgba(200,195,210,.3); font-size: 18px; }
+.row3 { grid-template-columns: 1fr 1fr 1fr; gap: 8px; } .row3 .btn { font-size: 12.5px; padding: 6px 4px; }
 .ver { position: absolute; right: 8px; bottom: 4px; font-size: 10px; color: var(--dim); z-index: 40; pointer-events: none; }
 .fatal { padding: 30px; text-align: center; }
 </style>
@@ -203,18 +217,7 @@ button { font-family: inherit; color: inherit; }
     <div class="pop torn" id="pop"></div>
   </div>
 
-  <div class="eq torn" aria-live="polite">
-    <div class="eq__row eq__row--n">
-      <span class="eq__pole eq__pole--n" data-t="pole.n"></span>
-      <span class="eq__f"><span id="n1">Zn</span> <span id="n2">→ Zn²⁺</span> <span id="n3" class="e">+ 2e⁻</span></span>
-      <span class="eq__kind" id="nk" data-t="kind.ox"></span>
-    </div>
-    <div class="eq__row eq__row--p">
-      <span class="eq__pole eq__pole--p" data-t="pole.p"></span>
-      <span class="eq__f"><span id="p1">Cu²⁺</span> <span id="p2" class="e">+ 2e⁻</span> <span id="p3">→ Cu</span></span>
-      <span class="eq__kind" id="pk" data-t="kind.red"></span>
-    </div>
-  </div>
+  <div class="eq torn" id="eq" aria-live="polite"></div>
 
   <div class="panel">
     <div class="talk">
@@ -230,12 +233,8 @@ button { font-family: inherit; color: inherit; }
     <h1 data-t="title.name"></h1>
     <p data-t="title.tag"></p>
     <div class="cast" id="cast"></div>
-    <div class="card torn">
-      <div class="card__no" data-t="q1.no"></div>
-      <div class="card__t"><span data-t="q1.name"></span><span class="best" id="bestBadge" hidden></span></div>
-      <p class="card__s" data-t="q1.sub"></p>
-      <button class="btn btn--main torn" id="btnStart" type="button" data-t="start"></button>
-    </div>
+    <p id="wallet"></p>
+    <div class="qlist" id="questList"></div>
     <div class="locked" id="locked"></div>
   </section>
 
@@ -252,13 +251,14 @@ button { font-family: inherit; color: inherit; }
 
   <!-- 結果 -->
   <section class="ov" id="ovResult" hidden>
-    <p data-t="res.clear"></p>
+    <p id="resHead"></p>
     <div class="stamp" id="stamp"></div>
     <div class="rank" id="rank"></div>
     <div class="cast" id="castRes" style="max-width:300px"></div>
     <div class="card sum torn" id="sum"></div>
-    <div class="row2">
+    <div class="row2 row3">
       <button class="btn torn" id="btnRetry" type="button" data-t="res.retry"></button>
+      <button class="btn torn" id="btnToTitle" type="button" data-t="res.list"></button>
       <a class="btn btn--main torn" href="../" data-t="res.back"></a>
     </div>
   </section>
@@ -269,7 +269,7 @@ button { font-family: inherit; color: inherit; }
 'use strict';
 /* ═════════ 数値の設定（変えたいときはここ） ═════════ */
 const CONFIG = {
-  version: 'denshi v0.1.2',
+  version: 'denshi v0.2.0',
   saveKey: 'sekidenshi.v1',
   langKey: 'sekidive.lang',      // 広場と同じ鍵。言語の選択を引き継ぐ
   bgmKey: 'sekidenshi.bgm',
@@ -281,7 +281,8 @@ const CONFIG = {
   plateElectrons: 14,            // 金属板1枚の中の自由電子（飾り）の数
   motes: 70,                     // ただよう光の粒の数
   ions: { znL: 5, so4L: 5, cuR: 7, so4R: 7 },
-  steps: 6,
+  goldCount: 5,                  // 金印の試練の問いの数
+  reward: { 1: 100, 2: 150, 3: 250, replay: 20 },   // ヒヤマ：銅印・銀印・金印を初めて取ったとき／2回目からのクリア
   volume: { master: 0.9, bgm: 0.5, fx: 1.0 },
 };
 /* 色（淡いパステルで統一） */
@@ -294,6 +295,109 @@ const COL = {
 
 /* ═════════ 文字（日本語, English） ═════════ */
 const T = {
+  // ── v0.2：クエストの一覧・報酬・金印 ──
+  'q0.no': ['クエスト 0', 'QUEST 0'], 'q0.name': ['自由電子の海', 'Sea of Free Electrons'],
+  'q0.sub': ['イオン化傾向と電池のしくみ。金属の中から、イオン化列の坂へ。約3分。', 'Ionization tendency and how a cell works. About 3 min.'],
+  'q2.no': ['クエスト 2', 'QUEST 2'], 'q2.name': ['泡になる旅', 'Becoming a Bubble'],
+  'q2.sub': ['ボルタ電池。亜鉛板から銅板へ行き、水素の泡になる。約3分。', 'The voltaic cell. Travel from zinc to copper and become a hydrogen bubble. About 3 min.'],
+  'gold.btn': ['金印の試練', 'Gold trial'], 'gold.done': ['金印の試練（もう一度）', 'Gold trial (again)'],
+  'gold.intro': ['<b>金印の試練</b>。条件や数を変えた問いを5問。\n5問すべてを一発で正解すれば金印。', '<b>Gold trial</b>: five questions with changed conditions and numbers.\nGet all five right first time for the gold seal.'],
+  'gold.sum': ['問いは毎回変わる。何度でも挑戦できる。', 'The questions change every time. Try as often as you like.'],
+  'wallet': ['残高 {n} ヒヤマ', 'Balance: {n} Hiyama'],
+  'closed': ['この門は、いま先生が閉じています。広場へ戻ります。', 'This gate is closed by your teacher. Returning to the plaza.'],
+  'res.stamp.3': ['金印', 'Gold\nseal'], 'res.stamp.0': ['あと\n少し', 'Almost'],
+  'res.rank.3': ['称号：電子省 酸化還元審議官', 'Title: Ministry of Electrons — Redox Councillor'],
+  'res.rank.0': ['金印は、5問すべて一発正解で', 'The gold seal needs all five right first time'],
+  'res.pay': ['報酬 <b>{gross}</b> ヒヤマ（所得税を引いて {net}）', 'Reward <b>{gross}</b> Hiyama ({net} after income tax)'],
+  'res.pay.cap': ['今日の報酬の上限に達したので、ヒヤマは出ません。', 'Daily reward cap reached, so no Hiyama this time.'],
+  'res.pay.off': ['ヒヤマの支給と記録は、広場（セキオダイブ）につながっているときだけ。', 'Hiyama and records work only when connected to the plaza (Seki Dive).'],
+  'res.pay.wait': ['報酬を計算中…', 'Calculating reward…'],
+  'res.sum.q0': ['<b>イオン化列</b>：Li K Ca Na Mg Al Zn Fe Ni Sn Pb (H₂) Cu Hg Ag Pt Au<br>イオン化傾向が大きい金属が負極になり、電子は負極から正極へ流れる。',
+                 '<b>Ionization series</b>: Li K Ca Na Mg Al Zn Fe Ni Sn Pb (H₂) Cu Hg Ag Pt Au<br>The metal with the higher ionization tendency becomes the negative pole. Electrons flow from the negative to the positive pole.'],
+  'res.sum.q2': ['全体：<b>Zn + 2H⁺ → Zn²⁺ + H₂</b><br>電子が 2 mol 流れると、Zn が 1 mol 溶けて H₂ が 1 mol 発生する。銅板は変化しない。',
+                 'Overall: <b>Zn + 2H⁺ → Zn²⁺ + H₂</b><br>When 2 mol of electrons flow, 1 mol of Zn dissolves and 1 mol of H₂ forms. The copper plate does not change.'],
+  'res.tip.gold': ['銀印を取ると、<b>金印の試練</b>に挑戦できる。', 'With the silver seal you can try the <b>gold trial</b>.'],
+  'pole.series': ['イオン化列', 'Series'],
+  'lbl.acid': ['希硫酸 H₂SO₄ aq', 'Dilute H₂SO₄ aq'], 'lbl.elec': ['電解質の水溶液', 'Electrolyte solution'],
+  'lbl.big': ['イオン化傾向 大', 'Higher tendency'], 'lbl.small': ['小', 'Lower'],
+
+  // ── クエスト0：自由電子の海 ──
+  'f.intro': ['ここは亜鉛の結晶の中。規則正しく並んだ亜鉛の原子のあいだに、白い小さな粒がたくさんいる。<b>自由電子</b>だ。金色の玉の<b>あなた</b>もその1個。', 'You are inside a zinc crystal. Among the neatly arranged zinc atoms there are many small white dots: <b>free electrons</b>. <b>You</b>, the gold one, are one of them.'],
+  'f.roam': ['結晶の中を動き回ってみよう。', 'Roam around inside the crystal.'],
+  'f.q': ['動き回ってみて、どうだった？\n金属の中の自由電子は……', 'How was it?\nFree electrons in a metal…'],
+  'f.a1': ['特定の原子に属さず、結晶全体を動き回る', 'belong to no particular atom and move through the whole crystal'],
+  'f.a2': ['1個の原子のまわりだけを回る', 'circle around a single atom only'],
+  'f.good': ['正解。自由電子は金属全体で共有されている。だから金属は<b>電気をよく通す</b>。', 'Correct. Free electrons are shared by the whole metal, which is why metals <b>conduct electricity</b> well.'],
+  'f.bad': ['あなたは板の端から端まで動けた。1個の原子にしばられていただろうか？', 'You could move from one end of the plate to the other. Were you tied to one atom?'],
+  'i.intro': ['亜鉛板を電解質の水溶液に入れた。金属の原子は、水溶液の中で<b>電子を放出して陽イオンになろうとする</b>。\n表面の亜鉛原子を見ていよう。', 'The zinc plate is now in an electrolyte solution. Metal atoms tend to <b>release electrons and become cations</b> in solution.\nWatch a zinc atom at the surface.'],
+  'i.q': ['金属が水溶液中で陽イオンになろうとする性質を<b>イオン化傾向</b>という。\nイオン化傾向が<b>大きい</b>金属ほど……', 'The tendency of a metal to become a cation in solution is its <b>ionization tendency</b>.\nA metal with a <b>higher</b> tendency is…'],
+  'i.a1': ['陽イオンになりやすく、酸化されやすい', 'more easily ionized and more easily oxidized'],
+  'i.a2': ['陽イオンになりにくく、酸化されにくい', 'less easily ionized and less easily oxidized'],
+  'i.good': ['正解。電子を失うことが酸化。イオン化傾向が大きい金属は<b>酸化されやすい</b>。', 'Correct. Losing electrons is oxidation, so a metal with a high ionization tendency is <b>easily oxidized</b>.'],
+  'i.bad': ['「傾向が大きい」＝そうなりやすい、ということ。陽イオンになるとき、金属は電子を失う。', '“Higher tendency” means it happens more easily. A metal loses electrons when it becomes a cation.'],
+  's.intro': ['金属をイオン化傾向の大きい順に並べたものが<b>イオン化列</b>。\n空に並べてみた。左ほど高い所にあり、電子を手放しやすい。あなたは今、亜鉛 Zn の上。', 'Metals lined up from the highest ionization tendency form the <b>ionization series</b>.\nHere it is in the sky. The further left, the higher up, and the more easily it gives up electrons. You are on zinc, Zn.'],
+  's.q1': ['亜鉛 Zn と銅 Cu。イオン化傾向が大きいのは？', 'Zinc Zn and copper Cu: which has the higher ionization tendency?'],
+  's.zn': ['亜鉛 Zn', 'Zinc Zn'], 's.cu': ['銅 Cu', 'Copper Cu'],
+  's.q1.good': ['正解。Zn は Cu より左、つまり高い所にある。', 'Correct. Zn is to the left of Cu, so it sits higher.'],
+  's.q1.bad': ['イオン化列で、左（高い所）にあるのはどちら？', 'Which one is further left (higher) in the series?'],
+  's.slide': ['2つの金属を導線でつなぐと、電子は高い方から低い方へ流れる。\nZn から Cu へ、坂を下ってみよう。', 'Connect two metals with a wire and electrons flow from the higher one to the lower one.\nSlide down from Zn to Cu.'],
+  's.slide.btn': ['坂を下る', 'Slide down'],
+  's.pop': ['電子は坂を下る！', 'Electrons go downhill!'],
+  's.q2': ['Zn と Cu を導線でつなぎ、電解質の水溶液に入れた。これが電池。\n酸化が起こって電子が流れ出る<b>負極</b>になるのは？', 'Zn and Cu are joined by a wire and placed in an electrolyte: a cell.\nWhich becomes the <b>negative pole</b>, where oxidation happens and electrons flow out?'],
+  's.znP': ['亜鉛板（イオン化傾向が大きい方）', 'The zinc plate (higher tendency)'], 's.cuP': ['銅板（イオン化傾向が小さい方）', 'The copper plate (lower tendency)'],
+  's.q2.good': ['正解。イオン化傾向が大きい金属が負極。電子は負極から導線を通って正極へ流れる。', 'Correct. The metal with the higher tendency is the negative pole. Electrons flow from it through the wire to the positive pole.'],
+  's.q2.bad': ['あなたが坂を下り始めたのは、どちらの金属からだった？', 'Which metal did you start sliding down from?'],
+  's.q3': ['最後の問い。2種類の金属のイオン化傾向の<b>差が大きい</b>ほど、電池の起電力は？', 'Last question. The <b>bigger the difference</b> in ionization tendency between the two metals, the cell\'s electromotive force is…'],
+  's.big': ['大きくなる', 'larger'], 's.sm': ['小さくなる', 'smaller'],
+  's.q3.good': ['正解。坂の高低差が大きいほど、電子を流そうとするはたらき（電圧）が大きい。', 'Correct. The bigger the height difference, the stronger the push on the electrons (voltage).'],
+  's.q3.bad': ['坂の高低差が大きいと、下る勢いはどうなる？', 'What happens to the push when the slope is steeper?'],
+
+  // ── クエスト2：泡になる旅（ボルタ電池） ──
+  'v.pred.q': ['今度は、亜鉛板と銅板を<b>希硫酸</b>に入れた（ボルタ電池）。\n銅板に着いたあなたは、だれに乗り移ると思う？', 'This time the zinc and copper plates are in <b>dilute sulfuric acid</b> (a voltaic cell).\nWhen you reach the copper plate, who will you hop onto?'],
+  'v.pred.a': ['水素イオン H⁺', 'A hydrogen ion H⁺'], 'v.pred.b': ['銅板から溶け出す Cu²⁺', 'Cu²⁺ dissolving from the copper plate'],
+  'v.pos.q': ['灯りがともった。あなたが向かっている銅板は、電子が流れこむ電極。\n銅板は？', 'The lamp is glowing. The copper plate you are heading for is where electrons flow in.\nThe copper plate is the…'],
+  'v.pos.p': ['正極', 'positive pole'], 'v.pos.n': ['負極', 'negative pole'],
+  'v.pos.good': ['正解。電子が流れこんで還元が起こる電極が<b>正極</b>。', 'Correct. The electrode where electrons flow in and reduction happens is the <b>positive pole</b>.'],
+  'v.pos.bad': ['電子が流れ<b>出る</b>のが負極、流れ<b>こむ</b>のが……？', 'Electrons flow <b>out of</b> the negative pole and <b>into</b> the…?'],
+  'v.gate.q': ['銅板の表面に着いた。目の前は希硫酸。\nあなたたち電子2個は、<b>だれに乗り移る</b>？', 'You reached the surface of the copper plate, facing dilute sulfuric acid.\n<b>Who</b> will you two electrons hop onto?'],
+  'c.h': ['H⁺', 'H⁺'], 'c.cuAtom': ['Cu（銅板の銅原子）', 'Cu (a copper atom of the plate)'],
+  'v.gate.good': ['正解。酸の水溶液では、たくさんある <b>H⁺ が電子を受け取る</b>。', 'Correct. In an acid solution, the plentiful <b>H⁺ ions accept the electrons</b>.'],
+  'v.gate.h2o': ['酸の水溶液には H⁺ がたくさんある。水分子より H⁺ が電子を受け取る。', 'An acid solution has plenty of H⁺. H⁺ takes the electrons rather than water molecules.'],
+  'v.gate.cu': ['銅原子は、これ以上電子を受け取らない。銅板は<b>電子の通り道</b>になっているだけ。', 'A copper atom takes no more electrons. The copper plate is only a <b>path for electrons</b>.'],
+  'v.red.pop': ['H⁺ 2個に乗り移った！ 水素 H₂ の泡に', 'Hopped onto two H⁺! A bubble of hydrogen H₂'],
+  'v.red.q': ['H⁺ 2個が電子を1個ずつ受け取り、水素分子 H₂ になって泡で出ていった。\nこの変化は？', 'Two H⁺ ions each took one electron, became a hydrogen molecule H₂ and bubbled away.\nWhat is this change?'],
+  'v.red.bad': ['H⁺ は電子を<b>受け取った</b>。電子を受け取る変化は……？', 'H⁺ <b>gained</b> electrons. Gaining electrons is called…?'],
+  'v.sum.q1': ['あなたは水素の泡になって、空へ出ていった。\nでは、電流を流したあと、<b>銅板の質量</b>は？', 'You left as a hydrogen bubble.\nAfter the current has flowed, the <b>mass of the copper plate</b> has…'],
+  'c.same': ['変わらない', 'not changed'], 'c.up': ['増える', 'increased'], 'c.down': ['減る', 'decreased'],
+  'v.sum.q1.good': ['正解。ボルタ電池の銅板は反応しない。反応したのは亜鉛と H⁺。', 'Correct. The copper plate of a voltaic cell does not react. Zinc and H⁺ did.'],
+  'v.sum.q1.bad': ['銅板で電子を受け取ったのは H⁺ で、気体になって出ていった。銅板には何か付いた？', 'H⁺ took the electrons at the copper plate and left as a gas. Did anything stick to the plate?'],
+  'v.sum.q2': ['正極で電子を受け取るのは、ボルタ電池では H⁺。\nでは、<b>ダニエル電池</b>では？', 'In a voltaic cell, H⁺ takes the electrons at the positive pole.\nWhat about a <b>Daniell cell</b>?'],
+  'v.sum.q2.good': ['正解。ダニエル電池では Cu²⁺ が電子を受け取り、銅が析出する。', 'Correct. In a Daniell cell, Cu²⁺ takes the electrons and copper deposits.'],
+  'v.sum.q2.bad': ['ダニエル電池の正極は、硫酸銅(II)水溶液に入れた銅板。そこにたくさんあるイオンは？', 'The positive pole of a Daniell cell is a copper plate in copper(II) sulfate solution. Which ion is plentiful there?'],
+
+  // ── 金印の試練：条件を変えた問い ──
+  'g1.glass': ['素焼き板を、イオンを通さない<b>ガラス板</b>に替えた。どうなる？', 'The porous plate is replaced by a <b>glass plate</b> that ions cannot pass. What happens?'],
+  'g.stop': ['電流が流れなくなる', 'The current stops'], 'g.more': ['電流が大きくなる', 'The current grows'],
+  'g1.glass.why': ['イオンが動けないと電気のかたよりが残り、回路がつながらない。', 'If ions cannot move, the charge imbalance remains and the circuit is not complete.'],
+  'g1.color': ['電流を流し続けると、CuSO₄ 水溶液の<b>青色</b>は？', 'As the current keeps flowing, the <b>blue colour</b> of the CuSO₄ solution…'],
+  'g.fade': ['うすくなる', 'fades'], 'g.deep': ['濃くなる', 'deepens'],
+  'g1.color.why': ['青色のもとの Cu²⁺ が、還元されて減っていく。', 'Cu²⁺, which gives the blue colour, is reduced and used up.'],
+  'g1.massZn': ['電流を流したあと、<b>亜鉛板</b>の質量は？', 'After the current has flowed, the mass of the <b>zinc plate</b> has…'],
+  'g1.massZn.why': ['亜鉛原子が Zn²⁺ になって溶け出す。', 'Zinc atoms dissolve as Zn²⁺.'],
+  'g1.massCu': ['電流を流したあと、ダニエル電池の<b>銅板</b>の質量は？', 'After the current has flowed, the mass of the <b>copper plate</b> of a Daniell cell has…'],
+  'g1.massCu.why': ['Cu²⁺ が電子を受け取って、銅が析出する。', 'Cu²⁺ takes electrons and copper deposits.'],
+  'g1.zn2': ['素焼き板を通って、<b>Zn²⁺</b> はどちらへ動く？', 'Through the porous plate, which way does <b>Zn²⁺</b> move?'],
+  'g.toCu': ['銅側（CuSO₄ 側）へ', 'To the copper (CuSO₄) side'], 'g.toZn': ['亜鉛板の方へ', 'Toward the zinc plate'],
+  'g1.zn2.why': ['亜鉛側は＋が余り、銅側は−が余る。陽イオンの Zn²⁺ は銅側へ動く。', 'The zinc side has extra +, the copper side extra −. The cation Zn²⁺ moves to the copper side.'],
+  'g2.gas': ['ボルタ電池の正極（銅板）で発生する気体は？', 'Which gas forms at the positive pole (copper plate) of a voltaic cell?'],
+  'g.h2': ['水素 H₂', 'Hydrogen H₂'], 'g.o2': ['酸素 O₂', 'Oxygen O₂'], 'g.so2': ['二酸化硫黄 SO₂', 'Sulfur dioxide SO₂'],
+  'g2.gas.why': ['2H⁺ + 2e⁻ → H₂', '2H⁺ + 2e⁻ → H₂'],
+  'g2.h': ['電流を流し続けると、水溶液中の <b>H⁺</b> は？', 'As the current keeps flowing, <b>H⁺</b> in the solution…'],
+  'g.dec': ['減っていく', 'decreases'], 'g.inc': ['増えていく', 'increases'],
+  'g2.h.why': ['H⁺ は電子を受け取って H₂ になり、出ていく。', 'H⁺ takes electrons, becomes H₂ and leaves.'],
+  'g2.same': ['銅板を亜鉛板に替えて、<b>両方とも亜鉛板</b>にした。どうなる？', 'The copper plate is replaced so that <b>both plates are zinc</b>. What happens?'],
+  'g2.same.why': ['同じ金属ではイオン化傾向に差がなく、電子は流れない。', 'With the same metal there is no difference in ionization tendency, so no electrons flow.'],
+  'res.list': ['クエストを選ぶ', 'Choose a quest'],
   'ch.mikoto': ['ミコト', 'Mikoto'], 'ch.en': ['エン', 'En'], 'ch.akane': ['アカネ', 'Akane'],
   'cast.mikoto': ['電子省の案内役', 'Guide of the Ministry'], 'cast.en': ['亜鉛の精', 'Spirit of zinc'], 'cast.akane': ['銅の精', 'Spirit of copper'],
   'bgm': ['音楽の入／切', 'Music on/off'],
@@ -306,8 +410,8 @@ const T = {
   'q1.top': ['クエスト1 亜鉛の旅立ち', 'Quest 1: Leaving Zinc'],
   'start': ['出発する', 'Start'],
   'locked.h': ['これから開くクエスト', 'Coming quests'],
-  'locked.1': ['🔒 ボルタの電堆', '🔒 Volta\'s pile'],
-  'locked.2': ['🔒 両極が白くなる（鉛蓄電池）', '🔒 Both plates turn white (lead storage battery)'],
+  'locked.1': ['🔒 両極が白くなる（鉛蓄電池）', '🔒 Both plates turn white (lead storage battery)'],
+  'locked.2': ['🔒 4人で酸素を迎えに（燃料電池）', '🔒 Four of us meet oxygen (fuel cell)'],
   'locked.3': ['🔒 陰極の門番（電気分解）', '🔒 Gatekeeper of the cathode (electrolysis)'],
   'best.1': ['銅印', 'Bronze'], 'best.2': ['銀印', 'Silver'], 'best.3': ['金印', 'Gold'],
   'model.h': ['これはモデルです', 'This is a model'],
@@ -401,13 +505,13 @@ const T = {
 const $ = (id) => document.getElementById(id);
 const store = { get: (k) => { try { return localStorage.getItem(k); } catch (e) { return null; } }, set: (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} } };
 let lang = store.get(CONFIG.langKey) === 'en' ? 'en' : 'ja';
-const tt = (k) => { const v = T[k]; return v ? v[lang === 'en' ? 1 : 0] : k; };
+const tt = (k) => { const v = Array.isArray(k) ? k : T[k]; return v ? v[lang === 'en' ? 1 : 0] : k; };   // k は T の鍵か、[日本語, English] の組
 const sleep = (ms) => new Promise((r) => { const id = runId; setTimeout(() => { if (id === runId) r(); }, ms); });   // 「戻る」で段階をやり直したら、古い待ちは終わらせない
 const REDUCED = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
 const rnd = (a, b) => a + Math.random() * (b - a);
 
-let SAVE = { v: 1, q1: { best: 0, plays: 0 } };
-try { const r = JSON.parse(store.get(CONFIG.saveKey)); if (r && r.v === 1 && r.q1) SAVE = r; } catch (e) {}
+let SAVE = { v: 1, q0: { best: 0, plays: 0 }, q1: { best: 0, plays: 0 }, q2: { best: 0, plays: 0 } };   // best：0なし 1銅印 2銀印 3金印
+try { const r = JSON.parse(store.get(CONFIG.saveKey)); if (r && r.v === 1) { for (const k of ['q0', 'q1', 'q2']) if (r[k]) Object.assign(SAVE[k], r[k]); if (r.rec) SAVE.rec = r.rec; if (r.pred) SAVE.pred = r.pred; } } catch (e) {}
 const save = () => store.set(CONFIG.saveKey, JSON.stringify(SAVE));
 
 /* ═════════ 音：和風の電子音とBGM（すべてその場で合成） ═════════
@@ -601,11 +705,17 @@ function faceBall(color) {                                // 電子（あなた�
   g.fillStyle = 'rgba(248,170,165,.55)'; g.beginPath(); g.ellipse(50, 92, 8, 5, 0, 0, 7); g.ellipse(110, 92, 8, 5, 0, 0, 7); g.fill();
   return new THREE.CanvasTexture(c);
 }
-const ION_TEX = { zn: ionTexture('Zn²⁺', COL.znIon), cu: ionTexture('Cu²⁺', COL.cuIon), so4: ionTexture('SO₄²⁻', COL.so4) };
-const ION_SIZE = { zn: 0.62, cu: 0.62, so4: 0.76 };
+const ION_TEX = { zn: ionTexture('Zn²⁺', COL.znIon), cu: ionTexture('Cu²⁺', COL.cuIon), so4: ionTexture('SO₄²⁻', COL.so4), h: ionTexture('H⁺', '#F9BDD4'), h2: ionTexture('H₂', '#E2F0FA') };
+const ION_SIZE = { zn: 0.62, cu: 0.62, so4: 0.76, h: 0.48, h2: 0.74 };
+/* イオン化列：空に並べた坂（左ほど高い＝イオン化傾向が大きい） */
+const SERIES = ['Li', 'K', 'Ca', 'Na', 'Mg', 'Al', 'Zn', 'Fe', 'Ni', 'Sn', 'Pb', 'H₂', 'Cu', 'Hg', 'Ag', 'Pt', 'Au'];
+const seriesPos = SERIES.map((_, i) => V(-4.8 + i * 0.6, 16.6 - i * 0.42, -0.5));
+const seriesGroup = new THREE.Group(); seriesGroup.visible = false;
+function mixHex(a, b, t) { const x = parseInt(a.slice(1), 16), y = parseInt(b.slice(1), 16), f = (sh) => Math.round(((x >> sh) & 255) * (1 - t) + ((y >> sh) & 255) * t).toString(16).padStart(2, '0'); return '#' + f(16) + f(8) + f(0); }
+SERIES.forEach((sym, i) => { const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: ionTexture(sym, sym === 'H₂' ? '#E6E6F0' : mixHex('#F7A9A0', '#9CCDE8', i / 16)), transparent: true, depthWrite: false })); sp.scale.setScalar(0.8); sp.position.copy(seriesPos[i]); seriesGroup.add(sp); });
 
 /* 文字の札：ちぎった和紙の短冊（言語を変えたら作り直す） */
-const labels = [];
+const labels = [], labelSp = {};
 function tagTexture(text, color) {
   const g0 = cv(8, 8).getContext('2d'); const font = '700 40px "Zen Maru Gothic","Hiragino Maru Gothic ProN",sans-serif';
   g0.font = font; const w = Math.ceil(g0.measureText(text).width) + 56, h = 76, c = cv(w, h), g = c.getContext('2d');
@@ -619,7 +729,7 @@ function tagTexture(text, color) {
 function addLabel(key, pos, color, h = 0.6, parent = scene) {
   const sp = new THREE.Sprite(new THREE.SpriteMaterial({ transparent: true, depthTest: false }));
   sp.position.copy(pos); sp.renderOrder = 10; parent.add(sp);
-  const L = { key, sp, color, h }; labels.push(L); refreshLabel(L); return sp;
+  const L = { key, sp, color, h }; labels.push(L); labelSp[key] = sp; refreshLabel(L); return sp;
 }
 function refreshLabel(L) {
   const { tex, aspect } = tagTexture(tt(L.key), L.color);
@@ -640,9 +750,10 @@ function paper(geo, color, opacity, pos, dots) {
   m.position.copy(pos); scene.add(m); return m;
 }
 paper(roundedBox(G.liqX * 2 + 0.5, 5.3, G.liqZ * 2 + 0.5, 0.9), COL.glass, 0.13, V(0, 2.45, 0));                 // 器
-paper(roundedBox(G.liqX - 0.15, G.liqY, G.liqZ * 2, 0.7), COL.liqL, 0.22, V(-G.liqX / 2 - 0.02, G.liqY / 2, 0));  // ZnSO₄ 水溶液
-paper(roundedBox(G.liqX - 0.15, G.liqY, G.liqZ * 2, 0.7), COL.liqR, 0.4, V(G.liqX / 2 + 0.02, G.liqY / 2, 0));  // CuSO₄ 水溶液
-paper(roundedBox(0.2, 4.8, G.liqZ * 2, 0.09), COL.porous, 0.72, V(0, 2.4, 0), true);                             // 素焼き板
+const liqL = paper(roundedBox(G.liqX - 0.15, G.liqY, G.liqZ * 2, 0.7), COL.liqL, 0.22, V(-G.liqX / 2 - 0.02, G.liqY / 2, 0));  // ZnSO₄ 水溶液
+const liqR = paper(roundedBox(G.liqX - 0.15, G.liqY, G.liqZ * 2, 0.7), COL.liqR, 0.4, V(G.liqX / 2 + 0.02, G.liqY / 2, 0));  // CuSO₄ 水溶液
+const porous = paper(roundedBox(0.2, 4.8, G.liqZ * 2, 0.09), COL.porous, 0.72, V(0, 2.4, 0), true);
+const liqOne = paper(roundedBox(G.liqX * 2 - 0.25, G.liqY, G.liqZ * 2, 0.7), '#DCEAF6', 0.26, V(0, G.liqY / 2, 0)); liqOne.visible = false;   // 仕切りのない1つの水溶液                             // 素焼き板
 const plateMid = (G.plateY0 + G.plateY1) / 2, plateH = G.plateY1 - G.plateY0;
 paper(roundedBox(G.plateW, plateH, G.plateD, 0.45), COL.plateZn, 0.3, V(G.znX, plateMid, 0));
 paper(roundedBox(G.plateW, plateH, G.plateD, 0.45), COL.plateCu, 0.34, V(G.cuX, plateMid, 0));
@@ -701,6 +812,8 @@ addLabel('lbl.porous', V(0, 5.6, 0), '#8f7c5c', 0.58);
 addLabel('lbl.znso4', V(-3, -0.7, 2), '#7c8fb0', 0.58);
 addLabel('lbl.cuso4', V(3, -0.7, 2), '#5c8fb5', 0.58);
 addLabel('lbl.bulb', V(0, 9.75, 0), '#A9822E', 0.58);
+addLabel('lbl.acid', V(0, -0.7, 2), '#6f86a8', 0.58); addLabel('lbl.elec', V(0, -0.7, 2), '#6f86a8', 0.58);
+scene.add(seriesGroup); addLabel('lbl.big', seriesPos[0].clone().add(V(2.1, 0.35, 0)), '#B5625A', 0.5); addLabel('lbl.small', seriesPos[16].clone().add(V(-1.3, -0.5, 0)), '#3F7893', 0.5);
 
 /* 自由電子（飾り）：板の中でふるえる粒と、導線を流れる粒 */
 const decor = [];
@@ -766,7 +879,7 @@ let beaconAt = null; function beacon(at) { beaconAt = at; beaconSp.visible = !!a
 
 /* イオン（水溶液の中をただよう） */
 let ions = [];
-const BOUNDS = { L: [-2.65, -0.4], R: [0.4, 2.65] };
+const BOUNDS = { L: [-2.65, -0.4], R: [0.4, 2.65], A: [-2.65, 2.65] };   // L・R：素焼き板の左右／A：仕切りなし
 function addIon(kind, side, pos) {
   const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: ION_TEX[kind], transparent: true, depthWrite: false }));
   sp.scale.set(ION_SIZE[kind], ION_SIZE[kind], 1);
@@ -777,18 +890,23 @@ function addIon(kind, side, pos) {
 function removeIon(ion) { scene.remove(ion.sp); ion.sp.material.dispose(); ions = ions.filter((i) => i !== ion); }
 let deposited = null;
 
+let gasSp = null;   // 水素の泡
+function applyWorld(w) {                    // 装置をクエストに合わせる
+  const d = w.kind === 'daniell'; liqL.visible = liqR.visible = porous.visible = d; liqOne.visible = !d;
+  const vis = { 'lbl.porous': d, 'lbl.znso4': d, 'lbl.cuso4': d, 'lbl.acid': w.kind === 'acid', 'lbl.elec': w.kind === 'plain', 'lbl.big': !!w.series, 'lbl.small': !!w.series };
+  for (const k in vis) labelSp[k].visible = vis[k];
+  seriesGroup.visible = !!w.series;
+}
 function resetWorld() {
-  ions.slice().forEach(removeIon);
-  for (let i = 0; i < CONFIG.ions.znL; i++) addIon('zn', 'L');
-  for (let i = 0; i < CONFIG.ions.so4L; i++) addIon('so4', 'L');
-  for (let i = 0; i < CONFIG.ions.cuR; i++) addIon('cu', 'R');
-  for (let i = 0; i < CONFIG.ions.so4R; i++) addIon('so4', 'R');
+  ions.slice().forEach(removeIon); applyWorld(Q.world);
+  Q.world.ions.forEach(([kind, side, n]) => { for (let i = 0; i < n; i++) addIon(kind, side); });
   setAtomVisible(latZn, znSurfIndex, true);
   if (deposited) { scene.remove(deposited); deposited = null; }
+  if (gasSp) { scene.remove(gasSp); gasSp = null; }
   player.position.copy(HOME_ZN); player.scale.setScalar(1); player.visible = true;
   buddy.position.copy(HOME_ZN).add(V(-0.25, -0.5, -0.3)); buddy.scale.setScalar(1); buddy.visible = true;
   ring.visible = false; focus = player; lampBoost = 0; beacon(null); firefly.visible = false;
-  ['n1', 'n2', 'n3', 'p1', 'p2', 'p3', 'nk', 'pk'].forEach((id) => $(id).classList.remove('is-on', 'is-new'));
+  document.querySelectorAll('#eq .is-on, #eq .is-new, #eq .is-hot').forEach((el) => el.classList.remove('is-on', 'is-new', 'is-hot'));
 }
 
 /* ═════════ カメラ（なぞって見回す・2本指で拡大） ═════════ */
@@ -800,22 +918,23 @@ const VIEWS = {
   wire: { follow: true, az: 0.2, pol: 0.25, dist: () => 8.5 },
   cu:   { follow: true, az: -0.3, pol: 0.2, dist: () => 5.6 },
   mid:  { follow: true, az: 0.1, pol: 0.28, dist: () => 7.5 },
+  series: { follow: false, az: 0, pol: 0.06, dist: () => fitDist() * 0.68, t: V(0, 13.0, 0) },   // イオン化列の坂
 };
 function fitDist() { const tan = Math.tan((CONFIG.fov * Math.PI) / 360); return Math.max(15 / (2 * tan * camera.aspect), 12 / (2 * tan)); }
 function setView(name, keepToggle) {
   phaseView = name; const v = VIEWS[name];
-  cam.follow = v.follow; cam.all = name === 'all'; cam.goal = { az: v.az, pol: v.pol, dist: v.dist() }; cam.settle = 1.4;
+  cam.follow = v.follow; cam.all = !v.follow; cam.center = v.t || G.center; cam.goal = { az: v.az, pol: v.pol, dist: v.dist() }; cam.settle = 1.4;
   if (!keepToggle) updateViewBtn();
 }
-function updateViewBtn() { const b = $('viewBtn'); b.hidden = phaseView === 'all'; b.textContent = tt(cam.all ? 'view.micro' : 'view.all'); }
+function updateViewBtn() { const b = $('viewBtn'); b.hidden = !VIEWS[phaseView].follow; b.textContent = tt(cam.all ? 'view.micro' : 'view.all'); }
 $('viewBtn').addEventListener('click', () => {
   snd.tap();
   if (cam.all) { setView(phaseView, true); cam.all = false; }
-  else { cam.all = true; cam.follow = false; cam.goal = { az: 0.25, pol: 0.2, dist: fitDist() }; cam.settle = 1.2; }
+  else { cam.all = true; cam.follow = false; cam.center = G.center; cam.goal = { az: 0.25, pol: 0.2, dist: fitDist() }; cam.settle = 1.2; }
   updateViewBtn();
 });
 function updateCamera(dt) {
-  const want = cam.follow && !cam.all ? focus.position : G.center;
+  const want = cam.follow && !cam.all ? focus.position : cam.center || G.center;
   cam.t.lerp(want, 1 - Math.exp(-dt * 5));
   if (cam.settle > 0 && cam.goal) { cam.settle -= dt; const k = 1 - Math.exp(-dt * 4); cam.az += (cam.goal.az - cam.az) * k; cam.pol += (cam.goal.pol - cam.pol) * k; cam.dist += (cam.goal.dist - cam.dist) * k; }
   const cp = Math.cos(cam.pol);
@@ -889,7 +1008,7 @@ function frame(now) {
   flowers.forEach((f) => { const u = f.userData; if (u.life <= 0) return; u.life -= dt * 0.55; const k = 1 - Math.max(0, u.life); f.scale.setScalar(u.size * (0.2 + Math.min(1, k * 2.2) * 0.8)); f.material.rotation += dt * 0.5; f.material.opacity = Math.min(1, u.life * 2); });
   if (beaconAt) { beaconSp.position.copy(beaconAt); const b = (clock * 1.1) % 1; beaconSp.scale.setScalar(0.5 + b * 1.1); beaconSp.material.opacity = 1 - b; }
   { // スポットライト：注目している所を画面上の位置に直して、そこだけ明るく残す
-    const micro = cam.follow && !cam.all; pv.copy(micro ? focus.position : G.center).project(camera);
+    const micro = cam.follow && !cam.all; pv.copy(micro ? focus.position : cam.center || G.center).project(camera);
     const st = $('spot').style; st.setProperty('--sx', ((pv.x + 1) * 50).toFixed(1) + '%'); st.setProperty('--sy', ((1 - pv.y) * 50).toFixed(1) + '%'); st.setProperty('--sr', micro ? '26%' : '36%'); st.setProperty('--sa', micro ? '.5' : '.3');
   }
   lampBoost = Math.max(0, lampBoost - dt * 0.7);
@@ -904,7 +1023,7 @@ function frame(now) {
 /* ═════════ 画面の道具（キャラクターのセリフ・選択肢・押し続けるボタン） ═════════ */
 const ui = { mode: 'idle', who: 'mikoto', expr: 'normal' };
 function pop(key, cls, ms = 1900) { const el = $('pop'); el.textContent = tt(key); el.className = 'pop torn is-on ' + cls; clearTimeout(pop.t); pop.t = setTimeout(() => el.classList.remove('is-on'), ms); }
-function reveal(...ids) { ids.forEach((id) => { const el = $(id); el.classList.add('is-on', 'is-new'); setTimeout(() => el.classList.remove('is-new'), 500); }); }
+function reveal(...ids) { ids.forEach((id) => { const el = $(id); if (!el) return; el.classList.add('is-on', 'is-new'); setTimeout(() => el.classList.remove('is-new'), 500); }); }
 function setStep(n) { [...$('dots').children].forEach((d, i) => d.classList.toggle('is-on', i <= n)); }
 let faceKey = '';
 function drawFace() { const k = ui.who + ui.expr; if (k !== faceKey) { faceKey = k; $('face').innerHTML = charSVG(ui.who, ui.expr); } $('who').textContent = tt('ch.' + ui.who); }
@@ -934,15 +1053,15 @@ function render() {
 }
 function pick(i) {
   const o = ui.opts[i]; if (ui.done || o.dis) return;
-  if (o.ok) { ui.done = true; ui.fb = { k: o.why, good: true }; ui.expr = 'smile'; if (ui.first) RUN.st[stageNo].first++; snd.ok(); bloom(focus.position); }
-  else { o.dis = true; ui.first = false; RUN.miss++; ui.fb = { k: o.why, good: false }; ui.expr = 'sad'; snd.ng(); gloom(); }
+  if (o.ok) { ui.done = true; ui.fb = { k: o.why, good: true }; ui.expr = 'smile'; if (ui.first) RUN.st[stageNo].first++; recAsk(ui.rec, ui.key, ui.first); snd.ok(); bloom(focus.position); }
+  else { o.dis = true; ui.first = false; RUN.miss++; recMiss(ui.rec, ui.key, o); ui.fb = { k: o.why, good: false }; ui.expr = 'sad'; snd.ng(); gloom(); }
   render();
 }
 const say = (key, btn = 'next', who, expr = 'normal') => new Promise((res) => { stagePos++; Object.assign(ui, { mode: 'say', key, btn, res, who: who || ui.who, expr }); render(); });
 const choose = (key, opts, who) => new Promise((res) => { stagePos++; Object.assign(ui, { mode: 'choose', key, opts, res, who: who || ui.who, expr: 'normal' }); render(); });
-const ask = (key, opts, who) => new Promise((res) => { stagePos++; RUN.st[stageNo].asked++; Object.assign(ui, { mode: 'ask', key, opts: opts.map((o) => ({ ...o })), fb: null, done: false, first: true, res, who: who || ui.who, expr: 'normal' }); render(); });
+const ask = (key, opts, who, rec) => new Promise((res) => { stagePos++; RUN.st[stageNo].asked++; Object.assign(ui, { mode: 'ask', key, rec: rec || { id: key }, opts: opts.map((o) => ({ ...o })), fb: null, done: false, first: true, res, who: who || ui.who, expr: 'normal' }); render(); });
 const idle = (key, expr) => { Object.assign(ui, { mode: 'idle', key }); if (expr) ui.expr = expr; render(); };
-function hold(key, u0, u1, who) {            // 押し続けている間だけ u0→u1 へ進む
+function hold(key, mover, who) {             // 押し続けている間だけ進む。mover(0〜1) がプレイヤーを動かす
   return new Promise((res) => {
     stagePos++; const hid = (ui.holdId = (ui.holdId || 0) + 1);
     Object.assign(ui, { mode: 'hold', key, prog: 0, holding: false, who: who || ui.who, expr: 'normal' }); render();
@@ -951,8 +1070,7 @@ function hold(key, u0, u1, who) {            // 押し続けている間だけ u
       if (ui.mode !== 'hold' || ui.holdId !== hid) return;
       const dt = Math.min(0.1, (now - prev) / 1000); prev = now;
       if (ui.holding) ui.prog = Math.min(1, ui.prog + dt / CONFIG.holdSeconds);
-      const u = u0 + (u1 - u0) * ui.prog;
-      pathAt(u, player.position); pathAt(Math.max(0, u - 0.035), buddy.position);
+      mover(ui.prog);
       const bar = $('holdBtn'); if (bar) bar.firstChild.style.width = Math.round(ui.prog * 100) + '%';
       if (ui.prog >= 1) { ui.mode = 'idle'; res(); } else requestAnimationFrame(tick);
     };
@@ -962,13 +1080,24 @@ function hold(key, u0, u1, who) {            // 押し続けている間だけ u
 document.addEventListener('keydown', (e) => { if (e.code === 'Space' && ui.mode === 'hold') { e.preventDefault(); ui.holding = true; } });
 document.addEventListener('keyup', (e) => { if (e.code === 'Space') ui.holding = false; });
 
-/* ═════════ クエスト1 亜鉛の旅立ち ═════════ */
-let RUN = { miss: 0, pred: -1, st: [] };
+/* ═════════ クエストの共通部品 ═════════ */
+let RUN = { miss: 0, pred: -1, st: [{ first: 0, asked: 0 }] };
+let Q = null;                                  // いま遊んでいるクエスト（QUESTS のどれか）
+const SPOT = V(G.cuX - 0.84, G.surfY, 0);      // 銅板の表面：電子を受け渡す場所
+const EDGE = V(G.znX + 0.66, G.surfY + 0.1, 0.25);
+const pickR = (a) => a[Math.floor(Math.random() * a.length)];
+const shuffle = (a) => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+const on = (...ids) => ids.forEach((id) => { const el = $(id); if (el) el.classList.add('is-on'); });
+const stepPos = (i) => seriesPos[i].clone().add(V(0.12, 0.6, 0.1));
+const buddyOff = V(-0.25, -0.4, -0.25);
+const wireMove = (u0, u1) => (p) => { const u = u0 + (u1 - u0) * p; pathAt(u, player.position); pathAt(Math.max(0, u - 0.035), buddy.position); };
+const polyMove = (pts) => (p) => { const s = p * (pts.length - 1), i = Math.min(pts.length - 2, Math.floor(s)); player.position.lerpVectors(pts[i], pts[i + 1], s - i); buddy.position.copy(player.position).add(buddyOff); };
+const ROAM = [HOME_ZN, V(-3.78, 3.5, -0.6), V(-3.25, 4.6, 0.55), V(-3.7, 5.5, 0.1), V(-3.3, 4.1, -0.4), HOME_ZN];
 
 async function animOxidation() {            // Zn → Zn²⁺ + 2e⁻
   beacon(null); await guideTo(ZN_SURF);
   setAtomVisible(latZn, znSurfIndex, false);
-  const ion = addIon('zn', 'L', ZN_SURF.clone()); ion.frozen = true;
+  const ion = addIon('zn', Q.side, ZN_SURF.clone()); ion.frozen = true;
   snd.hop(); ripple(ZN_SURF, 0xf2a9a0); reveal('n1');
   await moveTo(ion.sp, V(-2.2, 2.2, 0.5), 1.5);
   ion.frozen = false; reveal('n2');
@@ -977,25 +1106,43 @@ async function animOxidation() {            // Zn → Zn²⁺ + 2e⁻
   await sleep(700);
 }
 async function animBounce() {               // 水溶液へ出ようとして、はじかれる
-  const edge = EDGE; beacon(null);
-  await moveTo(player, edge, 0.35);
-  snd.bounce(); pop('sol.pop', 'is-ng'); gloom(); ripple(edge, 0xb9b0c4); ui.expr = 'surprise'; faceKey = ''; drawFace();
+  beacon(null);
+  await moveTo(player, EDGE, 0.35);
+  snd.bounce(); pop('sol.pop', 'is-ng'); gloom(); ripple(EDGE, 0xb9b0c4); ui.expr = 'surprise'; faceKey = ''; drawFace();
   await moveTo(player, HOME_ZN, 0.5);
   await sleep(300);
 }
-async function animReduction() {            // Cu²⁺ + 2e⁻ → Cu
+function deposit() { deposited = new THREE.Sprite(new THREE.SpriteMaterial({ map: latCu.mesh.material.map, transparent: true, depthWrite: false })); deposited.position.copy(SPOT); deposited.scale.setScalar(0.5); scene.add(deposited); }
+async function animReduction() {            // Cu²⁺ + 2e⁻ → Cu（ダニエル電池）
   const ion = ions.find((i) => i.kind === 'cu'); ion.frozen = true;
-  const spot = SPOT; beacon(null); await guideTo(ion.sp.position);
+  beacon(null); await guideTo(ion.sp.position);
   reveal('p1');
-  await moveTo(ion.sp, spot, 1.3);
+  await moveTo(ion.sp, SPOT, 1.3);
   snd.hop(); reveal('p2');
-  await Promise.all([moveTo(player, spot, 0.5), moveTo(buddy, spot, 0.6)]);
-  removeIon(ion); ripple(spot, 0x9ccde0);
-  deposit();
+  await Promise.all([moveTo(player, SPOT, 0.5), moveTo(buddy, SPOT, 0.6)]);
+  removeIon(ion); ripple(SPOT, 0x9ccde0); deposit();
   buddy.visible = false; reveal('p3'); pop('red.pop', 'is-red', 2400);
   await anim(1.0, (t) => deposited.scale.setScalar(0.5 * (1 + Math.sin(t * Math.PI) * 0.6)));
   reveal('nk', 'pk');
   await sleep(300);
+}
+async function animReductionH() {           // 2H⁺ + 2e⁻ → H₂（ボルタ電池）
+  const hs = ions.filter((i) => i.kind === 'h').sort((a, b) => b.sp.position.x - a.sp.position.x).slice(0, 2); hs.forEach((h) => { h.frozen = true; });
+  beacon(null); await guideTo(hs[0].sp.position);
+  reveal('p1');
+  const a = SPOT.clone().add(V(0, 0.2, 0)), b = SPOT.clone().add(V(0, -0.2, 0));
+  await Promise.all([moveTo(hs[0].sp, a, 1.2), moveTo(hs[1].sp, b, 1.2)]);
+  snd.hop(); reveal('p2');
+  await Promise.all([moveTo(player, a, 0.5), moveTo(buddy, b, 0.6)]);
+  hs.forEach(removeIon); ripple(SPOT, 0x9ccde0);
+  gasSp = new THREE.Sprite(new THREE.SpriteMaterial({ map: ION_TEX.h2, transparent: true, depthWrite: false })); gasSp.scale.setScalar(ION_SIZE.h2); gasSp.position.copy(SPOT); scene.add(gasSp);
+  player.visible = false; buddy.visible = false; player.position.copy(SPOT); reveal('p3'); pop('v.red.pop', 'is-red', 2600);
+  await anim(0.7, (t) => gasSp.scale.setScalar(ION_SIZE.h2 * (1 + Math.sin(t * Math.PI) * 0.5)));
+  const g = gasSp, from = SPOT.clone();
+  await anim(2.4, (t) => { g.position.set(from.x - 0.25 + Math.sin(t * 9) * 0.12, from.y + ease(t) * 4.4, 0); g.material.opacity = t < 0.75 ? 1 : (1 - t) * 4; });
+  scene.remove(g); if (gasSp === g) gasSp = null;
+  reveal('nk', 'pk');
+  await sleep(200);
 }
 async function possess(ion) {               // SO₄²⁻ に憑依する
   beacon(null); ion.frozen = true; snd.hop();
@@ -1012,113 +1159,313 @@ async function animIonCross(ion) {          // SO₄²⁻ は左へ、Zn²⁺ �
   snd.hop(); ion.side = 'L'; zn.side = 'R'; zn.frozen = false;
   await sleep(400);
 }
-
-/* 段階ごとの中身。「戻る」で、いまの段階の最初（最初にいるなら1つ前の段階）からやり直せる */
-const SPOT = V(G.cuX - 0.84, G.surfY, 0);     // 銅が析出する場所
-const EDGE = V(G.znX + 0.66, G.surfY + 0.1, 0.25);
-const STAGES = [
-  async () => {                               // ① 予測（案内：ミコト）
-    setView('all');
-    RUN.pred = await choose('pred.q', ['pred.a', 'pred.b'], 'mikoto');
-    await say('pred.after', 'next', 'mikoto', 'smile');
-  },
-  async () => {                               // ② 酸化（亜鉛板の表面。案内：亜鉛の精エン）
-    setView('zn'); beacon(ZN_SURF);
-    await say('ox.intro', 'ox.btn', 'en'); idle('ox.intro');
-    await animOxidation();
-    await ask('ox.q', [{ k: 'c.ox', ok: true, why: 'ox.good' }, { k: 'c.red', why: 'ox.bad' }], 'en');
-    beacon(EDGE);
-    await say('sol.intro', 'sol.btn', 'en'); idle('sol.intro');
-    await animBounce();
-    await say(RUN.pred === 0 ? 'sol.ok' : 'sol.ng', 'next', 'en', RUN.pred === 0 ? 'smile' : 'normal');
-  },
-  async () => {                               // ③ 導線の旅（案内：ミコト）
-    setView('wire'); beacon(lamp.position);
-    await hold('wire.1', 0, 0.5, 'mikoto');
-    beacon(null); lampBoost = 1.4; snd.ok(); bloom(lamp.position); pop('bulb.pop', 'is-gold', 2200);
-    await ask('cur.q', [{ k: 'c.cur.same', why: 'cur.bad' }, { k: 'c.cur.opp', ok: true, why: 'cur.good' }], 'mikoto');
-    await hold('wire.2', 0.5, 1, 'mikoto');
-  },
-  async () => {                               // ④ 還元（銅板の表面。案内：銅の精アカネ）
-    setView('cu'); beacon(SPOT);
-    await ask('gate.q', [{ k: 'c.so4', why: 'gate.so4' }, { k: 'c.cu2', ok: true, why: 'gate.good' }, { k: 'c.h2o', why: 'gate.h2o' }, { k: 'c.zn2', why: 'gate.zn2' }], 'akane');
-    idle('gate.good', 'smile');
-    await animReduction();
-    await ask('red.q', [{ k: 'c.ox', why: 'red.bad' }, { k: 'c.red', ok: true, why: 'red.good' }], 'akane');
-  },
-  async () => {                               // ⑤ イオンに憑依（案内：ミコト）
-    setView('cu');
-    const ion = ions.filter((i) => i.kind === 'so4' && i.side === 'R').sort((a, b) => a.sp.position.x - b.sp.position.x)[1];
-    beacon(ion.sp.position);
-    await say('ion.intro', 'ion.btn', 'mikoto'); idle('ion.intro');
-    setView('mid');
-    await possess(ion);
-    beacon(V(0, 2.4, 0.3));
-    await ask('ion.q', [{ k: 'c.ion.l', ok: true, why: 'ion.good' }, { k: 'c.ion.r', why: 'ion.bad' }], 'mikoto');
-    idle('ion.good', 'smile');
-    await animIonCross(ion);
-    await say('ion.after', 'next', 'mikoto', 'smile');
-    ring.visible = false; ion.frozen = false;
-  },
-  async () => {                               // ⑥ まとめの問い
-    setView('all'); idleSpin = true;
-    await ask('conc.q', [{ k: 'c.conc.b', why: 'conc.bad' }, { k: 'c.conc.a', ok: true, why: 'conc.good' }, { k: 'c.conc.c', why: 'conc.bad' }, { k: 'c.conc.d', why: 'conc.bad' }], 'mikoto');
-  },
-];
-function deposit() { deposited = new THREE.Sprite(new THREE.SpriteMaterial({ map: latCu.mesh.material.map, transparent: true, depthWrite: false })); deposited.position.copy(SPOT); deposited.scale.setScalar(0.5); scene.add(deposited); }
-/* 段階 n を始めるときの世界のようす（それまでの出来事を、すんだ状態にする） */
-function setupStage(n) {
-  resetWorld(); const on = (...ids) => ids.forEach((id) => $(id).classList.add('is-on'));
-  if (n >= 2) { setAtomVisible(latZn, znSurfIndex, false); addIon('zn', 'L'); on('n1', 'n2', 'n3'); }
-  if (n >= 3) { player.position.copy(HOME_CU); buddy.position.copy(HOME_CU).add(V(0.25, -0.5, -0.3)); }
-  if (n >= 4) { removeIon(ions.find((i) => i.kind === 'cu')); deposit(); buddy.visible = false; player.position.copy(SPOT); on('p1', 'p2', 'p3', 'nk', 'pk'); }
-  if (n >= 5) { const a = ions.find((i) => i.kind === 'so4' && i.side === 'R'), b = ions.find((i) => i.kind === 'zn' && i.side === 'L'); a.side = 'L'; a.sp.position.x = -1.5; b.side = 'R'; b.sp.position.x = 1.3; player.visible = false; }
+async function animSlide() {                // イオン化列の坂を、Zn から Cu へ下る
+  beacon(null); snd.hop();
+  for (let i = 7; i <= 12; i++) { await moveTo(player, stepPos(i), 0.22); ripple(seriesPos[i], 0xffffff); }
+  pop('s.pop', 'is-gold', 2200); bloom(player.position);
+  await sleep(500);
 }
-let runId = 0, stageNo = 0, stagePos = 0;
+const stageOx = (intro) => async () => {     // 亜鉛板の表面で酸化を見る（案内：エン）
+  setView('zn'); beacon(ZN_SURF);
+  await say(intro, 'ox.btn', 'en'); idle(intro);
+  await animOxidation();
+};
+const stageWire = (midAsk) => async () => {  // 導線の旅（案内：ミコト）
+  setView('wire'); beacon(lamp.position);
+  await hold('wire.1', wireMove(0, 0.5), 'mikoto');
+  beacon(null); lampBoost = 1.4; snd.ok(); bloom(lamp.position); pop('bulb.pop', 'is-gold', 2200);
+  await midAsk();
+  await hold('wire.2', wireMove(0.5, 1), 'mikoto');
+};
+
+/* ═════════ 条件を変えた問い（金印の試練と、クエスト0の練習で使う。毎回ちがう問いになる） ═════════ */
+const PAIR_METALS = ['Mg', 'Al', 'Zn', 'Fe', 'Ni', 'Sn', 'Pb', 'Cu', 'Ag', 'Pt', 'Au'];   // イオン化傾向の大きい順
+function pairAsk(kind) {
+  const a = pickR(PAIR_METALS); let b; do { b = pickR(PAIR_METALS); } while (b === a);
+  const hi = PAIR_METALS.indexOf(a) < PAIR_METALS.indexOf(b) ? a : b, lo = hi === a ? b : a;
+  const why = [`イオン化列では ${hi} が ${lo} より左。${hi} のほうがイオン化傾向が大きく、酸化されて負極になる。`, `${hi} is left of ${lo} in the series. ${hi} has the higher tendency, is oxidized, and becomes the negative pole.`];
+  const head = [`${a} と ${b} を電極にして電池をつくる。\n`, `A cell is made with ${a} and ${b} as electrodes.\n`];
+  const K = {
+    neg: [['<b>負極</b>になるのは？', 'Which becomes the <b>negative pole</b>?'], hi, lo],
+    pos: [['<b>正極</b>になるのは？', 'Which becomes the <b>positive pole</b>?'], lo, hi],
+    ox: [['<b>酸化される</b>のは？', 'Which one is <b>oxidized</b>?'], hi, lo],
+    flow: [['導線を<b>電子</b>が流れる向きは？', 'Which way do <b>electrons</b> flow in the wire?'], `${hi} → ${lo}`, `${lo} → ${hi}`],
+  }[kind];
+  return { key: [head[0] + K[0][0], head[1] + K[0][1]], opts: shuffle([{ k: [K[1], K[1]], ok: true, why }, { k: [K[2], K[2]], why }]), rec: { id: 'g.pair.' + kind, label: '（金属を変えた問い）' + K[0][0].replace(/<[^>]+>/g, ''), dyn: true } };
+}
+function molAsk(qid, vi) {
+  const n = pickR([0.10, 0.20, 0.30, 0.40, 0.60]), s = (x) => (Math.round(x * 1000) / 1000).toFixed(Math.round(x * 1000) % 10 ? 3 : 2), N = s(n);
+  const vars = qid === 'q2' ? [
+    [[`ボルタ電池で、電子が <b>${N} mol</b> 流れた。\n発生する水素 H₂ は？`, `In a voltaic cell, <b>${N} mol</b> of electrons flowed.\nHow much hydrogen H₂ forms?`], n / 2, ['2H⁺ + 2e⁻ → H₂。電子 2 mol で H₂ が 1 mol。', '2H⁺ + 2e⁻ → H₂: 2 mol of electrons give 1 mol of H₂.']],
+    [[`ボルタ電池で、電子が <b>${N} mol</b> 流れた。\n溶けた亜鉛 Zn は？`, `In a voltaic cell, <b>${N} mol</b> of electrons flowed.\nHow much zinc Zn dissolved?`], n / 2, ['Zn → Zn²⁺ + 2e⁻。Zn 1 mol から電子が 2 mol。', 'Zn → Zn²⁺ + 2e⁻: 1 mol of Zn gives 2 mol of electrons.']],
+    [[`ボルタ電池で、水素 H₂ が <b>${N} mol</b> 発生した。\n流れた電子は？`, `In a voltaic cell, <b>${N} mol</b> of hydrogen H₂ formed.\nHow many electrons flowed?`], n * 2, ['2H⁺ + 2e⁻ → H₂。H₂ 1 mol に電子が 2 mol。', '2H⁺ + 2e⁻ → H₂: 1 mol of H₂ needs 2 mol of electrons.']],
+  ] : [
+    [[`ダニエル電池で、電子が <b>${N} mol</b> 流れた。\n析出する銅 Cu は？`, `In a Daniell cell, <b>${N} mol</b> of electrons flowed.\nHow much copper Cu deposits?`], n / 2, ['Cu²⁺ + 2e⁻ → Cu。電子 2 mol で Cu が 1 mol。', 'Cu²⁺ + 2e⁻ → Cu: 2 mol of electrons give 1 mol of Cu.']],
+    [[`ダニエル電池で、電子が <b>${N} mol</b> 流れた。\n溶けた亜鉛 Zn は？`, `In a Daniell cell, <b>${N} mol</b> of electrons flowed.\nHow much zinc Zn dissolved?`], n / 2, ['Zn → Zn²⁺ + 2e⁻。Zn 1 mol から電子が 2 mol。', 'Zn → Zn²⁺ + 2e⁻: 1 mol of Zn gives 2 mol of electrons.']],
+    [[`ダニエル電池で、亜鉛 Zn が <b>${N} mol</b> 溶けた。\n流れた電子は？`, `In a Daniell cell, <b>${N} mol</b> of zinc Zn dissolved.\nHow many electrons flowed?`], n * 2, ['Zn → Zn²⁺ + 2e⁻。Zn 1 mol から電子が 2 mol。', 'Zn → Zn²⁺ + 2e⁻: 1 mol of Zn gives 2 mol of electrons.']],
+  ];
+  const [key, ans, why] = vars[vi % vars.length], m = (x) => [s(x) + ' mol', s(x) + ' mol'];
+  return { key, opts: shuffle([{ k: m(ans), ok: true, why }, { k: m(ans * 2), why }, { k: m(ans * 4), why }, { k: m(ans / 2), why }]), rec: { id: 'g.mol.' + qid + '.' + (vi % vars.length), label: '（数を変えた問い）' + key[0].replace(/<[^>]+>/g, '').replace(/[\d.]+ mol/, 'n mol').replace(/\n/g, ' '), dyn: true } };
+}
+const FACTS = {   // [問い, [[選択肢, 正解か]], 説明]
+  q1: [['g1.glass', [['g.stop', 1], ['g.more', 0], ['c.same', 0]], 'g1.glass.why'], ['g1.color', [['g.fade', 1], ['g.deep', 0], ['c.same', 0]], 'g1.color.why'],
+       ['g1.massZn', [['c.down', 1], ['c.up', 0], ['c.same', 0]], 'g1.massZn.why'], ['g1.massCu', [['c.up', 1], ['c.down', 0], ['c.same', 0]], 'g1.massCu.why'], ['g1.zn2', [['g.toCu', 1], ['g.toZn', 0]], 'g1.zn2.why']],
+  q2: [['g2.gas', [['g.h2', 1], ['g.o2', 0], ['g.so2', 0]], 'g2.gas.why'], ['v.sum.q1', [['c.same', 1], ['c.up', 0], ['c.down', 0]], 'v.sum.q1.good'],
+       ['g2.h', [['g.dec', 1], ['g.inc', 0], ['c.same', 0]], 'g2.h.why'], ['g2.same', [['g.stop', 1], ['g.more', 0]], 'g2.same.why']],
+};
+const factAsk = ([key, opts, why]) => ({ key, opts: shuffle(opts.map(([k, ok]) => ({ k, ok: !!ok, why }))), rec: { id: 'g.' + key } });
+function goldSet(qid) {
+  if (qid === 'q0') return shuffle(['neg', 'pos', 'ox', 'flow', pickR(['neg', 'pos'])]).map(pairAsk);
+  const v = shuffle([0, 1, 2]);
+  return shuffle([molAsk(qid, v[0]), molAsk(qid, v[1]), ...shuffle(FACTS[qid]).slice(0, 2).map(factAsk), pairAsk(pickR(['neg', 'flow']))]);
+}
+
+/* ═════════ クエストの中身 ═════════
+   stages：段階ごとの進行。setup(n)：段階 n を始めるときの世界のようす（それまでの出来事を、すんだ状態にする）
+   eq：反応式の帯。world：装置（daniell＝素焼き板で仕切った2つの水溶液／acid＝希硫酸／plain＝電解質の水溶液） */
+const EQ_ZN = { cls: 'n', pole: 'pole.n', terms: [['n1', 'Zn'], ['n2', '→ Zn²⁺'], ['n3', '+ 2e⁻', 1]], kind: 'kind.ox', kid: 'nk' };
+const QUESTS = {
+  q0: {
+    id: 'q0', no: 'q0.no', name: 'q0.name', sub: 'q0.sub', sum: 'res.sum.q0', side: 'A',
+    world: { kind: 'plain', series: true, ions: [] },
+    eq: [{ cls: 's', pole: 'pole.series', terms: SERIES.map((s, i) => ['s' + i, s]) }],
+    stages: [
+      async () => {                               // ① 金属の中の自由電子（案内：エン）
+        setView('zn');
+        await say('f.intro', 'next', 'en');
+        await hold('f.roam', polyMove(ROAM), 'en');
+        await ask('f.q', [{ k: 'f.a2', why: 'f.bad' }, { k: 'f.a1', ok: true, why: 'f.good' }], 'en');
+      },
+      async () => {                               // ② イオン化傾向（案内：エン）
+        await stageOx('i.intro')();
+        await ask('i.q', [{ k: 'i.a1', ok: true, why: 'i.good' }, { k: 'i.a2', why: 'i.bad' }], 'en');
+      },
+      async () => {                               // ③ イオン化列の坂（案内：ミコト）
+        setView('series');
+        await say('s.intro', 'next', 'mikoto');
+        await ask('s.q1', [{ k: 's.cu', why: 's.q1.bad' }, { k: 's.zn', ok: true, why: 's.q1.good' }], 'mikoto');
+        beacon(seriesPos[12]);
+        await say('s.slide', 's.slide.btn', 'mikoto'); idle('s.slide');
+        await animSlide();
+        await ask('s.q2', [{ k: 's.znP', ok: true, why: 's.q2.good' }, { k: 's.cuP', why: 's.q2.bad' }], 'mikoto');
+      },
+      async () => {                               // ④ 金属を変えて練習（毎回ちがう組み合わせ）
+        setView('series');
+        for (const kind of ['neg', 'flow', 'pos']) { const q = pairAsk(kind); await ask(q.key, q.opts, 'mikoto', q.rec); }
+        await ask('s.q3', [{ k: 's.sm', why: 's.q3.bad' }, { k: 's.big', ok: true, why: 's.q3.good' }], 'mikoto');
+      },
+    ],
+    setup(n) {
+      resetWorld();
+      if (n >= 2) { setAtomVisible(latZn, znSurfIndex, false); addIon('zn', 'A'); buddy.visible = false; player.position.copy(stepPos(6)); on(...SERIES.map((_, i) => 's' + i)); $('s6').classList.add('is-hot'); $('s12').classList.add('is-hot'); }
+      if (n >= 3) player.position.copy(stepPos(12));
+    },
+  },
+  q1: {
+    id: 'q1', no: 'q1.no', name: 'q1.name', sub: 'q1.sub', sum: 'res.sum', side: 'L', pred: true,
+    world: { kind: 'daniell', ions: [['zn', 'L', 5], ['so4', 'L', 5], ['cu', 'R', 7], ['so4', 'R', 7]] },
+    eq: [EQ_ZN, { cls: 'p', pole: 'pole.p', terms: [['p1', 'Cu²⁺'], ['p2', '+ 2e⁻', 1], ['p3', '→ Cu']], kind: 'kind.red', kid: 'pk' }],
+    stages: [
+      async () => {                               // ① 予測（案内：ミコト）
+        setView('all');
+        RUN.pred = await choose('pred.q', ['pred.a', 'pred.b'], 'mikoto');
+        await say('pred.after', 'next', 'mikoto', 'smile');
+      },
+      async () => {                               // ② 酸化（亜鉛板の表面。案内：エン）
+        await stageOx('ox.intro')();
+        await ask('ox.q', [{ k: 'c.ox', ok: true, why: 'ox.good' }, { k: 'c.red', why: 'ox.bad' }], 'en');
+        beacon(EDGE);
+        await say('sol.intro', 'sol.btn', 'en'); idle('sol.intro');
+        await animBounce();
+        await say(RUN.pred === 0 ? 'sol.ok' : 'sol.ng', 'next', 'en', RUN.pred === 0 ? 'smile' : 'normal');
+      },
+      stageWire(() => ask('cur.q', [{ k: 'c.cur.same', why: 'cur.bad' }, { k: 'c.cur.opp', ok: true, why: 'cur.good' }], 'mikoto')),   // ③ 導線の旅
+      async () => {                               // ④ 還元（銅板の表面。案内：アカネ）
+        setView('cu'); beacon(SPOT);
+        await ask('gate.q', [{ k: 'c.so4', why: 'gate.so4' }, { k: 'c.cu2', ok: true, why: 'gate.good' }, { k: 'c.h2o', why: 'gate.h2o' }, { k: 'c.zn2', why: 'gate.zn2' }], 'akane');
+        idle('gate.good', 'smile');
+        await animReduction();
+        await ask('red.q', [{ k: 'c.ox', why: 'red.bad' }, { k: 'c.red', ok: true, why: 'red.good' }], 'akane');
+      },
+      async () => {                               // ⑤ イオンに憑依（案内：ミコト）
+        setView('cu');
+        const ion = ions.filter((i) => i.kind === 'so4' && i.side === 'R').sort((a, b) => a.sp.position.x - b.sp.position.x)[1];
+        beacon(ion.sp.position);
+        await say('ion.intro', 'ion.btn', 'mikoto'); idle('ion.intro');
+        setView('mid');
+        await possess(ion);
+        beacon(V(0, 2.4, 0.3));
+        await ask('ion.q', [{ k: 'c.ion.l', ok: true, why: 'ion.good' }, { k: 'c.ion.r', why: 'ion.bad' }], 'mikoto');
+        idle('ion.good', 'smile');
+        await animIonCross(ion);
+        await say('ion.after', 'next', 'mikoto', 'smile');
+        ring.visible = false; ion.frozen = false;
+      },
+      async () => {                               // ⑥ まとめの問い
+        setView('all'); idleSpin = true;
+        await ask('conc.q', [{ k: 'c.conc.b', why: 'conc.bad' }, { k: 'c.conc.a', ok: true, why: 'conc.good' }, { k: 'c.conc.c', why: 'conc.bad' }, { k: 'c.conc.d', why: 'conc.bad' }], 'mikoto');
+      },
+    ],
+    setup(n) {
+      resetWorld();
+      if (n >= 2) { setAtomVisible(latZn, znSurfIndex, false); addIon('zn', 'L'); on('n1', 'n2', 'n3'); }
+      if (n >= 3) { player.position.copy(HOME_CU); buddy.position.copy(HOME_CU).add(V(0.25, -0.5, -0.3)); }
+      if (n >= 4) { removeIon(ions.find((i) => i.kind === 'cu')); deposit(); buddy.visible = false; player.position.copy(SPOT); on('p1', 'p2', 'p3', 'nk', 'pk'); }
+      if (n >= 5) { const a = ions.find((i) => i.kind === 'so4' && i.side === 'R'), b = ions.find((i) => i.kind === 'zn' && i.side === 'L'); a.side = 'L'; a.sp.position.x = -1.5; b.side = 'R'; b.sp.position.x = 1.3; player.visible = false; }
+    },
+  },
+  q2: {
+    id: 'q2', no: 'q2.no', name: 'q2.name', sub: 'q2.sub', sum: 'res.sum.q2', side: 'A', pred: true,
+    world: { kind: 'acid', ions: [['h', 'A', 12], ['so4', 'A', 6]] },
+    eq: [EQ_ZN, { cls: 'p', pole: 'pole.p', terms: [['p1', '2H⁺'], ['p2', '+ 2e⁻', 1], ['p3', '→ H₂']], kind: 'kind.red', kid: 'pk' }],
+    stages: [
+      async () => {                               // ① 予測（案内：ミコト）
+        setView('all');
+        RUN.pred = await choose('v.pred.q', ['v.pred.a', 'v.pred.b'], 'mikoto');
+        await say('pred.after', 'next', 'mikoto', 'smile');
+      },
+      async () => {                               // ② 酸化（亜鉛板の表面。案内：エン）
+        await stageOx('ox.intro')();
+        await ask('ox.q', [{ k: 'c.red', why: 'ox.bad' }, { k: 'c.ox', ok: true, why: 'ox.good' }], 'en');
+      },
+      stageWire(() => ask('v.pos.q', [{ k: 'v.pos.p', ok: true, why: 'v.pos.good' }, { k: 'v.pos.n', why: 'v.pos.bad' }], 'mikoto')),   // ③ 導線の旅
+      async () => {                               // ④ 還元（銅板の表面。案内：アカネ）
+        setView('cu'); beacon(SPOT);
+        await ask('v.gate.q', [{ k: 'c.cuAtom', why: 'v.gate.cu' }, { k: 'c.so4', why: 'gate.so4' }, { k: 'c.h', ok: true, why: 'v.gate.good' }, { k: 'c.h2o', why: 'v.gate.h2o' }], 'akane');
+        idle('v.gate.good', 'smile');
+        await animReductionH();
+        await ask('v.red.q', [{ k: 'c.red', ok: true, why: 'red.good' }, { k: 'c.ox', why: 'v.red.bad' }], 'akane');
+      },
+      async () => {                               // ⑤ まとめの問い（案内：ミコト）
+        setView('all'); idleSpin = true;
+        await ask('v.sum.q1', [{ k: 'c.up', why: 'v.sum.q1.bad' }, { k: 'c.same', ok: true, why: 'v.sum.q1.good' }, { k: 'c.down', why: 'v.sum.q1.bad' }], 'mikoto');
+        await ask('v.sum.q2', [{ k: 'c.h', why: 'v.sum.q2.bad' }, { k: 'c.zn2', why: 'v.sum.q2.bad' }, { k: 'c.cu2', ok: true, why: 'v.sum.q2.good' }], 'mikoto');
+      },
+    ],
+    setup(n) {
+      resetWorld();
+      if (n >= 2) { setAtomVisible(latZn, znSurfIndex, false); addIon('zn', 'A'); on('n1', 'n2', 'n3'); }
+      if (n >= 3) { player.position.copy(HOME_CU); buddy.position.copy(HOME_CU).add(V(0.25, -0.5, -0.3)); }
+      if (n >= 4) { ions.filter((i) => i.kind === 'h').slice(0, 2).forEach(removeIon); player.visible = false; buddy.visible = false; player.position.copy(SPOT); on('p1', 'p2', 'p3', 'nk', 'pk'); }
+    },
+  },
+};
+const QUEST_IDS = ['q0', 'q1', 'q2'];
+
+/* 反応式の帯を、クエストに合わせて作る */
+function buildEq() {
+  $('eq').innerHTML = Q.eq.map((r) => `<div class="eq__row eq__row--${r.cls}"><span class="eq__pole eq__pole--${r.cls}" data-t="${r.pole}">${tt(r.pole)}</span><span class="eq__f eq__f--${r.cls}">${r.terms.map(([id, s, e]) => `<span id="${id}"${e ? ' class="e"' : ''}>${s}</span>`).join(' ')}</span>${r.kind ? `<span class="eq__kind" id="${r.kid}" data-t="${r.kind}">${tt(r.kind)}</span>` : ''}</div>`).join('');
+}
+
+/* ═════════ 進行：段階を順に進める。「戻る」で、いまの段階の最初（最初にいるなら1つ前）からやり直せる ═════════ */
+let runId = 0, stageNo = 0, stagePos = 0, seenModel = false;
+function openQuest(qid) { Q = QUESTS[qid]; buildEq(); $('qName').textContent = tt(Q.name); }
 async function runFrom(n) {
   const id = ++runId; tweens.length = 0; clearTimeout(pop.t); $('pop').classList.remove('is-on');
-  for (let k = n; k < STAGES.length; k++) {
-    stageNo = k; stagePos = 0; RUN.st[k] = { first: 0, asked: 0 }; idleSpin = false; setupStage(k); setStep(k);
-    await STAGES[k]();
+  for (let k = n; k < Q.stages.length; k++) {
+    stageNo = k; stagePos = 0; RUN.st[k] = { first: 0, asked: 0 }; idleSpin = false; Q.setup(k); setStep(k);
+    await Q.stages[k]();
     if (id !== runId) return;
   }
   finish();
 }
-function runQuest() { RUN = { miss: 0, pred: -1, st: [] }; $('stepBack').hidden = false; runFrom(0); }
+function runQuest() { RUN = { miss: 0, pred: -1, st: [] }; $('dots').innerHTML = '<i></i>'.repeat(Q.stages.length); $('stepBack').hidden = false; runFrom(0); }
+async function runGold() {                  // 金印の試練：条件を変えた問いを5問
+  const id = ++runId; tweens.length = 0;
+  RUN = { miss: 0, pred: -1, st: [{ first: 0, asked: 0 }], gold: true }; stageNo = 0; stagePos = 0;
+  $('dots').innerHTML = '<i></i>'.repeat(CONFIG.goldCount); $('stepBack').hidden = false;
+  Q.setup(0); setView('all'); idleSpin = true; setStep(-1);
+  await say('gold.intro', 'next', 'mikoto');
+  const set = goldSet(Q.id);
+  for (let i = 0; i < set.length; i++) { setStep(i); await ask(set[i].key, set[i].opts, 'mikoto', set[i].rec); if (id !== runId) return; }
+  finish();
+}
+function toTitle() { runId++; tweens.length = 0; ui.mode = 'idle'; ui.key = null; ui.result = null; render(); $('stepBack').hidden = true; $('ovResult').hidden = true; $('ovModel').hidden = true; renderTitle(); $('ovTitle').hidden = false; idleSpin = true; setView('all'); }
 function stepBack() {
   snd.tap();
-  const n = stagePos <= 1 ? stageNo - 1 : stageNo;
-  if (n < 0) { runId++; tweens.length = 0; ui.mode = 'idle'; ui.key = null; $('stepBack').hidden = true; $('ovTitle').hidden = false; return; }
-  runFrom(n);
+  const n = RUN.gold ? -1 : stagePos <= 1 ? stageNo - 1 : stageNo;
+  if (n < 0) toTitle(); else runFrom(n);
 }
+function start(qid, gold) {
+  snd.start(); snd.tap(); openQuest(qid); pending = gold ? runGold : runQuest; $('ovTitle').hidden = true;
+  if (!seenModel && !gold) $('ovModel').hidden = false; else pending();
+}
+let pending = null;
 
+/* ═════════ 結果・報酬・記録 ═════════ */
 function finish() {
-  const grade = RUN.miss === 0 ? 2 : 1, sum = (f) => RUN.st.reduce((a, x) => a + (x ? x[f] : 0), 0);
-  SAVE.q1.plays++; SAVE.q1.best = Math.max(SAVE.q1.best, grade); save(); runId++; $('stepBack').hidden = true;
-  ui.result = { grade, first: sum('first'), asked: sum('asked'), pred: RUN.pred };
-  renderResult(); $('ovResult').hidden = false; snd.clear(); idle(null);
+  const sum = (f) => RUN.st.reduce((a, x) => a + (x ? x[f] : 0), 0), gold = !!RUN.gold;
+  const grade = gold ? (RUN.miss === 0 ? 3 : 0) : RUN.miss === 0 ? 2 : 1;
+  const S = SAVE[Q.id], prev = S.best; S.plays++; if (grade > prev) S.best = grade;
+  if (Q.pred && !gold && RUN.pred >= 0) { const P = (SAVE.pred = SAVE.pred || {}), a = (P[Q.id] = P[Q.id] || [0, 0]); a[RUN.pred]++; }
+  SAVE.at = new Date().toISOString(); saveAll(); runId++; $('stepBack').hidden = true;
+  let gross = 0; for (let g = prev + 1; g <= grade; g++) gross += CONFIG.reward[g];
+  if (!gross && grade > 0) gross = CONFIG.reward.replay;
+  ui.result = { grade, gold, first: sum('first'), asked: sum('asked'), pred: RUN.pred, pay: gross ? 'wait' : 'none', q: Q };
+  renderResult(); $('ovResult').hidden = false; if (grade > 0) snd.clear(); idle(null);
+  if (gross) payOut(ui.result, gross, grade > prev ? grade : 0);
 }
+async function payOut(r, gross, seal) {      // ヒヤマを受け取る（広場の財布につながっているときだけ）
+  if (!ECO.ready) r.pay = 'off';
+  else try { const e = await ECO.eco.reward({ itemKey: seal ? 'ledger.item.dnSeal' + seal : 'ledger.item.dnReplay', itemVars: { n: r.q.id.slice(1) }, gross }); r.pay = e ? { gross: e.gross, net: e.amount } : 'cap'; } catch (err) { r.pay = 'off'; }
+  if (ui.result === r) renderResult();
+}
+const tv = (key, vars) => tt(key).replace(/\{(\w+)\}/g, (_, k) => vars[k]);
 function castHTML(expr, names) { return ['en', 'mikoto', 'akane'].map((id) => `<figure>${charSVG(id, expr)}${names ? `<b>${tt('ch.' + id)}</b>${tt('cast.' + id)}` : ''}</figure>`).join(''); }
 function renderResult() {
   const r = ui.result; if (!r) return;
   const st = $('stamp'); st.className = 'stamp stamp--' + r.grade; st.textContent = tt('res.stamp.' + r.grade);
+  $('resHead').textContent = tt(r.gold ? 'gold.btn' : 'res.clear');
   $('rank').textContent = tt('res.rank.' + r.grade);
-  $('castRes').innerHTML = castHTML('smile', false);
-  $('sum').innerHTML = `${tt('res.first')}：<b>${r.first} / ${r.asked}</b>　${tt(r.pred === 0 ? 'res.pred.ok' : 'res.pred.ng')}<br>${tt('res.sum')}` + (r.grade < 2 ? `<br>${tt('res.tip')}` : '');
+  $('castRes').innerHTML = castHTML(r.grade > 0 ? 'smile' : 'normal', false);
+  const pay = r.pay === 'none' ? '' : `<br>${typeof r.pay === 'object' ? tv('res.pay', { gross: fmt(r.pay.gross), net: fmt(r.pay.net) }) : tt('res.pay.' + r.pay)}`;
+  const pred = r.q.pred && !r.gold ? `　${tt(r.pred === 0 ? 'res.pred.ok' : 'res.pred.ng')}` : '';
+  const tip = r.gold ? tt('gold.sum') : r.grade < 2 ? tt('res.tip') : SAVE[r.q.id].best < 3 ? tt('res.tip.gold') : '';
+  $('sum').innerHTML = `${tt('res.first')}：<b>${r.first} / ${r.asked}</b>${pred}<br>${tt(r.q.sum)}${tip ? `<br>${tip}` : ''}${pay}`;
 }
+const fmt = (n) => Math.round(n).toLocaleString('en-US');
+
+/* 学習の記録：問いごとの回答数・一発正解の数・選ばれた誤答。広場の本人の記録（users/…/worlds/denshi）にも保存される */
+const fkey = (s) => String(s).replace(/[.$#\[\]\/]/g, '_').slice(0, 60);
+const plainJa = (k) => (Array.isArray(k) ? k[0] : (T[k] || [k])[0]).replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').slice(0, 80);
+function recEntry(rec, key) { const R = ((SAVE.rec = SAVE.rec || {})[Q.id] = SAVE.rec[Q.id] || {}), id = fkey(rec.id); return (R[id] = R[id] || { t: rec.label || plainJa(key), n: 0, ok: 0 }); }
+function recAsk(rec, key, first) { const e = recEntry(rec, key); e.n++; if (first) e.ok++; saveAll(); }
+function recMiss(rec, key, o) { const e = recEntry(rec, key); e.w = e.w || {}; const id = rec.dyn ? 'x' : fkey(o.k), w = (e.w[id] = e.w[id] || { t: rec.dyn ? '（まちがい）' : plainJa(o.k), n: 0 }); w.n++; }
+function saveAll() { save(); if (ECO.ready) try { ECO.auth.setWorldData('denshi', SAVE); } catch (e) {} }
+
+/* 広場の財布・記録につなぐ（単体のHTMLで開いたときや通信できないときは、この端末だけで動く） */
+let ECO = { ready: false };
+(async () => {
+  try {
+    const [auth, eco] = await Promise.all([import('../shared/auth.js'), import('../shared/economy.js')]);
+    await auth.initBackend(); await eco.initEconomy();
+    const remote = auth.getWorldData('denshi') || {};
+    QUEST_IDS.forEach((id) => { const a = SAVE[id], b = remote[id] || {}; a.best = Math.max(a.best, b.best || 0); a.plays = Math.max(a.plays, b.plays || 0); });
+    if (!SAVE.rec && remote.rec) SAVE.rec = remote.rec; if (!SAVE.pred && remote.pred) SAVE.pred = remote.pred;
+    ECO = { ready: true, auth, eco }; saveAll(); renderTitle();
+    eco.onWalletChange(() => { if (!$('ovTitle').hidden) renderTitle(); });
+    eco.onSettingsChange(() => { if (!eco.isWorldOpen('denshi')) { $('wallet').textContent = tt('closed'); pop('closed', 'is-ng', 2600); setTimeout(() => { location.href = '../'; }, 2600); } });
+  } catch (e) { /* この端末だけで動く */ }
+})();
 
 /* ═════════ 言語・音楽・タイトル・はじまり ═════════ */
+function renderTitle() {
+  $('wallet').textContent = ECO.ready ? tv('wallet', { n: fmt(ECO.eco.getBalance()) }) : '';
+  $('questList').innerHTML = QUEST_IDS.map((id) => { const q = QUESTS[id], b = SAVE[id].best; return `<div class="card torn qcard">
+    <div class="qcard__h"><span class="card__no">${tt(q.no)}</span><span class="card__t">${tt(q.name)}</span>${b ? `<span class="best best--${b}">${tt('best.' + b)}</span>` : ''}</div>
+    <p class="card__s">${tt(q.sub)}</p>
+    <div class="qcard__b"><button class="btn btn--main torn" type="button" data-q="${id}">${tt('start')}</button>${b >= 2 ? `<button class="btn torn" type="button" data-g="${id}">${tt(b >= 3 ? 'gold.done' : 'gold.btn')}</button>` : ''}</div></div>`; }).join('');
+}
 function applyLang() {
   document.documentElement.lang = lang; document.title = tt('title.name');
   document.querySelectorAll('[data-t]').forEach((el) => { el.innerHTML = tt(el.dataset.t); });
   $('langJa').setAttribute('aria-pressed', lang === 'ja'); $('langEn').setAttribute('aria-pressed', lang === 'en');
-  $('qName').textContent = tt('q1.name');
+  $('qName').textContent = Q ? tt(Q.name) : '';
   $('modelList').innerHTML = ['model.1', 'model.2', 'model.3'].map((k) => `<li>${tt(k)}</li>`).join('');
   $('locked').innerHTML = `<div style="background:none;padding:0 4px">${tt('locked.h')}</div>` + ['locked.1', 'locked.2', 'locked.3'].map((k) => `<div>${tt(k)}</div>`).join('');
   $('cast').innerHTML = castHTML('normal', true); $('modelFace').innerHTML = charSVG('mikoto', 'smile');
-  const bb = $('bestBadge'); bb.hidden = !SAVE.q1.best; if (SAVE.q1.best) { bb.className = 'best best--' + SAVE.q1.best; bb.textContent = tt('best.' + SAVE.q1.best); }
-  $('back').setAttribute('aria-label', tt('res.back')); $('stepBack').textContent = tt('back'); $('modelBack').textContent = tt('back'); $('bgmBtn').setAttribute('aria-label', tt('bgm'));
-  labels.forEach(refreshLabel); updateViewBtn(); render(); renderResult();
+  $('back').setAttribute('aria-label', tt('res.back')); $('bgmBtn').setAttribute('aria-label', tt('bgm')); $('stepBack').textContent = tt('back'); $('modelBack').textContent = tt('back');
+  labels.forEach(refreshLabel); updateViewBtn(); renderTitle(); render(); renderResult();
 }
 function setLang(l) { lang = l; store.set(CONFIG.langKey, l); applyLang(); }
 $('langJa').addEventListener('click', () => setLang('ja'));
@@ -1126,19 +1473,19 @@ $('langEn').addEventListener('click', () => setLang('en'));
 const bgmBtnState = () => $('bgmBtn').classList.toggle('is-off', !snd.bgmOn);
 $('bgmBtn').addEventListener('click', () => { snd.toggleBgm(); bgmBtnState(); });
 
-$('dots').innerHTML = '<i></i>'.repeat(CONFIG.steps);
 $('ver').textContent = CONFIG.version;
-$('btnStart').addEventListener('click', () => { snd.start(); snd.tap(); $('ovTitle').hidden = true; $('ovModel').hidden = false; });
-$('btnModelOk').addEventListener('click', () => { snd.tap(); $('ovModel').hidden = true; runQuest(); });
+$('questList').addEventListener('click', (e) => { const b = e.target.closest('button'); if (!b) return; if (b.dataset.q) start(b.dataset.q, false); else if (b.dataset.g) start(b.dataset.g, true); });
+$('btnModelOk').addEventListener('click', () => { snd.tap(); seenModel = true; $('ovModel').hidden = true; pending(); });
+$('modelBack').addEventListener('click', () => { snd.tap(); toTitle(); });
 $('stepBack').addEventListener('click', stepBack);
-$('modelBack').addEventListener('click', () => { snd.tap(); $('ovModel').hidden = true; $('ovTitle').hidden = false; });
-$('btnRetry').addEventListener('click', () => { snd.tap(); $('ovResult').hidden = true; ui.result = null; applyLang(); runQuest(); });
+$('btnRetry').addEventListener('click', () => { snd.tap(); const g = ui.result && ui.result.gold; $('ovResult').hidden = true; ui.result = null; (g ? runGold : runQuest)(); });
+$('btnToTitle').addEventListener('click', () => { snd.tap(); toTitle(); });
 
-RUN.st[0] = { first: 0, asked: 0 }; resetWorld(); setView('all'); cam.az = 0.25; cam.pol = 0.2;
+openQuest('q1'); Q.setup(0); setView('all'); cam.az = 0.25; cam.pol = 0.2;
 applyLang(); bgmBtnState(); resize(); cam.dist = fitDist();
 if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => labels.forEach(refreshLabel));
 requestAnimationFrame(frame);
-window.__denshi = { ui, cam, get stage() { return stageNo; }, get run() { return RUN; }, get ions() { return ions; }, player };   // 動作確認用
+window.__denshi = { ui, cam, start, jump: (n) => runFrom(n), get stage() { return stageNo; }, get run() { return RUN; }, get save() { return SAVE; }, get eco() { return ECO.ready; }, get ions() { return ions; }, player };   // 動作確認用
 </script>
 </body>
 </html>
