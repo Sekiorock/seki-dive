@@ -25,6 +25,7 @@ export const ACCENTS = {
   freeze:    { a1: { name: '白群', hex: '#83CCD2', neon: '#8FF3FA' }, a2: { name: '臙脂', hex: '#B94047', neon: '#FF5E70' } },
   colloid:   { a1: { name: '若竹', hex: '#68BE8D', neon: '#5CF2A8' }, a2: { name: '菫',   hex: '#7058A3', neon: '#A985FF' } },
   energy:    { a1: { name: '緋',   hex: '#D3381C', neon: '#FF6B4A' }, a2: { name: '山吹', hex: '#F8B500', neon: '#FFC83A' } },
+  denshi:    { a1: { name: '緋',   hex: '#D3381C', neon: '#FF6B4A' }, a2: { name: '浅葱', hex: '#00A3AF', neon: '#3CE0EE' } },
 };
 
 // 特別な色（出来事のときだけ使う。ふだんの画面では使わない）

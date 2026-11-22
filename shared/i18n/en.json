@@ -2433,5 +2433,7 @@
   "cl.r.amuletUsed": "The talisman cleared the mist!",
   "world.energy": "Sekio Energy Rock",
   "scale.energy": "Reaction & Energy",
+  "world.denshi": "Sekio Electron Rock",
+  "scale.denshi": "Cells & Electrolysis",
   "nav.new": "NEW"
 }

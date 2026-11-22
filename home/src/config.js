@@ -69,10 +69,12 @@ export const GATES = [
   { id: 'colloid',   angleDeg: 270 },  // 西  ④ コロイド・ミスト
   // 別単元ワールド（energy/ フォルダ）。先生が閉じている間は門ごと消える（hideClosed）
   { id: 'energy',    angleDeg: 135, hideClosed: true, isNew: true },  // 南東 ⑤ セキオエナジーロック
+  // 別単元ワールド（denshi/ フォルダ）「電池と電気分解」。道具屋（南西）と西の門の間
+  { id: 'denshi',    angleDeg: 248, hideClosed: true, isNew: true },  // 西南西 ⑥ セキオ電子ロック
 ];
 
 // できあがっているワールド（門から、そのワールドのページへ移る）。できたら足していく
-export const READY_WORLDS = ['hydration', 'crystal', 'freeze', 'colloid', 'energy'];
+export const READY_WORLDS = ['hydration', 'crystal', 'freeze', 'colloid', 'energy', 'denshi'];
 
 export const UI = {
   toastMs: 3600,        // 短いお知らせを出しておく時間（ミリ秒）

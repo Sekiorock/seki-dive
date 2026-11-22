@@ -2433,5 +2433,7 @@
   "cl.r.amuletUsed": "霧よけのお札で、霧を晴らした！",
   "world.energy": "セキオエナジーロック",
   "scale.energy": "化学反応とエネルギー",
+  "world.denshi": "セキオ電子ロック",
+  "scale.denshi": "電池と電気分解",
   "nav.new": "NEW"
 }
