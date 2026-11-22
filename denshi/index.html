@@ -9,7 +9,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <style>
 /* ─────────────────────────────────────────────
-   セキオ電子ロック v0.2
+   セキオ電子ロック v0.3
    高校化学「電池と電気分解」。プレイヤーは電子1個になる。
    見た目：和紙のちぎり絵 × 光の幻想的な世界。3Dの舞台は藍色の夜（明度の対比で淡い色の粒を見やすくする）。まわりの紙は生成りの和紙。
    数値は下の <script> のいちばん上の CONFIG に集めてある。
@@ -50,7 +50,8 @@ button { font-family: inherit; color: inherit; }
 .top__btn.is-off { opacity: .45; }
 .top__btn--back { width: auto; padding: 0 10px; font-size: 13px; font-weight: 700; white-space: nowrap; --tone: var(--lilac); }
 .top__mid { flex: 1; min-width: 0; }
-.top__name { font-family: var(--font-t); font-size: 14px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.top__name { font-family: var(--font-t); font-size: 13px; font-weight: 700; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.top__btn--back { padding: 0 8px !important; }
 .dots { display: flex; gap: 6px; margin-top: 4px; }
 .dots i { width: 12px; height: 12px; border-radius: 50%; background: var(--paper-2); box-shadow: inset 0 0 0 1px rgba(140,130,150,.25); transition: background .4s, transform .4s; }
 .dots i.is-on { background: radial-gradient(circle at 35% 30%, #fff, var(--gold)); transform: scale(1.15); }
@@ -129,6 +130,7 @@ button { font-family: inherit; color: inherit; }
 .cast figure { margin: 0; flex: 1; max-width: 120px; text-align: center; font-size: 11px; color: var(--dim); line-height: 1.4; }
 .cast figure b { display: block; color: var(--ink); font-size: 13px; }
 .cast svg { width: 100%; height: auto; display: block; }
+#cast figure { max-width: 88px; }
 .card { width: 100%; max-width: 420px; padding: 14px 16px; --tone: #fff; }
 .card__no { font-size: 11px; font-weight: 700; color: var(--gold-ink); letter-spacing: .14em; }
 .card__t { font-family: var(--font-t); font-size: 21px; font-weight: 700; margin: 2px 0 4px; }
@@ -150,9 +152,16 @@ button { font-family: inherit; color: inherit; }
 .row2 a.btn { display: grid; place-items: center; text-decoration: none; }
 .eq__pole--s { background: var(--gold); color: #6b5417; }
 .eq__f--s { font-size: 12.5px; white-space: normal; line-height: 1.55; }
+.eq__f--long { font-size: 13px; white-space: normal; line-height: 1.45; }
 .eq__f span.is-hot { color: var(--ox-ink); transform: scale(1.18); }
 .ov { justify-content: flex-start; } .ov::before, .ov::after { content: ""; flex: 1 0 0; }
-.qlist { width: 100%; max-width: 420px; display: grid; gap: 10px; }
+.qlist { width: 100%; max-width: 420px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; }
+.qrow { display: flex; align-items: center; gap: 8px; padding: 7px 10px 7px 14px; --tone: #fff; }
+.qrow__t { flex: 1; min-width: 0; font-size: 15px; line-height: 1.35; } .qrow__t b { font-family: var(--font-t); }
+.qrow__t small { display: block; font-size: 11px; color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.qrow .btn { flex: none; min-height: 40px; padding: 4px 14px; font-size: 13px; } .qrow .best { margin-left: 2px; font-size: 11px; padding: 0 7px; vertical-align: 1px; }
+.qrow__g { --tone: var(--gold) !important; }
+.locked div { border-radius: 14px; }
 .qcard { padding: 10px 14px 12px; }
 .qcard__h { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
 .qcard .card__t { font-size: 18px; margin: 0; }
@@ -162,6 +171,12 @@ button { font-family: inherit; color: inherit; }
 #wallet { font-weight: 700; color: var(--gold-ink); min-height: 1.2em; }
 .stamp--3 { color: #B98A1E; background: rgba(239,208,138,.35); } .stamp--0 { color: #8b8496; background: rgba(200,195,210,.3); font-size: 18px; }
 .row3 { grid-template-columns: 1fr 1fr 1fr; gap: 8px; } .row3 .btn { font-size: 12.5px; padding: 6px 4px; }
+.gauge { position: absolute; left: 10px; right: 10px; top: 50px; padding: 8px 14px 10px; font-size: 12.5px; --tone: #fff; pointer-events: none; }
+.gauge__t { font-weight: 700; color: var(--gold-ink); }
+.gauge__bar { position: relative; height: 30px; border-radius: 10px; background: #ECE5F0; overflow: hidden; margin: 5px 0; }
+.gauge__bar i { position: absolute; left: 0; top: 0; bottom: 0; background: linear-gradient(90deg, #BDE3D0, #F5DC78); }
+.gauge__bar b { position: absolute; inset: 0; display: grid; place-items: center; font-size: 15px; }
+.gauge__r b { color: var(--ox-ink); }
 .ver { position: absolute; right: 8px; bottom: 4px; font-size: 10px; color: var(--dim); z-index: 40; pointer-events: none; }
 .fatal { padding: 30px; text-align: center; }
 </style>
@@ -214,6 +229,7 @@ button { font-family: inherit; color: inherit; }
     <div class="spot" id="spot"></div>
     <div class="hint" data-t="hint"></div>
     <button class="viewbtn torn" id="viewBtn" type="button"></button>
+    <div class="gauge torn" id="gauge" hidden><div class="gauge__t" data-t="ga.title"></div><div class="gauge__bar"><i id="gaFill"></i><b id="gaLvl"></b></div><div class="gauge__r" id="gaInfo"></div></div>
     <div class="pop torn" id="pop"></div>
   </div>
 
@@ -269,7 +285,7 @@ button { font-family: inherit; color: inherit; }
 'use strict';
 /* ═════════ 数値の設定（変えたいときはここ） ═════════ */
 const CONFIG = {
-  version: 'denshi v0.2.0',
+  version: 'denshi v0.3.1',
   saveKey: 'sekidenshi.v1',
   langKey: 'sekidive.lang',      // 広場と同じ鍵。言語の選択を引き継ぐ
   bgmKey: 'sekidenshi.bgm',
@@ -295,6 +311,161 @@ const COL = {
 
 /* ═════════ 文字（日本語, English） ═════════ */
 const T = {
+  // ── v0.3.1：説明と連動する動きのための文字 ──
+  'b.dis': ['まずは鉛蓄電池で見てみよう。電池から電流を取り出すことを<b>放電</b>という。導線の中を、電子が負極から正極へ流れ、灯りがともっている。', 'Start with a lead storage battery. Drawing current from a cell is <b>discharge</b>. Electrons flow through the wire from the negative to the positive pole, and the lamp glows.'],
+  'b.chg': ['外の電源で、放電とは<b>逆向き</b>に電流を流すと、電池は元に戻る。これが<b>充電</b>。導線の電子が、さっきと逆向きに動いている。\n充電できない電池が一次電池、充電してくり返し使える電池が二次電池（蓄電池）。', 'If an outside source drives current the <b>opposite way</b>, the cell is restored. This is <b>charging</b>: the electrons in the wire now move backwards.\nCells that cannot be charged are primary cells. Rechargeable ones are secondary cells (storage batteries).'],
+  'b.chg.pop': ['充電：電子を逆向きに押しもどす', 'Charging: electrons are pushed back'], 'b.pri.pop': ['一次電池：使い切り。充電できない', 'Primary cell: used up, cannot be charged'],
+  'lbl.fneg': ['負極', '− pole'], 'lbl.fpos': ['正極', '+ pole'], 'lbl.h2in': ['水素 H₂ の通り道', 'H₂ channel'], 'lbl.o2in': ['酸素 O₂ の通り道', 'O₂ channel'], 'lbl.h2oout': ['水 H₂O が出る', 'Water H₂O out'],
+  'ga.title': ['電池に残っている電気の量（放電容量）', 'Charge left in the battery (discharge capacity)'], 'ga.cur': ['電流', 'Current'], 'ga.time': ['使った時間', 'Time'], 'ga.h': ['時間', 'h'], 'ga.used': ['使った量', 'Used'],
+  'li.mah1': ['上のメーターは、電池にためてある電気の量。これを<b>放電容量</b>といい、単位は <b>mAh</b>（ミリアンペア時）。\n「1 mA の電流を 1 時間流せる量」が 1 mAh。この電池は満タンで 5000 mAh。', 'The meter shows the charge stored in the battery: its <b>discharge capacity</b>, in <b>mAh</b> (milliampere-hours).\n1 mAh is “enough to run 1 mA for 1 hour”. This battery holds 5000 mAh when full.'],
+  'li.mah2': ['スマートフォンは平均 400 mA の電流を使う。400 mA で 1 時間使うと、メーターはいくつ減るだろう。\n試しに 1 時間使ってみよう。', 'A smartphone draws about 400 mA. If you use it for 1 hour at 400 mA, how far will the meter drop?\nTry using it for 1 hour.'],
+  'li.mah2.btn': ['1時間使う', 'Use it for 1 hour'],
+  'li.mah3': ['1 時間で <b>400 mAh</b> 減って、残り 4600 mAh になった。\n<b>使った量 [mAh] ＝ 電流 [mA] × 時間 [h]</b>。400 mA × 1 h ＝ 400 mAh。', 'In 1 hour it dropped by <b>400 mAh</b>, leaving 4600 mAh.\n<b>Used [mAh] = current [mA] × time [h]</b>: 400 mA × 1 h = 400 mAh.'],
+  // ── v0.3：電池編の残り（クエスト3〜8） ──
+  'start.s': ['出発', 'Go'], 'gold.s': ['金印', 'Gold'],
+  'q3.no': ['クエスト 3', 'QUEST 3'], 'q3.name': ['濃度の作戦会議', 'The Concentration Plan'], 'q3.sub': ['ダニエル電池を長持ちさせる。早送りでイオンの増減を見る', 'Make a Daniell cell last. Fast-forward and watch the ions.'],
+  'q4.no': ['クエスト 4', 'QUEST 4'], 'q4.name': ['電池図鑑', 'Battery Field Guide'], 'q4.sub': ['一次電池と二次電池。実用電池の活物質と起電力', 'Primary and secondary cells. Active materials and voltage.'],
+  'q5.no': ['クエスト 5', 'QUEST 5'], 'q5.name': ['両極が白くなる', 'Both Plates Turn White'], 'q5.sub': ['鉛蓄電池。放電と充電、電極の質量の変化', 'The lead storage battery. Discharge, charge and mass change.'],
+  'q6.no': ['クエスト 6', 'QUEST 6'], 'q6.name': ['4人で酸素を迎えに', 'Four of Us Meet Oxygen'], 'q6.sub': ['燃料電池。水素と酸素から電気と水', 'The fuel cell. Electricity and water from hydrogen and oxygen.'],
+  'q7.no': ['クエスト 7', 'QUEST 7'], 'q7.name': ['層間ホテル', 'The Interlayer Hotel'], 'q7.sub': ['リチウムイオン電池。Li⁺ の往復と放電容量', 'The lithium-ion battery. Li⁺ shuttling and capacity.'],
+  'q8.no': ['クエスト 8', 'QUEST 8'], 'q8.name': ['電位の登山', 'Climbing the Potentials'], 'q8.sub': ['標準電極電位。高さの差が起電力', 'Standard electrode potentials. Height difference is the voltage.'],
+  'locked.all': ['このあと開く：電気分解編（陰極・陽極の門番、ファラデーの法則 など）、工業編', 'Coming next: electrolysis (cathode and anode gatekeepers, Faraday\'s law) and industry'],
+  'lbl.pb': ['負極 Pb', '− pole Pb'], 'lbl.pbo2': ['正極 PbO₂', '+ pole PbO₂'],
+  'lbl.h2side': ['負極 H₂ 側', '− pole, H₂'], 'lbl.o2side': ['正極 O₂ 側', '+ pole, O₂'], 'lbl.h3po4': ['電解質 H₃PO₄ aq', 'Electrolyte H₃PO₄ aq'],
+  'lbl.c6': ['負極 C₆Liₓ', '− pole C₆Liₓ'], 'lbl.coo2': ['正極 LiCoO₂ 系', '+ pole LiCoO₂ type'], 'lbl.org': ['有機溶媒（Li 塩）', 'Organic solvent (Li salt)'],
+  'lbl.low': ['E° 低い', 'Low E°'], 'lbl.high': ['E° 高い', 'High E°'],
+  'pole.terms': ['用語', 'Terms'], 'pole.emf': ['起電力', 'EMF'],
+
+  // クエスト3：濃度の作戦会議
+  'c3.intro': ['ダニエル電池を長く使うと、水溶液の中はどう変わるだろう。\n時間を早送りして、イオンの数を見ていよう。', 'What happens inside the solutions when a Daniell cell runs for a long time?\nFast-forward and watch the number of ions.'],
+  'c3.btn': ['早送りする', 'Fast-forward'], 'c3.pop': ['早送り中：Zn²⁺ が増え、Cu²⁺ は銅になって減っていく', 'Fast-forward: Zn²⁺ increases, Cu²⁺ turns to copper and decreases'],
+  'c3.q1': ['早送りのあいだに<b>減った</b>イオンは？', 'Which ion <b>decreased</b> during the fast-forward?'],
+  'c3.q1.good': ['正解。Cu²⁺ は正極で電子を受け取り、銅になって銅板に付いていく。だから水溶液の Cu²⁺ は減る。', 'Correct. Cu²⁺ takes electrons at the positive pole and deposits on the plate as copper, so Cu²⁺ in the solution decreases.'],
+  'c3.q1.bad': ['正極の銅板で、電子を受け取っていたのはどのイオン？', 'Which ion was taking electrons at the copper plate?'],
+  'c3.q2': ['では<b>増えた</b>イオンは？', 'And which ion <b>increased</b>?'],
+  'c3.q2.good': ['正解。負極の亜鉛が Zn²⁺ になって溶け出し続ける。', 'Correct. Zinc at the negative pole keeps dissolving as Zn²⁺.'],
+  'c3.q2.bad': ['負極の亜鉛板から、溶け出していたのは？', 'What was dissolving from the zinc plate?'],
+  'c3.more': ['さらに早送りする。Cu²⁺ がどんどん減って……', 'Fast-forward further. Cu²⁺ keeps running low…'],
+  'c3.pop2': ['灯りが消え、電子が止まった', 'The lamp went out and the electrons stopped'],
+  'c3.q3': ['灯りが消え、導線の中の電子も止まった。なぜ？', 'The lamp went out and the electrons in the wire stopped. Why?'],
+  'c3.a31': ['正極で電子を受け取る Cu²⁺ がなくなったから', 'No Cu²⁺ is left to take electrons at the positive pole'],
+  'c3.a32': ['素焼き板がイオンを通さなくなったから', 'The porous plate stopped passing ions'], 'c3.a33': ['電球が古くなったから', 'The lamp got old'],
+  'c3.q3.good': ['正解。電子の受け取り手がいなくなると、電子は流れられない。', 'Correct. With nobody to take the electrons, they cannot flow.'],
+  'c3.q3.bad': ['水溶液をよく見よう。なくなったイオンは？', 'Look at the solution. Which ion is gone?'],
+  'c3.q5': ['最後に、<b>素焼き板</b>の役目は？', 'Finally, what is the job of the <b>porous plate</b>?'],
+  'c3.a51': ['2つの水溶液が混ざるのを防ぎ、イオンは通す', 'Keeps the two solutions from mixing but lets ions pass'],
+  'c3.a52': ['電子を通して、回路をつなぐ', 'Lets electrons through to complete the circuit'], 'c3.a53': ['イオンも水も通さない', 'Lets neither ions nor water pass'],
+  'c3.q5.good': ['正解。混ざると Cu²⁺ が亜鉛板に直接ふれてしまう。小さな穴を Zn²⁺ や SO₄²⁻ などのイオンが行き来して、電気のかたよりをなくす。', 'Correct. If they mixed, Cu²⁺ would touch the zinc plate directly. Ions such as Zn²⁺ and SO₄²⁻ pass through the tiny holes and even out the charge.'],
+  'c3.q5.bad': ['電子は水溶液に出られなかった。素焼き板を通ったのは？', 'Electrons could not enter the solution. What passed through the plate?'],
+  'res.sum.q3': ['Cu²⁺ は反応で減り、Zn²⁺ は増える。<b>CuSO₄ を濃く、ZnSO₄ を薄く</b>すると長持ちする。素焼き板は、溶液が混ざるのを防ぎつつイオンを通す。', 'Cu²⁺ is used up and Zn²⁺ builds up. <b>Concentrated CuSO₄ and dilute ZnSO₄</b> make the cell last. The porous plate keeps the solutions apart but lets ions pass.'],
+
+  // クエスト4：電池図鑑
+  'b.intro': ['電池から電流を取り出すことを<b>放電</b>、外から逆向きに電流を流して元に戻すことを<b>充電</b>という。\n充電できない電池が一次電池、充電してくり返し使える電池が二次電池（蓄電池）。', 'Drawing current from a cell is <b>discharge</b>. Driving current backwards to restore it is <b>charging</b>.\nCells that cannot be charged are primary cells. Rechargeable ones are secondary cells (storage batteries).'],
+  'b.q1': ['充電して<b>くり返し使える</b>電池は？', 'Which kind can be <b>recharged and reused</b>?'],
+  'b.sec': ['二次電池', 'A secondary cell'], 'b.pri': ['一次電池', 'A primary cell'],
+  'b.q1.good': ['正解。二次電池は蓄電池ともいう。', 'Correct. Secondary cells are also called storage batteries.'], 'b.q1.bad': ['「二次」＝二度目がある、と覚えよう。', 'Think of “secondary” as getting a second go.'],
+  'b.q2': ['電池の電極で、<b>電子のやりとりをする物質</b>を何という？', 'What do we call the <b>substance that exchanges electrons</b> at an electrode?'],
+  'b.act': ['活物質', 'Active material'], 'b.ele': ['電解質', 'Electrolyte'], 'b.emf': ['起電力', 'Electromotive force'],
+  'b.q2.good': ['正解。負極で電子を出すのが負極活物質、正極で受け取るのが正極活物質。', 'Correct. The negative active material gives electrons, the positive one takes them.'],
+  'b.q2.bad': ['電解質はイオンを運ぶ役、起電力は電圧のこと。', 'The electrolyte carries ions, and electromotive force is the voltage.'],
+  'b.mn': ['これは<b>マンガン乾電池</b>。電子を出す負極活物質は亜鉛 Zn、受け取る正極活物質は酸化マンガン(IV) MnO₂、起電力は 1.5 V。', 'This is a <b>manganese dry cell</b>. The negative active material that gives electrons is zinc Zn, the positive one that takes them is manganese(IV) oxide MnO₂, and it gives 1.5 V.'],
+  'b.q3': ['マンガン乾電池は？', 'A manganese dry cell is…'],
+  'b.q3.good': ['正解。リモコンなどに使う一次電池。', 'Correct. A primary cell, used in remote controls and the like.'], 'b.q3.bad': ['充電してくり返し使えるだろうか？', 'Can it be recharged and reused?'],
+  'b.cards': ['ここからは図鑑づくり。電池が次つぎに入れかわる。<b>電極の札</b>と<b>灯りの明るさ</b>をよく見て答えよう。', 'Now build the field guide. The battery keeps changing. Watch the <b>electrode tags</b> and the <b>brightness of the lamp</b>.'],
+  'b.pop': ['図鑑に登録！', 'Added to the guide!'],
+  'res.sum.q4': ['マンガン乾電池 Zn｜MnO₂ 1.5 V（一次）<br>鉛蓄電池 Pb｜PbO₂ 2.0 V（二次）<br>リチウムイオン電池 C₆Liₓ｜Li₍₁₋ₓ₎CoO₂ 4.0 V（二次）<br>燃料電池 H₂｜O₂ 1.2 V', 'Manganese dry cell Zn | MnO₂ 1.5 V (primary)<br>Lead storage battery Pb | PbO₂ 2.0 V (secondary)<br>Lithium-ion battery C₆Liₓ | Li₍₁₋ₓ₎CoO₂ 4.0 V (secondary)<br>Fuel cell H₂ | O₂ 1.2 V'],
+
+  // クエスト5：鉛蓄電池
+  'pb.pred': ['自動車のバッテリーに使う<b>鉛蓄電池</b>。負極は鉛 Pb、正極は酸化鉛(IV) PbO₂、電解液は希硫酸。\n放電すると、電極の質量はどうなると思う？', 'The <b>lead storage battery</b> used in cars: negative pole lead Pb, positive pole lead(IV) oxide PbO₂, dilute sulfuric acid.\nWhat happens to the electrode masses during discharge?'],
+  'pb.pred.a': ['両方とも増える', 'Both increase'], 'pb.pred.b': ['負極は減り、正極は増える', 'Negative decreases, positive increases'],
+  'pb.neg.intro': ['ここは負極の鉛板の中。あなたは鉛の自由電子。\n表面の鉛原子と、近づいてくる SO₄²⁻ を見ていよう。', 'You are inside the lead plate, the negative pole, as one of its free electrons.\nWatch a surface lead atom and an approaching SO₄²⁻.'],
+  'pb.neg.btn': ['表面を見る', 'Watch the surface'], 'pb.neg.pop': ['白い PbSO₄ ができた！ 電子2個が残された', 'White PbSO₄ formed! Two electrons were left'],
+  'pb.q1': ['鉛原子は電子2個を残して Pb²⁺ になり、すぐ SO₄²⁻ と結びついた。\n負極で<b>酸化</b>されたのは？', 'A lead atom left two electrons, became Pb²⁺ and at once joined SO₄²⁻.\nWhat was <b>oxidized</b> at the negative pole?'],
+  'c.pb': ['Pb', 'Pb'], 'c.pbo2': ['PbO₂', 'PbO₂'],
+  'pb.q1.good': ['正解。Pb + SO₄²⁻ → PbSO₄ + 2e⁻。鉛が電子を失った。', 'Correct. Pb + SO₄²⁻ → PbSO₄ + 2e⁻. Lead lost electrons.'], 'pb.q1.bad': ['電子を残して去ったのは、どの原子だった？', 'Which atom left its electrons behind?'],
+  'pb.q2': ['できた硫酸鉛(II) PbSO₄ は水に溶けにくい。どこへ行く？', 'Lead(II) sulfate PbSO₄ hardly dissolves in water. Where does it go?'],
+  'pb.q2.a': ['電極の表面に付く', 'It sticks to the electrode surface'], 'pb.q2.b': ['水溶液に溶けて広がる', 'It dissolves and spreads in the solution'],
+  'pb.q2.good': ['正解。ダニエル電池の亜鉛とちがい、溶け出さずに電極をおおう。だから負極の質量は<b>増える</b>。', 'Correct. Unlike zinc in a Daniell cell, it does not dissolve but coats the electrode. So the negative pole gets <b>heavier</b>.'],
+  'pb.q2.bad': ['溶けにくい物質は、できた場所に残る。', 'A substance that hardly dissolves stays where it forms.'],
+  'pb.q3': ['灯りがともった。あなたが向かう PbO₂ は、電子を受け取る物質。つまり？', 'The lamp is glowing. The PbO₂ you are heading for takes electrons. So it is the…'],
+  'pb.q3.a': ['正極活物質', 'positive active material'], 'pb.q3.b': ['負極活物質', 'negative active material'],
+  'pb.q3.good': ['正解。鉛蓄電池の起電力は約 2.0 V。', 'Correct. A lead storage battery gives about 2.0 V.'], 'pb.q3.bad': ['電子を受け取る＝還元される側の電極は？', 'Which electrode takes electrons, i.e. is reduced?'],
+  'pb.gate': ['正極の表面に着いた。PbO₂ が電子2個を受け取って PbSO₄ になるとき、いっしょに反応するのは？', 'You reached the positive pole. When PbO₂ takes two electrons and becomes PbSO₄, what reacts with it?'],
+  'pb.g1': ['H⁺ と SO₄²⁻', 'H⁺ and SO₄²⁻'], 'pb.g2': ['H⁺ だけ', 'H⁺ only'], 'pb.g3': ['SO₄²⁻ だけ', 'SO₄²⁻ only'],
+  'pb.gate.good': ['正解。PbO₂ + 4H⁺ + SO₄²⁻ + 2e⁻ → PbSO₄ + 2H₂O。', 'Correct. PbO₂ + 4H⁺ + SO₄²⁻ + 2e⁻ → PbSO₄ + 2H₂O.'],
+  'pb.gate.bad': ['PbO₂ の O は水 H₂O になり、Pb は PbSO₄ になる。両方に必要なイオンは？', 'The O of PbO₂ becomes water and the Pb becomes PbSO₄. Which ions are needed for both?'],
+  'pb.pos.pop': ['正極も白い PbSO₄ に。水 H₂O ができた', 'The positive pole also turns to white PbSO₄, and water forms'],
+  'pb.q4': ['両極とも PbSO₄ でおおわれた。放電を続けると、電解液の<b>希硫酸の濃度</b>は？', 'Both poles are now coated with PbSO₄. As discharge continues, the <b>concentration of the sulfuric acid</b>…'],
+  'c.small': ['小さくなる', 'decreases'], 'c.large': ['大きくなる', 'increases'],
+  'pb.q4.good': ['正解。硫酸が使われて水ができるので、うすくなって電圧が下がる。', 'Correct. Sulfuric acid is used up and water forms, so it gets dilute and the voltage drops.'],
+  'pb.q4.bad': ['両極で SO₄²⁻ と H⁺ が使われ、正極では水ができた。', 'SO₄²⁻ and H⁺ were used at both poles, and water formed at the positive pole.'],
+  'pb.m1': ['電子が 2 mol 流れると、負極では Pb 1 mol が PbSO₄ 1 mol になる。\n負極の質量は何 g <b>増える</b>？（O = 16、S = 32）', 'When 2 mol of electrons flow, 1 mol of Pb becomes 1 mol of PbSO₄ at the negative pole.\nBy how many grams does it <b>gain</b>? (O = 16, S = 32)'],
+  'pb.m1.good': ['正解。Pb が PbSO₄ になるから、SO₄ の分だけ増える：32 + 16×4 = 96 g。', 'Correct. Pb becomes PbSO₄, so it gains the mass of SO₄: 32 + 16×4 = 96 g.'], 'pb.m1.bad': ['Pb はそのまま残り、SO₄ が1 mol 分くっつく。', 'The Pb stays, and 1 mol of SO₄ is added.'],
+  'pb.m2': ['同じとき、正極では PbO₂ 1 mol が PbSO₄ 1 mol になる。\n正極の質量は何 g <b>増える</b>？', 'At the same time, 1 mol of PbO₂ becomes 1 mol of PbSO₄ at the positive pole.\nBy how many grams does it <b>gain</b>?'],
+  'pb.m2.good': ['正解。PbO₂ が PbSO₄ になるから、SO₂ の分だけ増える：32 + 16×2 = 64 g。予測の答えは「両方とも増える」。', 'Correct. PbO₂ becomes PbSO₄, so it gains the mass of SO₂: 32 + 16×2 = 64 g. So both poles get heavier.'],
+  'pb.m2.bad': ['PbO₂ にはもう O が2個ある。PbSO₄ との差は？', 'PbO₂ already has two O atoms. What is the difference from PbSO₄?'],
+  'pb.charge': ['放電とは逆向きに電流を流すと、両極の PbSO₄ は Pb と PbO₂ に戻り、硫酸も濃くなる。これが<b>充電</b>。', 'Drive current the opposite way and the PbSO₄ on both poles returns to Pb and PbO₂, and the acid gets concentrated again. This is <b>charging</b>.'],
+  'pb.q5': ['充電するとき、鉛蓄電池の<b>負極</b>は、外部電源のどちらにつなぐ？', 'When charging, the <b>negative pole</b> of the battery is connected to which terminal of the external source?'],
+  'pb.q5.a': ['外部電源の負極', 'Its negative terminal'], 'pb.q5.b': ['外部電源の正極', 'Its positive terminal'],
+  'pb.q5.good': ['正解。電源の負極から電子を押しこみ、PbSO₄ を Pb に還元して戻す。', 'Correct. The source pushes electrons in from its negative terminal, reducing PbSO₄ back to Pb.'],
+  'pb.q5.bad': ['負極の PbSO₄ を Pb に戻すには、電子を<b>与える</b>必要がある。電子を出すのは電源のどちら？', 'To turn PbSO₄ back into Pb you must <b>give</b> it electrons. Which terminal supplies electrons?'],
+  'res.sum.q5': ['全体：<b>Pb + PbO₂ + 2H₂SO₄ ⇄ 2PbSO₄ + 2H₂O</b>（右向きが放電、左向きが充電）<br>放電すると両極とも PbSO₄ でおおわれて質量が増え、希硫酸はうすくなる。', 'Overall: <b>Pb + PbO₂ + 2H₂SO₄ ⇄ 2PbSO₄ + 2H₂O</b> (right: discharge, left: charge)<br>On discharge both poles are coated with PbSO₄ and gain mass, and the acid gets dilute.'],
+
+  // クエスト6：燃料電池
+  'fc.pred': ['水素と酸素の反応から電気を取り出すのが<b>燃料電池</b>。左から水素、右から酸素を送りこむ。\n図の動きを見て考えよう。発電したとき、できる物質は？', 'A <b>fuel cell</b> takes electricity from the reaction of hydrogen and oxygen. Hydrogen is fed from the left, oxygen from the right.\nWatch the figure. What does it produce?'],
+  'fc.pred.a': ['水だけ', 'Only water'], 'fc.pred.b': ['二酸化炭素と水', 'Carbon dioxide and water'],
+  'fc.neg.intro': ['あなたは今、<b>水素分子 H₂ がもっている電子</b>。水素は左の通り道から負極へ送りこまれる。\n水素分子に乗ったまま、負極の表面へ行こう。', 'You are an <b>electron belonging to a hydrogen molecule H₂</b>. Hydrogen is fed to the negative pole through the channel on the left.\nRide the molecule to the surface of the negative pole.'],
+  'fc.neg.btn': ['負極へ進む', 'Go to the negative pole'], 'fc.neg.pop': ['H₂ が H⁺ 2個と電子2個に分かれた', 'H₂ split into two H⁺ and two electrons'],
+  'fc.q1': ['水素分子は電極に電子を渡して、H⁺ になった。負極で<b>酸化</b>されたのは？', 'The hydrogen molecule gave its electrons to the electrode and became H⁺. What was <b>oxidized</b> at the negative pole?'],
+  'c.h2': ['H₂', 'H₂'], 'c.o2': ['O₂', 'O₂'],
+  'fc.q1.good': ['正解。H₂ → 2H⁺ + 2e⁻。燃料電池の負極活物質は水素。', 'Correct. H₂ → 2H⁺ + 2e⁻. Hydrogen is the negative active material.'], 'fc.q1.bad': ['電子を失って H⁺ になったのは？', 'What lost electrons and became H⁺?'],
+  'fc.q2': ['あなたは導線を進む。そのあいだ、<b>電解質の中</b>を負極から正極へ移動しているのは？', 'You travel through the wire. Meanwhile, what moves from the negative to the positive pole <b>through the electrolyte</b>?'],
+  'c.e': ['電子', 'Electrons'],
+  'fc.q2.good': ['正解。電子は導線、H⁺ は電解質。別の道で同じ正極へ向かう。', 'Correct. Electrons take the wire, H⁺ the electrolyte: two roads to the same positive pole.'], 'fc.q2.bad': ['電子は水溶液の中を進めない。負極でできたイオンは？', 'Electrons cannot move through the solution. Which ion formed at the negative pole?'],
+  'fc.q3': ['正極に着いた。外から酸素 O₂ が来る。\n酸素分子 <b>1個</b> を水にするには、電子が何個必要？', 'You reached the positive pole. Oxygen O₂ arrives from outside.\nHow many electrons are needed to turn <b>one</b> O₂ molecule into water?'],
+  'fc.n4': ['4個', 'Four'], 'fc.n2': ['2個', 'Two'], 'fc.n1': ['1個', 'One'],
+  'fc.q3.good': ['正解。O₂ + 4H⁺ + 4e⁻ → 2H₂O。あなたたち2個では足りない。', 'Correct. O₂ + 4H⁺ + 4e⁻ → 2H₂O. The two of you are not enough.'], 'fc.q3.bad': ['O 原子1個につき電子2個。O₂ は O が2個。', 'Each O atom needs two electrons, and O₂ has two O atoms.'],
+  'fc.wait': ['次の水素分子から来る電子2個を待とう。4個そろったら、酸素を迎えに行く。', 'Wait for two more electrons from the next hydrogen molecule. When there are four, go and meet the oxygen.'],
+  'fc.wait.btn': ['仲間を待つ', 'Wait for the others'], 'fc.pos.pop': ['4個で O₂ と 4H⁺ に乗り移った！ 水が2個', 'Four of you hopped onto O₂ and 4H⁺! Two waters'],
+  'fc.q4': ['酸素は電子を受け取って、水になった。正極で起きた変化は？', 'Oxygen took electrons and became water. What happened at the positive pole?'],
+  'fc.q5': ['全体の反応は 2H₂ + O₂ → 2H₂O。\n水素 H₂ が <b>2 mol</b> 反応したとき、流れた電子は？', 'Overall: 2H₂ + O₂ → 2H₂O.\nWhen <b>2 mol</b> of hydrogen H₂ reacts, how many electrons flow?'],
+  'fc.q5.good': ['正解。H₂ 1 mol から電子 2 mol。2 mol なら 4 mol。', 'Correct. 1 mol of H₂ gives 2 mol of electrons, so 2 mol gives 4 mol.'], 'fc.q5.bad': ['H₂ → 2H⁺ + 2e⁻。H₂ 1 mol で電子は何 mol？', 'H₂ → 2H⁺ + 2e⁻. How many moles of electrons per mole of H₂?'],
+  'res.sum.q6': ['負極 H₂ → 2H⁺ + 2e⁻　正極 O₂ + 4H⁺ + 4e⁻ → 2H₂O<br>全体：<b>2H₂ + O₂ → 2H₂O</b>。できるのは水だけ。', 'Negative: H₂ → 2H⁺ + 2e⁻　Positive: O₂ + 4H⁺ + 4e⁻ → 2H₂O<br>Overall: <b>2H₂ + O₂ → 2H₂O</b>. Only water is produced.'],
+
+  // クエスト7：リチウムイオン電池
+  'li.intro': ['ここは<b>リチウムイオン電池</b>の負極。厚い黒鉛（炭素）の層が重なり、層と層のあいだに Li⁺ が泊まっている。あなたは黒鉛の層の中にいる電子。\n放電を始めよう。', 'This is the negative pole of a <b>lithium-ion battery</b>: thick layers of graphite (carbon) with Li⁺ lodged between them. You are an electron inside a graphite layer.\nLet\'s start discharging.'],
+  'li.btn': ['放電する', 'Discharge'], 'li.pop': ['Li⁺ が層のあいだから出ていった', 'A Li⁺ left the layers'],
+  'li.q1': ['Li⁺ は層のあいだを出て、正極へ向かった。<b>どこを通って</b>行く？', 'The Li⁺ left the layers for the positive pole. <b>Which way</b> does it go?'],
+  'li.q1.a': ['電解質（有機溶媒）の中', 'Through the electrolyte (organic solvent)'], 'li.q1.b': ['導線の中', 'Through the wire'],
+  'li.q1.good': ['正解。イオンは電解質、電子は導線。あなたは導線から追いかけよう。', 'Correct. Ions take the electrolyte, electrons the wire. Follow it through the wire.'], 'li.q1.bad': ['導線を通れるのは電子。イオンが通るのは？', 'Only electrons use the wire. Where do ions travel?'],
+  'li.q2': ['灯りがともった。この電池の起電力は約 4.0 V。マンガン乾電池（1.5 V）とくらべると？', 'The lamp is glowing. This battery gives about 4.0 V. Compared with a manganese dry cell (1.5 V) it is…'],
+  'li.q2.a': ['大きい。小型で軽いのに力が強い', 'higher: small and light but powerful'], 'li.q2.b': ['小さい', 'lower'],
+  'li.q2.good': ['正解。だからスマートフォンやノートパソコンに使われる。', 'Correct. That is why it is used in smartphones and laptops.'], 'li.q2.bad': ['4.0 と 1.5、大きいのは？', 'Which is larger, 4.0 or 1.5?'],
+  'li.pos': ['正極に着いた。別の道を来た Li⁺ が、正極の層のあいだに入っていく。あなたもいっしょに受け取られる。', 'You reached the positive pole. The Li⁺ that came the other way slips between its layers, and you are taken in with it.'],
+  'li.pos.btn': ['正極に入る', 'Enter the positive pole'], 'li.pos.pop': ['Li⁺ と電子が、正極でまた出会った', 'Li⁺ and electron met again at the positive pole'],
+  'li.q3': ['では<b>充電</b>すると？', 'So what happens on <b>charging</b>?'],
+  'li.q3.a': ['Li⁺ も電子も、逆向きに負極へ戻る', 'Both Li⁺ and electrons go back to the negative pole'], 'li.q3.b': ['Li⁺ だけが戻る', 'Only Li⁺ goes back'], 'li.q3.c': ['何も動かない', 'Nothing moves'],
+  'li.q3.good': ['正解。負極と正極のあいだを Li⁺ が行き来して、充放電が起こる。', 'Correct. Li⁺ shuttles between the two poles as the battery charges and discharges.'], 'li.q3.bad': ['充電は、放電の逆向きの反応。', 'Charging is the reverse of discharge.'],
+  'li.mah': ['電池の容量は<b>放電容量</b>といい、mAh（ミリアンペア時）で表す。\n放電容量 [mAh] ＝ 電流 [mA] × 時間 [h]', 'A battery\'s capacity is its <b>discharge capacity</b>, in mAh (milliampere-hours).\nCapacity [mAh] = current [mA] × time [h]'],
+  'li.m1': ['上のメーターを見よう。放電容量 5000 mAh の電池を 90 % まで充電した（残り 4500 mAh）。\n平均 400 mA で使うと、何時間使える？', 'Look at the meter. A 5000 mAh battery is charged to 90 % (4500 mAh left).\nAt an average of 400 mA, how many hours will it last?'],
+  'li.m1.good': ['正解。①充電した量：5000 × 0.9 ＝ 4500 mAh　②1時間に 400 mAh ずつ減る　③4500 ÷ 400 ＝ 11.25 時間。メーターが空になるまでの時間だ。', 'Correct. 1) Charged: 5000 × 0.9 = 4500 mAh  2) It drops 400 mAh every hour  3) 4500 ÷ 400 = 11.25 h, the time until the meter is empty.'], 'li.m1.bad': ['メーターの残りは 4500 mAh。1時間に 400 mAh ずつ減ると、何時間で空になる？', 'The meter shows 4500 mAh. If it drops 400 mAh every hour, how long until it is empty?'],
+  'li.m2': ['同じ電池を、平均 400 mA で 30 分だけ使った。使った容量は？', 'The same battery is used for just 30 minutes at an average of 400 mA. How much capacity was used?'],
+  'li.m2.good': ['正解。使った量 ＝ 電流 × 時間 ＝ 400 mA × 0.5 h ＝ 200 mAh。メーターが 200 だけ減った。', 'Correct. Used = current × time = 400 mA × 0.5 h = 200 mAh. The meter dropped by 200.'], 'li.m2.bad': ['30 分は 0.5 時間。1時間で 400 mAh 減るなら、その半分は？', '30 minutes is 0.5 h. If 400 mAh goes in one hour, how much in half of that?'],
+  'res.sum.q7': ['放電：Li⁺ は電解質を通って負極から正極へ、電子は導線を通って同じ向きへ。充電は逆。<br><b>放電容量 [mAh] ＝ 電流 [mA] × 時間 [h]</b>', 'Discharge: Li⁺ goes from the negative to the positive pole through the electrolyte, electrons the same way through the wire. Charging reverses it.<br><b>Capacity [mAh] = current [mA] × time [h]</b>'],
+
+  // クエスト8：電位の登山
+  'e.intro': ['イオン化傾向は、<b>標準電極電位 E°</b>（単位 V）という数で表せる。水素を 0 V の基準にする。\nE° が<b>低い</b>金属ほど、高い所に並べた。', 'Ionization tendency can be given as a number: the <b>standard electrode potential E°</b> (in V), with hydrogen as 0 V.\nMetals with a <b>lower</b> E° are placed higher up.'],
+  'e.q1': ['E° が低い（マイナスが大きい）金属ほど、イオン化傾向は？', 'The lower (more negative) a metal\'s E°, its ionization tendency is…'],
+  'e.big': ['大きい', 'higher'], 'e.sm': ['小さい', 'lower'],
+  'e.q1.good': ['正解。E° が低い金属ほど酸化されやすい。逆に E° が高い金属のイオンは還元されやすい。', 'Correct. A metal with low E° is easily oxidized. Ions of a metal with high E° are easily reduced.'], 'e.q1.bad': ['いちばん高い所（E° が最も低い）にあるのは Li。Li のイオン化傾向は？', 'Li sits highest (lowest E°). What is its ionization tendency?'],
+  'e.q2': ['ダニエル電池。正極の Cu は E° = +0.34 V、負極の Zn は E° = −0.76 V。\n起電力は？', 'A Daniell cell: Cu at the positive pole has E° = +0.34 V, Zn at the negative pole E° = −0.76 V.\nWhat is its electromotive force?'],
+  'e.q2.good': ['正解。起電力 ＝ E°(正極) − E°(負極) ＝ 0.34 −（−0.76）＝ 1.10 V。', 'Correct. EMF = E°(positive) − E°(negative) = 0.34 − (−0.76) = 1.10 V.'], 'e.q2.bad': ['高さの差を出す。マイナスを引くと、足し算になる。', 'Take the difference in height. Subtracting a negative is adding.'],
+  'e.slide': ['Zn から Cu へ下ってみよう。この<b>高さの差</b>が起電力。', 'Slide down from Zn to Cu. This <b>height difference</b> is the electromotive force.'],
+  'e.pop': ['高さの差 1.10 V', 'Height difference 1.10 V'],
+  'e.q3': ['実際の電池の起電力は、いつも E° の差と同じ？', 'Is a real cell\'s electromotive force always equal to the difference in E°?'],
+  'e.q3.a': ['電解質の濃度や pH でも変わる', 'It also changes with electrolyte concentration and pH'], 'e.q3.b': ['いつもぴったり同じ', 'It is always exactly the same'],
+  'e.q3.good': ['正解。E° は決まった条件での値。濃度が変われば起電力も変わる。', 'Correct. E° is a value under fixed conditions. If the concentration changes, so does the voltage.'], 'e.q3.bad': ['クエスト3で、濃度が変わると電池はどうなった？', 'In Quest 3, what happened to the cell as the concentrations changed?'],
+  'res.sum.q8': ['<b>起電力 ＝ E°(正極) − E°(負極)</b><br>E° が低い金属ほどイオン化傾向が大きい。ダニエル電池は 0.34 −（−0.76）＝ 1.10 V。', '<b>EMF = E°(positive) − E°(negative)</b><br>The lower the E°, the higher the ionization tendency. Daniell cell: 0.34 − (−0.76) = 1.10 V.'],
   // ── v0.2：クエストの一覧・報酬・金印 ──
   'q0.no': ['クエスト 0', 'QUEST 0'], 'q0.name': ['自由電子の海', 'Sea of Free Electrons'],
   'q0.sub': ['イオン化傾向と電池のしくみ。金属の中から、イオン化列の坂へ。約3分。', 'Ionization tendency and how a cell works. About 3 min.'],
@@ -510,8 +681,9 @@ const sleep = (ms) => new Promise((r) => { const id = runId; setTimeout(() => { 
 const REDUCED = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
 const rnd = (a, b) => a + Math.random() * (b - a);
 
-let SAVE = { v: 1, q0: { best: 0, plays: 0 }, q1: { best: 0, plays: 0 }, q2: { best: 0, plays: 0 } };   // best：0なし 1銅印 2銀印 3金印
-try { const r = JSON.parse(store.get(CONFIG.saveKey)); if (r && r.v === 1) { for (const k of ['q0', 'q1', 'q2']) if (r[k]) Object.assign(SAVE[k], r[k]); if (r.rec) SAVE.rec = r.rec; if (r.pred) SAVE.pred = r.pred; } } catch (e) {}
+const ALL_Q = ['q0', 'q1', 'q2', 'q3', 'q4', 'q5', 'q6', 'q7', 'q8'];
+let SAVE = { v: 1 }; ALL_Q.forEach((k) => { SAVE[k] = { best: 0, plays: 0 }; });   // best：0なし 1銅印 2銀印 3金印
+try { const r = JSON.parse(store.get(CONFIG.saveKey)); if (r && r.v === 1) { for (const k of ALL_Q) if (r[k]) Object.assign(SAVE[k], r[k]); if (r.rec) SAVE.rec = r.rec; if (r.pred) SAVE.pred = r.pred; } } catch (e) {}
 const save = () => store.set(CONFIG.saveKey, JSON.stringify(SAVE));
 
 /* ═════════ 音：和風の電子音とBGM（すべてその場で合成） ═════════
@@ -594,6 +766,7 @@ const snd = (() => {
   return {
     start: () => init(), get bgmOn() { return on; }, toggleBgm() { init(); setBgm(!on); return on; },
     tap: play((t) => wood(t)),
+    tick: play((t) => drip(t, 820, 0.045)),
     chime: play((t) => bell(note(Math.floor(rnd(5, 10))), t, 0.07)),
     hop: play((t) => { drip(t); drip(t + 0.16, 1750, 0.09); }),
     ok: play((t) => {
@@ -705,13 +878,27 @@ function faceBall(color) {                                // 電子（あなた�
   g.fillStyle = 'rgba(248,170,165,.55)'; g.beginPath(); g.ellipse(50, 92, 8, 5, 0, 0, 7); g.ellipse(110, 92, 8, 5, 0, 0, 7); g.fill();
   return new THREE.CanvasTexture(c);
 }
-const ION_TEX = { zn: ionTexture('Zn²⁺', COL.znIon), cu: ionTexture('Cu²⁺', COL.cuIon), so4: ionTexture('SO₄²⁻', COL.so4), h: ionTexture('H⁺', '#F9BDD4'), h2: ionTexture('H₂', '#E2F0FA') };
-const ION_SIZE = { zn: 0.62, cu: 0.62, so4: 0.76, h: 0.48, h2: 0.74 };
+const ION_TEX = { zn: ionTexture('Zn²⁺', COL.znIon), cu: ionTexture('Cu²⁺', COL.cuIon), so4: ionTexture('SO₄²⁻', COL.so4), h: ionTexture('H⁺', '#F9BDD4'), h2: ionTexture('H₂', '#E2F0FA'),
+  pbso4: ionTexture('PbSO₄', '#F4F4FA'), h2o: ionTexture('H₂O', '#B9E0F6'), o2: ionTexture('O₂', '#F6B4B4'), li: ionTexture('Li⁺', '#C4ECBC') };
+const ION_SIZE = { zn: 0.62, cu: 0.62, so4: 0.76, h: 0.48, h2: 0.74, pbso4: 0.8, h2o: 0.62, o2: 0.74, li: 0.52, cuA: 0.5 };
+ION_TEX.cuA = ballTex(COL.cu, COL.cuHi);   // 析出した銅の原子
 /* イオン化列：空に並べた坂（左ほど高い＝イオン化傾向が大きい） */
 const SERIES = ['Li', 'K', 'Ca', 'Na', 'Mg', 'Al', 'Zn', 'Fe', 'Ni', 'Sn', 'Pb', 'H₂', 'Cu', 'Hg', 'Ag', 'Pt', 'Au'];
 const seriesPos = SERIES.map((_, i) => V(-4.8 + i * 0.6, 16.6 - i * 0.42, -0.5));
 const seriesGroup = new THREE.Group(); seriesGroup.visible = false;
 function mixHex(a, b, t) { const x = parseInt(a.slice(1), 16), y = parseInt(b.slice(1), 16), f = (sh) => Math.round(((x >> sh) & 255) * (1 - t) + ((y >> sh) & 255) * t).toString(16).padStart(2, '0'); return '#' + f(16) + f(8) + f(0); }
+/* 標準電極電位 E°：値が低いほど高い所に置いた坂（クエスト8） */
+const E0 = [-3.05, -2.93, -2.84, -2.71, -2.36, -1.68, -0.76, -0.44, -0.26, -0.14, -0.13, 0, 0.34, 0.80, 0.80, 1.19, 1.52];
+const seriesPosE = SERIES.map((_, i) => V(-4.8 + i * 0.6, 12.4 - E0[i] * 1.3, -0.5));
+const seriesE = new THREE.Group(); seriesE.visible = false;
+SERIES.forEach((sym, i) => {
+  const c = softBall(sym === 'H₂' ? '#E6E6F0' : mixHex('#F7A9A0', '#9CCDE8', i / 16), '#FFFFFF', 192), g = c.getContext('2d');
+  g.fillStyle = hexA(COL.ink, 0.85); g.textAlign = 'center'; g.textBaseline = 'middle'; g.font = '700 42px "Zen Maru Gothic",sans-serif'; g.fillText(sym, 96, 84);
+  g.font = '700 25px "Zen Maru Gothic",sans-serif'; g.fillText((E0[i] > 0 ? '+' : E0[i] < 0 ? '−' : '') + Math.abs(E0[i]).toFixed(2), 96, 124);
+  const t = new THREE.CanvasTexture(c); t.minFilter = THREE.LinearFilter;
+  const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: t, transparent: true, depthWrite: false })); sp.scale.setScalar(1.12); sp.position.copy(seriesPosE[i]); seriesE.add(sp);
+});
+let SP = seriesPos;   // いま使っている坂の位置
 SERIES.forEach((sym, i) => { const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: ionTexture(sym, sym === 'H₂' ? '#E6E6F0' : mixHex('#F7A9A0', '#9CCDE8', i / 16)), transparent: true, depthWrite: false })); sp.scale.setScalar(0.8); sp.position.copy(seriesPos[i]); seriesGroup.add(sp); });
 
 /* 文字の札：ちぎった和紙の短冊（言語を変えたら作り直す） */
@@ -719,8 +906,11 @@ const labels = [], labelSp = {};
 function tagTexture(text, color) {
   const g0 = cv(8, 8).getContext('2d'); const font = '700 40px "Zen Maru Gothic","Hiragino Maru Gothic ProN",sans-serif';
   g0.font = font; const w = Math.ceil(g0.measureText(text).width) + 56, h = 76, c = cv(w, h), g = c.getContext('2d');
-  g.beginPath(); const P = []; const N = 28;
-  for (let i = 0; i < N; i++) { const a = (i / N) * Math.PI * 2, ex = Math.cos(a), ey = Math.sin(a), k = 1 / Math.max(Math.abs(ex) / (w / 2 - 7), Math.abs(ey) / (h / 2 - 7)); P.push([w / 2 + ex * k * rnd(0.93, 1), h / 2 + ey * k * rnd(0.88, 1)]); }
+  g.beginPath(); const P = [], m = 6, j = () => rnd(0, 5);
+  for (let x = m + 8; x < w - m - 8; x += 16) P.push([x, m + j()]);
+  for (let y = m + 8; y < h - m - 8; y += 14) P.push([w - m - j(), y]);
+  for (let x = w - m - 8; x > m + 8; x -= 16) P.push([x, h - m - j()]);
+  for (let y = h - m - 8; y > m + 8; y -= 14) P.push([m + j(), y]);
   P.forEach(([x, y], i) => (i ? g.lineTo(x, y) : g.moveTo(x, y))); g.closePath();
   g.shadowColor = 'rgba(120,100,80,.3)'; g.shadowBlur = 6; g.shadowOffsetY = 2; g.fillStyle = 'rgba(255,253,248,.94)'; g.fill(); g.shadowColor = 'transparent';
   g.font = font; g.textBaseline = 'middle'; g.textAlign = 'center'; g.fillStyle = color; g.fillText(text, w / 2, h / 2 + 2);
@@ -749,14 +939,20 @@ function paper(geo, color, opacity, pos, dots) {
   const m = new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ color: 0xffffff, map: washiTexture(color, dots), transparent: true, opacity, depthWrite: false }));
   m.position.copy(pos); scene.add(m); return m;
 }
-paper(roundedBox(G.liqX * 2 + 0.5, 5.3, G.liqZ * 2 + 0.5, 0.9), COL.glass, 0.13, V(0, 2.45, 0));                 // 器
+const glass = paper(roundedBox(G.liqX * 2 + 0.5, 5.3, G.liqZ * 2 + 0.5, 0.9), COL.glass, 0.13, V(0, 2.45, 0));                 // 器
 const liqL = paper(roundedBox(G.liqX - 0.15, G.liqY, G.liqZ * 2, 0.7), COL.liqL, 0.22, V(-G.liqX / 2 - 0.02, G.liqY / 2, 0));  // ZnSO₄ 水溶液
 const liqR = paper(roundedBox(G.liqX - 0.15, G.liqY, G.liqZ * 2, 0.7), COL.liqR, 0.4, V(G.liqX / 2 + 0.02, G.liqY / 2, 0));  // CuSO₄ 水溶液
 const porous = paper(roundedBox(0.2, 4.8, G.liqZ * 2, 0.09), COL.porous, 0.72, V(0, 2.4, 0), true);
 const liqOne = paper(roundedBox(G.liqX * 2 - 0.25, G.liqY, G.liqZ * 2, 0.7), '#DCEAF6', 0.26, V(0, G.liqY / 2, 0)); liqOne.visible = false;   // 仕切りのない1つの水溶液                             // 素焼き板
 const plateMid = (G.plateY0 + G.plateY1) / 2, plateH = G.plateY1 - G.plateY0;
-paper(roundedBox(G.plateW, plateH, G.plateD, 0.45), COL.plateZn, 0.3, V(G.znX, plateMid, 0));
-paper(roundedBox(G.plateW, plateH, G.plateD, 0.45), COL.plateCu, 0.34, V(G.cuX, plateMid, 0));
+const plateL = paper(roundedBox(G.plateW, plateH, G.plateD, 0.45), COL.plateZn, 0.3, V(G.znX, plateMid, 0));
+const plateR = paper(roundedBox(G.plateW, plateH, G.plateD, 0.45), COL.plateCu, 0.34, V(G.cuX, plateMid, 0));
+
+// 燃料電池の気体の通り道（左：水素、右：酸素）
+const chamL = paper(roundedBox(1.5, plateH, G.plateD, 0.4), '#CDEEF2', 0.26, V(-4.95, plateMid, 0)), chamR = paper(roundedBox(1.5, plateH, G.plateD, 0.4), '#F8D4D4', 0.26, V(4.95, plateMid, 0)); chamL.visible = chamR.visible = false;
+// リチウムイオン電池の電極：厚い層を重ねる（層と層のあいだに Li⁺ が入る）
+function layerStack(cx, color) { const g = new THREE.Group(), geo = roundedBox(2.15, 0.36, 2.3, 0.12), mat = new THREE.MeshLambertMaterial({ color: 0xffffff, map: washiTexture(color), transparent: true, opacity: 0.82, depthWrite: false }); for (let i = 0; i < 7; i++) { const m = new THREE.Mesh(geo, mat); m.position.set(cx, 1.05 + i * 0.85, 0); g.add(m); } g.visible = false; scene.add(g); return g; }
+const layerL = layerStack(G.znX - 0.5, '#AAB1CC'), layerR = layerStack(G.cuX + 0.5, '#94B6E6');
 
 /* 金属の結晶：ぼかした玉を並べる。溶け出す原子は遠くへ動かして消す */
 function lattice(cx, color, hi) {
@@ -812,8 +1008,26 @@ addLabel('lbl.porous', V(0, 5.6, 0), '#8f7c5c', 0.58);
 addLabel('lbl.znso4', V(-3, -0.7, 2), '#7c8fb0', 0.58);
 addLabel('lbl.cuso4', V(3, -0.7, 2), '#5c8fb5', 0.58);
 addLabel('lbl.bulb', V(0, 9.75, 0), '#A9822E', 0.58);
-addLabel('lbl.acid', V(0, -0.7, 2), '#6f86a8', 0.58); addLabel('lbl.elec', V(0, -0.7, 2), '#6f86a8', 0.58);
-scene.add(seriesGroup); addLabel('lbl.big', seriesPos[0].clone().add(V(2.1, 0.35, 0)), '#B5625A', 0.5); addLabel('lbl.small', seriesPos[16].clone().add(V(-1.3, -0.5, 0)), '#3F7893', 0.5);
+['lbl.acid', 'lbl.elec', 'lbl.h3po4', 'lbl.org'].forEach((k) => addLabel(k, V(0, -0.7, 2), '#6f86a8', 0.58));
+const elLab = { L: labels.find((l) => l.key === 'lbl.zn'), R: labels.find((l) => l.key === 'lbl.cu') };
+addLabel('lbl.h2in', V(-5.0, 0.05, 1.5), '#3F8793', 0.5); addLabel('lbl.o2in', V(5.0, 0.05, 1.5), '#B5625A', 0.5); addLabel('lbl.h2oout', V(5.0, -0.75, 1.5), '#3F7893', 0.46);
+// その場で文字を決める札（電池図鑑の電解質と起電力、電位の差）
+const dynLabel = (pos, color, h) => { addLabel(['', ''], pos, color, h); const L = labels[labels.length - 1]; L.sp.visible = false; return L; };
+const solDyn = dynLabel(V(0, -0.7, 2), '#6f86a8', 0.58), emfLab = dynLabel(V(0, 10.75, 0), '#A9822E', 0.7), gapLab = dynLabel(V(0, 0, 0), '#A9822E', 0.66);
+function setDyn(L, key) { L.sp.visible = !!key; if (key) { L.key = key; refreshLabel(L); } }
+/* 2つの高さの差を示す線と矢印（クエスト8）：それぞれの金属の高さに線を引き、そのあいだを矢印で結ぶ */
+const gapG = new THREE.Group(); gapG.visible = false; scene.add(gapG);
+const gapP = (() => { const mat = new THREE.MeshBasicMaterial({ color: 0xffe9a0, depthTest: false, transparent: true }), mk = (geo) => { const m = new THREE.Mesh(geo, mat); m.renderOrder = 11; gapG.add(m); return m; };
+  return { a: mk(new THREE.BoxGeometry(1, 0.07, 0.07)), b: mk(new THREE.BoxGeometry(1, 0.07, 0.07)), v: mk(new THREE.BoxGeometry(0.07, 1, 0.07)), h1: mk(new THREE.ConeGeometry(0.15, 0.36, 12)), h2: mk(new THREE.ConeGeometry(0.15, 0.36, 12)) }; })();
+function showGap(i, j, text) {
+  const A = SP[i], B = SP[j], x0 = Math.min(5.0, Math.max(A.x, B.x) + 1.05), z = A.z + 0.1, top = Math.max(A.y, B.y), bot = Math.min(A.y, B.y);
+  const line = (m, p) => { const x1 = p.x + 0.5, len = Math.max(0.3, x0 + 0.3 - x1); m.scale.set(len, 1, 1); m.position.set(x1 + len / 2, p.y, z); };
+  line(gapP.a, A); line(gapP.b, B); gapP.v.scale.set(1, Math.max(0.05, top - bot - 0.5), 1); gapP.v.position.set(x0, (top + bot) / 2, z);
+  gapP.h1.position.set(x0, top - 0.18, z); gapP.h2.position.set(x0, bot + 0.18, z); gapP.h2.rotation.z = Math.PI;
+  setDyn(gapLab, [text, text]); gapLab.sp.position.set(x0 - 1.0, (top + bot) / 2, z + 0.3); gapG.visible = true; ripple(A, 0xffe9a0); ripple(B, 0xffe9a0);
+}
+function hideGap() { gapG.visible = false; gapLab.sp.visible = false; }   // 電極の札（クエストごとに文字を替える）
+scene.add(seriesGroup); scene.add(seriesE); addLabel('lbl.big', seriesPos[0].clone().add(V(2.1, 0.35, 0)), '#B5625A', 0.5); addLabel('lbl.small', seriesPos[16].clone().add(V(-1.3, -0.5, 0)), '#3F7893', 0.5);
 
 /* 自由電子（飾り）：板の中でふるえる粒と、導線を流れる粒 */
 const decor = [];
@@ -891,18 +1105,41 @@ function removeIon(ion) { scene.remove(ion.sp); ion.sp.material.dispose(); ions 
 let deposited = null;
 
 let gasSp = null;   // 水素の泡
-function applyWorld(w) {                    // 装置をクエストに合わせる
-  const d = w.kind === 'daniell'; liqL.visible = liqR.visible = porous.visible = d; liqOne.visible = !d;
-  const vis = { 'lbl.porous': d, 'lbl.znso4': d, 'lbl.cuso4': d, 'lbl.acid': w.kind === 'acid', 'lbl.elec': w.kind === 'plain', 'lbl.big': !!w.series, 'lbl.small': !!w.series };
+const extras = [];   // その場に置く粒（電極に付いた PbSO₄、気体の分子、層のあいだの Li⁺ など）
+function stick(kind, pos, size) { const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: ION_TEX[kind], transparent: true, depthWrite: false })); sp.scale.setScalar(size || ION_SIZE[kind]); sp.position.copy(pos); sp.userData.kind = kind; scene.add(sp); extras.push(sp); return sp; }
+const EL_DEF = { L: { c: COL.zn, hi: COL.znHi, plate: COL.plateZn, label: 'lbl.zn' }, R: { c: COL.cu, hi: COL.cuHi, plate: COL.plateCu, label: 'lbl.cu' } };
+const ballC = {}, matC = {};
+const ballOf = (c, hi) => ballC[c] || (ballC[c] = ballTex(c, hi));
+const plateOf = (c) => matC[c] || (matC[c] = new THREE.MeshLambertMaterial({ color: 0xffffff, map: washiTexture(c), transparent: true, opacity: 0.32, depthWrite: false }));
+let wireFlow = 1;   // 導線の電子の流れ（1：ふつう、0：止まる、負：逆向き＝充電）
+const amb = [];     // 背景でずっと続く動き（説明や問いのあいだも止まらない）
+let ambTick = null; // 背景の動きを生み出す係（クエストごと）
+function ambMove(sp, to, dur, done) { amb.push({ sp, from: sp.position.clone(), to: to.clone(), t: 0, dur, done }); }
+function applyWorld(w) {                    // 装置をクエストに合わせる（水溶液、電極の色・札・形、気体の通り道、坂）
+  const d = w.kind === 'daniell', fuel = w.kind === 'fuel', lay = !!w.layers;
+  liqL.visible = liqR.visible = porous.visible = d; liqOne.visible = !d; liqOne.scale.x = fuel ? 0.485 : 1; liqR.material.opacity = 0.4; lampPower = 0.4; wireFlow = 1;
+  glass.visible = !fuel; chamL.visible = chamR.visible = fuel;
+  const el = { L: { ...EL_DEF.L, ...(w.el && w.el.L) }, R: { ...EL_DEF.R, ...(w.el && w.el.R) } };
+  latZn.mesh.material.map = ballOf(el.L.c, el.L.hi); latCu.mesh.material.map = ballOf(el.R.c, el.R.hi); plateL.material = plateOf(el.L.plate); plateR.material = plateOf(el.R.plate);
+  latZn.mesh.visible = latCu.mesh.visible = !lay; layerL.visible = layerR.visible = lay;
+  plateL.scale.x = plateR.scale.x = lay ? 1.8 : 1; plateL.position.x = G.znX - (lay ? 0.5 : 0); plateR.position.x = G.cuX + (lay ? 0.5 : 0);
+  for (const k of ['L', 'R']) if (elLab[k].key !== el[k].label) { elLab[k].key = el[k].label; refreshLabel(elLab[k]); }
+  elLab.L.sp.position.set(fuel ? -3.5 : -5.4, 7.0, fuel ? 1.5 : 0); elLab.R.sp.position.set(fuel ? 3.5 : 5.4, 7.0, fuel ? 1.5 : 0);
+  const sol = w.solText ? '' : w.sol || (w.kind === 'acid' ? 'lbl.acid' : w.kind === 'plain' ? 'lbl.elec' : '');
+  const vis = { 'lbl.porous': d, 'lbl.znso4': d, 'lbl.cuso4': d, 'lbl.acid': sol === 'lbl.acid', 'lbl.elec': sol === 'lbl.elec', 'lbl.h3po4': sol === 'lbl.h3po4', 'lbl.org': sol === 'lbl.org', 'lbl.big': !!w.series, 'lbl.small': !!w.series, 'lbl.h2in': fuel, 'lbl.o2in': fuel, 'lbl.h2oout': fuel };
   for (const k in vis) labelSp[k].visible = vis[k];
-  seriesGroup.visible = !!w.series;
+  setDyn(solDyn, w.solText); setDyn(emfLab, w.emfText);
+  seriesGroup.visible = !!w.series && w.series !== 'e0'; seriesE.visible = w.series === 'e0'; SP = w.series === 'e0' ? seriesPosE : seriesPos;
+  labelSp['lbl.big'].position.copy(SP[0]).add(V(2.1, 0.35, 0)); labelSp['lbl.small'].position.copy(SP[16]).add(V(-1.3, -0.5, 0));
 }
 function resetWorld() {
+  amb.length = 0; ambTick = null; hideGap(); $('gauge').hidden = true;
   ions.slice().forEach(removeIon); applyWorld(Q.world);
   Q.world.ions.forEach(([kind, side, n]) => { for (let i = 0; i < n; i++) addIon(kind, side); });
-  setAtomVisible(latZn, znSurfIndex, true);
+  { const a = latZn.mesh.geometry.attributes.position; latZn.pts.forEach((p, i) => a.setXYZ(i, p.x, p.y, p.z)); a.needsUpdate = true; }   // 溶け出した原子を元に戻す
   if (deposited) { scene.remove(deposited); deposited = null; }
   if (gasSp) { scene.remove(gasSp); gasSp = null; }
+  extras.forEach((sp) => scene.remove(sp)); extras.length = 0;
   player.position.copy(HOME_ZN); player.scale.setScalar(1); player.visible = true;
   buddy.position.copy(HOME_ZN).add(V(-0.25, -0.5, -0.3)); buddy.scale.setScalar(1); buddy.visible = true;
   ring.visible = false; focus = player; lampBoost = 0; beacon(null); firefly.visible = false;
@@ -918,7 +1155,8 @@ const VIEWS = {
   wire: { follow: true, az: 0.2, pol: 0.25, dist: () => 8.5 },
   cu:   { follow: true, az: -0.3, pol: 0.2, dist: () => 5.6 },
   mid:  { follow: true, az: 0.1, pol: 0.28, dist: () => 7.5 },
-  series: { follow: false, az: 0, pol: 0.06, dist: () => fitDist() * 0.68, t: V(0, 13.0, 0) },   // イオン化列の坂
+  gas:  { follow: true, az: 0.35, pol: 0.2, dist: () => 6.2 },   // 気体の通り道（燃料電池）
+  series: { follow: false, az: 0, pol: 0.06, dist: () => fitDist() * 0.77, t: V(0.2, 13.2, 0) },   // イオン化列の坂
 };
 function fitDist() { const tan = Math.tan((CONFIG.fov * Math.PI) / 360); return Math.max(15 / (2 * tan * camera.aspect), 12 / (2 * tan)); }
 function setView(name, keepToggle) {
@@ -964,7 +1202,7 @@ function updateCamera(dt) {
 function resize() {
   const w = stage.clientWidth, h = stage.clientHeight; if (!w || !h) return;
   renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix();
-  if (cam.all && cam.goal) { cam.goal.dist = fitDist(); cam.settle = Math.max(cam.settle, 0.6); }
+  if (cam.all && cam.goal) { cam.goal.dist = (VIEWS[phaseView].follow ? fitDist : VIEWS[phaseView].dist)(); cam.settle = Math.max(cam.settle, 0.6); }
 }
 new ResizeObserver(resize).observe(stage);
 
@@ -981,7 +1219,7 @@ function frame(now) {
   for (let i = tweens.length - 1; i >= 0; i--) { const tw = tweens[i]; tw.t += dt / tw.sec; tw.fn(Math.min(1, tw.t)); if (tw.t >= 1) { tweens.splice(i, 1); tw.res(); } }
   const ea = eGeo.attributes.position;
   decor.forEach((d, i) => {
-    if (d.wire) { d.u = (d.u + dt * 0.035) % 1; pathAt(U_WIRE0 + d.u * (U_WIRE1 - U_WIRE0), pv); }
+    if (d.wire) { d.u = (d.u + dt * 0.035 * wireFlow + 1) % 1; pathAt(U_WIRE0 + d.u * (U_WIRE1 - U_WIRE0), pv); }
     else pv.set(d.home.x + Math.sin(clock * 3.1 + d.ph) * 0.09, d.home.y + Math.sin(clock * 2.3 + d.ph * 2) * 0.12, d.home.z + Math.cos(clock * 2.7 + d.ph) * 0.09);
     ea.setXYZ(i, pv.x, pv.y, pv.z);
   });
@@ -1011,8 +1249,10 @@ function frame(now) {
     const micro = cam.follow && !cam.all; pv.copy(micro ? focus.position : cam.center || G.center).project(camera);
     const st = $('spot').style; st.setProperty('--sx', ((pv.x + 1) * 50).toFixed(1) + '%'); st.setProperty('--sy', ((1 - pv.y) * 50).toFixed(1) + '%'); st.setProperty('--sr', micro ? '26%' : '36%'); st.setProperty('--sa', micro ? '.5' : '.3');
   }
+  for (let i = amb.length - 1; i >= 0; i--) { const m = amb[i]; m.t += dt / m.dur; m.sp.position.lerpVectors(m.from, m.to, ease(Math.min(1, m.t))); if (m.t >= 1) { amb.splice(i, 1); if (m.done) m.done(); } }
+  if (ambTick) ambTick(dt);
   lampBoost = Math.max(0, lampBoost - dt * 0.7);
-  const lp = lampPower + lampBoost + Math.sin(clock * 1.7) * 0.05; lamp.material.emissiveIntensity = lp; lampGlow.scale.setScalar(2.2 + lp * 2.4); lampGlow.material.opacity = Math.min(1, 0.4 + lp * 0.45);
+  const lp = lampPower + lampBoost + (lampPower > 0.03 ? Math.sin(clock * 1.7) * 0.05 : 0); lamp.material.emissiveIntensity = lp; lampGlow.scale.setScalar(2.2 + lp * 2.4); lampGlow.material.opacity = Math.min(1, 0.04 + lp * 1.35);
   if (ring.visible) { ring.position.copy(focus.position); ring.material.rotation = clock * 0.6; }
   if (cam.all && cam.settle <= 0 && !REDUCED && idleSpin) cam.az += dt * 0.1;
   updateCamera(dt);
@@ -1053,13 +1293,13 @@ function render() {
 }
 function pick(i) {
   const o = ui.opts[i]; if (ui.done || o.dis) return;
-  if (o.ok) { ui.done = true; ui.fb = { k: o.why, good: true }; ui.expr = 'smile'; if (ui.first) RUN.st[stageNo].first++; recAsk(ui.rec, ui.key, ui.first); snd.ok(); bloom(focus.position); }
+  if (o.ok) { ui.done = true; ui.fb = { k: o.why, good: true }; ui.expr = 'smile'; if (ui.first) RUN.st[stageNo].first++; recAsk(ui.rec, ui.key, ui.first); snd.ok(); bloom(focus.position); if (ui.rec.onOk) ui.rec.onOk(); }
   else { o.dis = true; ui.first = false; RUN.miss++; recMiss(ui.rec, ui.key, o); ui.fb = { k: o.why, good: false }; ui.expr = 'sad'; snd.ng(); gloom(); }
   render();
 }
 const say = (key, btn = 'next', who, expr = 'normal') => new Promise((res) => { stagePos++; Object.assign(ui, { mode: 'say', key, btn, res, who: who || ui.who, expr }); render(); });
 const choose = (key, opts, who) => new Promise((res) => { stagePos++; Object.assign(ui, { mode: 'choose', key, opts, res, who: who || ui.who, expr: 'normal' }); render(); });
-const ask = (key, opts, who, rec) => new Promise((res) => { stagePos++; RUN.st[stageNo].asked++; Object.assign(ui, { mode: 'ask', key, rec: rec || { id: key }, opts: opts.map((o) => ({ ...o })), fb: null, done: false, first: true, res, who: who || ui.who, expr: 'normal' }); render(); });
+const ask = (key, opts, who, rec) => new Promise((res) => { hideGap(); stagePos++; RUN.st[stageNo].asked++; Object.assign(ui, { mode: 'ask', key, rec: rec || { id: key }, opts: opts.map((o) => ({ ...o })), fb: null, done: false, first: true, res, who: who || ui.who, expr: 'normal' }); render(); });
 const idle = (key, expr) => { Object.assign(ui, { mode: 'idle', key }); if (expr) ui.expr = expr; render(); };
 function hold(key, mover, who) {             // 押し続けている間だけ進む。mover(0〜1) がプレイヤーを動かす
   return new Promise((res) => {
@@ -1088,7 +1328,7 @@ const EDGE = V(G.znX + 0.66, G.surfY + 0.1, 0.25);
 const pickR = (a) => a[Math.floor(Math.random() * a.length)];
 const shuffle = (a) => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
 const on = (...ids) => ids.forEach((id) => { const el = $(id); if (el) el.classList.add('is-on'); });
-const stepPos = (i) => seriesPos[i].clone().add(V(0.12, 0.6, 0.1));
+const stepPos = (i) => SP[i].clone().add(V(0.12, 0.6, 0.1));
 const buddyOff = V(-0.25, -0.4, -0.25);
 const wireMove = (u0, u1) => (p) => { const u = u0 + (u1 - u0) * p; pathAt(u, player.position); pathAt(Math.max(0, u - 0.035), buddy.position); };
 const polyMove = (pts) => (p) => { const s = p * (pts.length - 1), i = Math.min(pts.length - 2, Math.floor(s)); player.position.lerpVectors(pts[i], pts[i + 1], s - i); buddy.position.copy(player.position).add(buddyOff); };
@@ -1159,10 +1399,10 @@ async function animIonCross(ion) {          // SO₄²⁻ は左へ、Zn²⁺ �
   snd.hop(); ion.side = 'L'; zn.side = 'R'; zn.frozen = false;
   await sleep(400);
 }
-async function animSlide() {                // イオン化列の坂を、Zn から Cu へ下る
+async function animSlide(popKey = 's.pop') { // 坂を、Zn から Cu へ下る
   beacon(null); snd.hop();
-  for (let i = 7; i <= 12; i++) { await moveTo(player, stepPos(i), 0.22); ripple(seriesPos[i], 0xffffff); }
-  pop('s.pop', 'is-gold', 2200); bloom(player.position);
+  for (let i = 7; i <= 12; i++) { await moveTo(player, stepPos(i), 0.22); ripple(SP[i], 0xffffff); }
+  pop(popKey, 'is-gold', 2200); bloom(player.position);
   await sleep(500);
 }
 const stageOx = (intro) => async () => {     // 亜鉛板の表面で酸化を見る（案内：エン）
@@ -1214,7 +1454,8 @@ const FACTS = {   // [問い, [[選択肢, 正解か]], 説明]
        ['g2.h', [['g.dec', 1], ['g.inc', 0], ['c.same', 0]], 'g2.h.why'], ['g2.same', [['g.stop', 1], ['g.more', 0]], 'g2.same.why']],
 };
 const factAsk = ([key, opts, why]) => ({ key, opts: shuffle(opts.map(([k, ok]) => ({ k, ok: !!ok, why }))), rec: { id: 'g.' + key } });
-function goldSet(qid) {
+const goldSet = (qid) => (QUESTS[qid].gold ? QUESTS[qid].gold() : goldBasic(qid));
+function goldBasic(qid) {
   if (qid === 'q0') return shuffle(['neg', 'pos', 'ox', 'flow', pickR(['neg', 'pos'])]).map(pairAsk);
   const v = shuffle([0, 1, 2]);
   return shuffle([molAsk(qid, v[0]), molAsk(qid, v[1]), ...shuffle(FACTS[qid]).slice(0, 2).map(factAsk), pairAsk(pickR(['neg', 'flow']))]);
@@ -1244,7 +1485,7 @@ const QUESTS = {
         setView('series');
         await say('s.intro', 'next', 'mikoto');
         await ask('s.q1', [{ k: 's.cu', why: 's.q1.bad' }, { k: 's.zn', ok: true, why: 's.q1.good' }], 'mikoto');
-        beacon(seriesPos[12]);
+        beacon(SP[12]);
         await say('s.slide', 's.slide.btn', 'mikoto'); idle('s.slide');
         await animSlide();
         await ask('s.q2', [{ k: 's.znP', ok: true, why: 's.q2.good' }, { k: 's.cuP', why: 's.q2.bad' }], 'mikoto');
@@ -1350,11 +1591,415 @@ const QUESTS = {
     },
   },
 };
-const QUEST_IDS = ['q0', 'q1', 'q2'];
+/* ═════════ v0.3：電池編の残り（クエスト3〜8）の動きと問い ═════════ */
+const ZN_OUT = ZN_SURF.clone().add(V(0.5, 0, 0));    // 左の板のすぐ外（水溶液側）
+const byX = (kind) => ions.filter((i) => i.kind === kind && !i.amb).sort((a, b) => b.sp.position.x - a.sp.position.x);   // 右（正極側）に近い順
+async function pulseE() { await anim(0.6, (t) => { const s = 1 + Math.sin(t * Math.PI) * 0.7; player.scale.setScalar(s); buddy.scale.setScalar(s); }); }
+// 数を変えた問いを作る。vals の最初が正解。同じ値になった選択肢は省く
+function numAsk(key, vals, unit, why, id, label) {
+  const f = (x) => String(Math.round(x * 100) / 100), seen = new Set(), o = [];
+  vals.forEach((x, i) => { const s = f(x); if (seen.has(s)) return; seen.add(s); o.push({ k: [s + unit[0], s + unit[1]], ok: i === 0, why }); });
+  return { key, opts: shuffle(o), rec: { id, label: '（数を変えた問い）' + label, dyn: true } };
+}
+
+/* クエスト3：早送り。答えるまで続く背景の動き（Zn が溶け、Cu²⁺ が銅になって析出し、イオンが素焼き板を行き来する） */
+const znSurfList = latZn.pts.map((p, i) => i).filter((i) => Math.abs(latZn.pts[i].x - (G.znX + 0.4)) < 0.01 && i !== znSurfIndex);
+const depSpot = (k) => V(G.cuX - 0.78 - Math.floor(k / 14) * 0.2, 1.2 + (k % 7) * 0.5, -0.5 + (Math.floor(k / 7) % 2) * 0.8);
+let runCount = 0;
+function runStep() {                         // 早送りの1こま
+  const cu = ions.find((x) => x.kind === 'cu' && !x.frozen); if (!cu) return false;
+  const k = runCount++; cu.frozen = true;
+  if (znSurfList[k] !== undefined) setAtomVisible(latZn, znSurfList[k], false);
+  addIon('zn', 'L', ZN_OUT.clone().add(V(0, rnd(-1, 1.5), rnd(-0.8, 0.5)))); ripple(ZN_SURF, 0xf2a9a0);
+  ambMove(cu.sp, depSpot(k), 0.55, () => { removeIon(cu); stick('cuA', depSpot(k), 0.5); ripple(depSpot(k), 0x9ccde0); });
+  liqR.material.opacity = Math.max(0.1, liqR.material.opacity - 0.02);
+  if (k % 2 === 0) {                         // イオンが素焼き板を通る：Zn²⁺ は銅側へ、SO₄²⁻ は亜鉛側へ
+    const zn = ions.find((x) => x.kind === 'zn' && x.side === 'L' && !x.frozen), so = ions.find((x) => x.kind === 'so4' && x.side === 'R' && !x.frozen);
+    if (zn) { zn.frozen = true; ambMove(zn.sp, V(rnd(0.6, 1.6), zn.sp.position.y, zn.sp.position.z), 1.8, () => { zn.side = 'R'; zn.frozen = false; }); }
+    if (so) { so.frozen = true; ambMove(so.sp, V(rnd(-1.6, -0.6), so.sp.position.y, so.sp.position.z), 1.8, () => { so.side = 'L'; so.frozen = false; }); }
+  }
+  return true;
+}
+const runTick = (every, floor) => { let acc = every; return (dt) => { acc += dt; if (acc < every) return; acc = 0; if (ions.filter((x) => x.kind === 'cu').length > floor) { runStep(); snd.tick(); } }; };
+
+/* クエスト4：電池図鑑。電池ごとに、電極の札・色、電解質、灯りの明るさ（起電力）、電子の流れを切り替えて見せる */
+const BATT = [
+  { n: ['マンガン乾電池', 'manganese dry cell'], neg: 'Zn', pos: 'MnO₂', el: ['電解質 ZnCl₂・NH₄Cl', 'Electrolyte ZnCl₂, NH₄Cl'], v: 1.5, sec: 0, cn: '#B9B4EA', cp: '#BCA89C' },
+  { n: ['アルカリマンガン乾電池', 'alkaline manganese cell'], neg: 'Zn', pos: 'MnO₂', el: ['電解質 KOH', 'Electrolyte KOH'], v: 1.5, sec: 0, cn: '#B9B4EA', cp: '#BCA89C' },
+  { n: ['リチウム電池', 'lithium battery'], neg: 'Li', pos: 'MnO₂', el: ['電解質 Li 塩', 'Electrolyte: Li salt'], v: 3.0, sec: 0, cn: '#CFE6C0', cp: '#BCA89C' },
+  { n: ['鉛蓄電池', 'lead storage battery'], neg: 'Pb', pos: 'PbO₂', el: ['電解質 H₂SO₄', 'Electrolyte H₂SO₄'], v: 2.0, sec: 1, cn: '#BFC4D8', cp: '#DDB79E' },
+  { n: ['ニッケル・水素電池', 'nickel–metal hydride battery'], neg: 'MH（水素吸蔵合金）', pos: 'NiO(OH)', el: ['電解質 KOH', 'Electrolyte KOH'], v: 1.35, sec: 1, cn: '#C4D6CC', cp: '#A6CDB6' },
+  { n: ['リチウムイオン電池', 'lithium-ion battery'], neg: 'C₆Liₓ', pos: 'Li₍₁₋ₓ₎CoO₂', el: ['電解質 Li 塩（有機溶媒）', 'Electrolyte: Li salt (organic)'], v: 4.0, sec: 1, cn: '#BCC1D6', cp: '#A8C4EA' },
+  { n: ['燃料電池（リン酸形）', 'fuel cell (phosphoric acid)'], neg: 'H₂', pos: 'O₂', el: ['電解質 H₃PO₄', 'Electrolyte H₃PO₄'], v: 1.2, sec: null, cn: '#C2C5D6', cp: '#C2C5D6' },
+];
+function showBatt(b) {                       // 装置をその電池の姿にする。起電力が大きいほど灯りが明るく、電子の流れが速い
+  amb.length = 0;
+  applyWorld({ kind: 'plain', solText: b.el, emfText: [`${b.n[0]}　起電力 ${b.v} V`, `${b.n[1]}: ${b.v} V`], ions: [],
+    el: { L: { c: b.cn, hi: '#FFFFFF', plate: mixHex(b.cn, '#FFFFFF', 0.45), label: [`負極 ${b.neg}`, `− pole ${b.neg}`] }, R: { c: b.cp, hi: '#FFFFFF', plate: mixHex(b.cp, '#FFFFFF', 0.45), label: [`正極 ${b.pos}`, `+ pole ${b.pos}`] } } });
+  lampPower = 0.12 + b.v * 0.16; wireFlow = b.v / 1.5; ripple(lamp.position, 0xffe9a8); lampBoost = 0.5;
+}
+async function battCharge(b) {               // 二次電池なら充電（電子が逆向きに流れる）。一次電池は充電できない
+  if (b.sec) { wireFlow = -2.2; lampPower = 0.05; pop('b.chg.pop', 'is-gold', 2600); await sleep(2800); showBatt(b); }
+  else { pop('b.pri.pop', 'is-ng', 2400); const p = lampPower; await anim(1.6, (t) => { lampPower = p * (1 - t); wireFlow = (b.v / 1.5) * (1 - t); }); await sleep(500); showBatt(b); }
+}
+function battAsk(kind, b) {
+  b = b || pickR(BATT.filter((x) => kind !== 'sec' || x.sec !== null));
+  const info = [`${b.n[0]}：負極 ${b.neg}、正極 ${b.pos}、起電力 ${b.v} V${b.sec === null ? '' : b.sec ? '、二次電池' : '、一次電池'}。`, `The ${b.n[1]}: negative ${b.neg}, positive ${b.pos}, ${b.v} V${b.sec === null ? '' : b.sec ? ', secondary' : ', primary'}.`];
+  const rec = { id: 'g.batt.' + kind, label: '（電池を変えた問い）' + { sec: '一次電池か二次電池か', neg: '負極活物質', pos: '正極活物質', v: '起電力' }[kind], dyn: true };
+  const pre = () => { showBatt(b); beacon(kind === 'neg' ? ZN_SURF : kind === 'pos' ? SPOT : kind === 'v' ? lamp.position : null); };
+  if (kind === 'sec') { rec.onOk = () => { battCharge(b); }; return { pre, key: [`いま見えているのは<b>${b.n[0]}</b>。この電池は？`, `This is a <b>${b.n[1]}</b>. It is…`], opts: [{ k: 'b.pri', ok: !b.sec, why: info }, { k: 'b.sec', ok: !!b.sec, why: info }], rec }; }
+  if (kind === 'v') {
+    const vals = [b.v]; for (const x of shuffle(BATT)) if (!vals.includes(x.v)) { vals.push(x.v); if (vals.length === 4) break; }
+    rec.onOk = () => { lampBoost = 1.2; };
+    return { pre, key: [`<b>${b.n[0]}</b>の灯りを見よう。起電力は？`, `Look at the lamp of the <b>${b.n[1]}</b>. What is its electromotive force?`], opts: shuffle(vals.map((x, i) => ({ k: [x + ' V', x + ' V'], ok: i === 0, why: info }))), rec };
+  }
+  const vals = [b[kind]]; for (const x of shuffle(BATT)) if (!vals.includes(x[kind])) { vals.push(x[kind]); if (vals.length === 3) break; }
+  rec.onOk = () => { beacon(null); bloom(kind === 'neg' ? ZN_SURF : SPOT); };
+  return { pre, key: [`<b>${b.n[0]}</b>の${kind === 'neg' ? '負極（電子を出す側）' : '正極（電子を受け取る側）'}の活物質は？`, `What is the ${kind === 'neg' ? 'negative (electron-giving)' : 'positive (electron-taking)'} active material of the <b>${b.n[1]}</b>?`], opts: shuffle(vals.map((x, i) => ({ k: [x, x], ok: i === 0, why: info }))), rec };
+}
+function battSet(kinds) { const pool = shuffle(BATT); return kinds.map((kind) => { const i = pool.findIndex((x) => kind !== 'sec' || x.sec !== null); return battAsk(kind, pool.splice(i, 1)[0]); }); }
+
+/* クエスト5：鉛蓄電池 */
+async function animPbNeg() {                // Pb + SO₄²⁻ → PbSO₄ + 2e⁻
+  beacon(null); const so4 = ions.find((i) => i.kind === 'so4'); so4.frozen = true; await guideTo(ZN_SURF);
+  reveal('n1'); await moveTo(so4.sp, ZN_OUT, 1.2); reveal('n2'); snd.hop();
+  setAtomVisible(latZn, znSurfIndex, false); removeIon(so4); stick('pbso4', ZN_SURF.clone().add(V(0.3, 0, 0))); ripple(ZN_SURF, 0xf2a9a0); reveal('n3');
+  await pulseE(); reveal('n4'); pop('pb.neg.pop', 'is-ox', 2600); await sleep(600);
+}
+async function animPbPos() {                // PbO₂ + 4H⁺ + SO₄²⁻ + 2e⁻ → PbSO₄ + 2H₂O
+  beacon(null); const hs = byX('h').slice(0, 4), so4 = byX('so4')[0], all = [...hs, so4]; all.forEach((i) => { i.frozen = true; });
+  await guideTo(so4.sp.position); reveal('p1');
+  await Promise.all([moveTo(so4.sp, SPOT, 1.2), ...hs.map((h, k) => moveTo(h.sp, SPOT.clone().add(V(-0.3, (k - 1.5) * 0.3, 0)), 1.2))]); reveal('p2'); snd.hop();
+  await Promise.all([moveTo(player, SPOT, 0.5), moveTo(buddy, SPOT, 0.6)]); reveal('p3');
+  all.forEach(removeIon); stick('pbso4', SPOT.clone().add(V(0.12, 0, 0))); ripple(SPOT, 0x9ccde0); buddy.visible = false;
+  addIon('h2o', 'A', SPOT.clone().add(V(-0.35, 0.3, 0))); addIon('h2o', 'A', SPOT.clone().add(V(-0.35, -0.3, 0)));
+  reveal('p4'); pop('pb.pos.pop', 'is-red', 2800); await sleep(900); reveal('nk', 'pk');
+}
+function pbAsk(v) {
+  const n = pickR([0.5, 1, 4]), g = [' g', ' g'], mol = [' mol', ' mol'];
+  return [
+    () => numAsk([`鉛蓄電池で、電子が <b>${n} mol</b> 流れた。\n<b>負極</b>の質量は何 g 増える？（O = 16、S = 32）`, `In a lead storage battery, <b>${n} mol</b> of electrons flowed.\nHow many grams does the <b>negative pole</b> gain? (O = 16, S = 32)`], [48 * n, 32 * n, 96 * n, 24 * n], g, ['Pb が PbSO₄ になるから、SO₄ の分だけ増える。電子 2 mol で SO₄ 1 mol 分（96 g）。', 'Pb becomes PbSO₄, so it gains SO₄: 1 mol of SO₄ (96 g) per 2 mol of electrons.'], 'g.pb.neg', '鉛蓄電池の負極の質量の増加'),
+    () => numAsk([`鉛蓄電池で、電子が <b>${n} mol</b> 流れた。\n<b>正極</b>の質量は何 g 増える？（O = 16、S = 32）`, `In a lead storage battery, <b>${n} mol</b> of electrons flowed.\nHow many grams does the <b>positive pole</b> gain? (O = 16, S = 32)`], [32 * n, 48 * n, 64 * n, 16 * n], g, ['PbO₂ が PbSO₄ になるから、SO₂ の分だけ増える。電子 2 mol で SO₂ 1 mol 分（64 g）。', 'PbO₂ becomes PbSO₄, so it gains SO₂: 1 mol of SO₂ (64 g) per 2 mol of electrons.'], 'g.pb.pos', '鉛蓄電池の正極の質量の増加'),
+    () => numAsk([`鉛蓄電池で、電子が <b>${n} mol</b> 流れた。\n使われた硫酸 H₂SO₄ は？`, `In a lead storage battery, <b>${n} mol</b> of electrons flowed.\nHow much sulfuric acid H₂SO₄ was used?`], [n, 2 * n, n / 2, 4 * n], mol, ['Pb + PbO₂ + 2H₂SO₄ → 2PbSO₄ + 2H₂O。電子 2 mol で H₂SO₄ 2 mol。', 'Pb + PbO₂ + 2H₂SO₄ → 2PbSO₄ + 2H₂O: 2 mol of electrons use 2 mol of H₂SO₄.'], 'g.pb.acid', '鉛蓄電池で使われる硫酸の量'),
+  ][v]();
+}
+
+/* クエスト6：燃料電池（左から 水素の通り道｜負極｜電解質｜正極｜酸素の通り道）
+   背景でずっと動く流れ：H₂ が負極で H⁺ と電子に分かれ、H⁺ は電解質を、電子は導線を通り、正極で O₂ と出会って水になる */
+let mates = [], myH2 = null;
+const unstick = (sp) => { scene.remove(sp); const i = extras.indexOf(sp); if (i >= 0) extras.splice(i, 1); };
+function fuelTick() {
+  let a = 1.4, b = 3.0;
+  return (dt) => {
+    a += dt; b += dt;
+    if (a > 2.4) { a = 0; const z = rnd(-0.7, 0.7), y = rnd(1.4, 5.4), g = stick('h2', V(-4.95 + rnd(-0.3, 0.3), 6.1, z), 0.6);
+      ambMove(g, V(-4.3, y, z), 1.6, () => { unstick(g); ripple(V(-2.85, y, z), 0xf2a9a0);
+        [0.16, -0.16].forEach((d) => { const h = addIon('h', 'A', V(-2.6, y + d, z)); h.frozen = true; h.amb = true; ambMove(h.sp, V(2.6, y + d + rnd(-0.5, 0.5), z), 4.6, () => removeIon(h)); }); }); }
+    if (b > 4.8) { b = 0; const z = rnd(-0.7, 0.7), y = rnd(1.6, 5.2), o = stick('o2', V(4.95 + rnd(-0.3, 0.3), 6.1, z), 0.62);
+      ambMove(o, V(4.3, y, z), 1.6, () => { unstick(o); ripple(V(2.85, y, z), 0x9ccde0);
+        [0.2, -0.2].forEach((d) => { const w = stick('h2o', V(4.4, y + d, z), 0.5); ambMove(w, V(4.95, 0.9, z), 2.2, () => unstick(w)); }); }); }
+  };
+}
+async function animFuelNeg() {              // H₂ → 2H⁺ + 2e⁻：水素分子に乗って負極の表面へ行き、電子として負極に入る
+  beacon(null); const at = V(G.znX - 0.75, G.surfY + 0.1, 0.25), g = myH2, f0 = g.position.clone(), p0 = player.position.clone(), b0 = buddy.position.clone(); reveal('n1');
+  await anim(1.5, (t) => { const e = ease(t); g.position.lerpVectors(f0, at, e); player.position.lerpVectors(p0, at.clone().add(V(-0.1, 0, 0.05)), e); buddy.position.lerpVectors(b0, at.clone().add(V(0.12, -0.05, 0.05)), e); });
+  snd.hop(); unstick(g); myH2 = null; ripple(at, 0xf2a9a0);
+  addIon('h', 'A', ZN_OUT.clone().add(V(0, 0.22, 0))); addIon('h', 'A', ZN_OUT.clone().add(V(0, -0.22, 0))); reveal('n2');
+  setView('zn');
+  await Promise.all([moveTo(player, HOME_ZN, 0.7), moveTo(buddy, HOME_ZN.clone().add(V(-0.25, -0.5, -0.3)), 0.7)]);
+  await pulseE(); reveal('n3'); pop('fc.neg.pop', 'is-ox', 2600); await sleep(600);
+}
+async function animFuelWait() {             // あと2個の電子が導線から来る
+  beacon(null); snd.hop();
+  mates = [0, 1].map(() => { const s = new THREE.Sprite(buddy.children[1].material.clone()); s.scale.setScalar(0.4); s.renderOrder = 8; s.position.set(G.cuX, 6.2, 0); scene.add(s); extras.push(s); return s; });
+  await Promise.all(mates.map((s, i) => moveTo(s, HOME_CU.clone().add(V(0.1 + i * 0.28, 0.55, -0.2)), 1.1)));
+}
+async function animFuelPos() {              // O₂ + 4H⁺ + 4e⁻ → 2H₂O
+  const o2 = stick('o2', V(4.95, 4.6, 0.2)), hs = byX('h').slice(0, 4); hs.forEach((i) => { i.frozen = true; });
+  await guideTo(o2.position); reveal('p1');
+  await Promise.all([moveTo(o2, SPOT.clone().add(V(0.25, 0, 0)), 1.3), ...hs.map((h, k) => moveTo(h.sp, SPOT.clone().add(V(-0.3, (k - 1.5) * 0.3, 0)), 1.3))]); reveal('p2'); snd.hop();
+  await Promise.all([moveTo(player, SPOT, 0.5), moveTo(buddy, SPOT, 0.6), ...mates.map((s) => moveTo(s, SPOT, 0.6))]); reveal('p3');
+  hs.forEach(removeIon); unstick(o2); mates.forEach(unstick); mates = []; buddy.visible = false; player.visible = false; ripple(SPOT, 0x9ccde0);
+  const w = [stick('h2o', SPOT.clone().add(V(0.2, 0.2, 0))), stick('h2o', SPOT.clone().add(V(0.2, -0.2, 0)))]; reveal('p4'); pop('fc.pos.pop', 'is-red', 2800);
+  await Promise.all(w.map((s, i) => moveTo(s, V(4.95, 1.2 + i * 0.6, 0.2), 1.8))); w.forEach(unstick); reveal('nk', 'pk');
+}
+function fcAsk(v) {
+  const n = pickR([0.5, 1, 3]), mol = [' mol', ' mol'];
+  return [
+    () => numAsk([`燃料電池で、水素 H₂ が <b>${n} mol</b> 反応した。\n流れた電子は？`, `In a fuel cell, <b>${n} mol</b> of hydrogen H₂ reacted.\nHow many electrons flowed?`], [2 * n, n, 4 * n, n / 2], mol, ['H₂ → 2H⁺ + 2e⁻。H₂ 1 mol で電子 2 mol。', 'H₂ → 2H⁺ + 2e⁻: 2 mol of electrons per mole of H₂.'], 'g.fc.h2', '燃料電池の水素と電子の量'),
+    () => numAsk([`燃料電池で、酸素 O₂ が <b>${n} mol</b> 反応した。\n流れた電子は？`, `In a fuel cell, <b>${n} mol</b> of oxygen O₂ reacted.\nHow many electrons flowed?`], [4 * n, 2 * n, n, 8 * n], mol, ['O₂ + 4H⁺ + 4e⁻ → 2H₂O。O₂ 1 mol で電子 4 mol。', 'O₂ + 4H⁺ + 4e⁻ → 2H₂O: 4 mol of electrons per mole of O₂.'], 'g.fc.o2', '燃料電池の酸素と電子の量'),
+    () => numAsk([`燃料電池で、電子が <b>${4 * n} mol</b> 流れた。\nできた水 H₂O は？`, `In a fuel cell, <b>${4 * n} mol</b> of electrons flowed.\nHow much water H₂O formed?`], [2 * n, 4 * n, n, 8 * n], mol, ['電子 4 mol で H₂O が 2 mol。', '4 mol of electrons give 2 mol of H₂O.'], 'g.fc.h2o', '燃料電池の電子と水の量'),
+  ][v]();
+}
+
+/* クエスト7：リチウムイオン電池（厚い層が重なった電極。層のあいだに Li⁺ が泊まる） */
+let travelLi = null;
+const LI_GAP = (i) => 1.475 + i * 0.85;      // 層と層のあいだの高さ
+async function animLiOut() {                // 負極の層のあいだから Li⁺ が出ていく
+  beacon(null); const li = travelLi; await guideTo(li.position); reveal('n1');
+  snd.hop(); await moveTo(li, V(-2.55, li.position.y, li.position.z), 1.0); reveal('n2'); ripple(li.position, 0xf2a9a0); await pulseE(); reveal('n3'); pop('li.pop', 'is-ox', 2400);
+  moveTo(li, V(1.6, 2.6, 0.2), 2.6); await sleep(800);
+}
+async function animLiIn() {                 // 正極の層のあいだに Li⁺ が入り、電子も受け取られる
+  beacon(null); const li = travelLi; reveal('p1'); await moveTo(li, V(2.6, LI_GAP(1), 0.25), 0.9); snd.hop();
+  await Promise.all([moveTo(li, V(G.cuX + 0.2, LI_GAP(1), 0.25), 0.9), moveTo(player, V(G.cuX + 0.3, 2.75, 0.25), 0.9)]); reveal('p2'); ripple(SPOT, 0x9ccde0); buddy.visible = false;
+  reveal('p3'); pop('li.pos.pop', 'is-red', 2600); await sleep(700); reveal('nk', 'pk');
+}
+/* 放電容量のメーター：残りの量（mAh）が、電流（mA）×時間（h）の分だけ減っていく */
+const GA = { cap: 5000, lvl: 5000, cur: 400, h: 0 };
+function gaugeDraw() {
+  $('gaFill').style.width = Math.max(0, (GA.lvl / GA.cap) * 100).toFixed(1) + '%'; $('gaLvl').textContent = `${Math.max(0, Math.round(GA.lvl))} mAh / ${GA.cap} mAh`;
+  $('gaInfo').innerHTML = `${tt('ga.cur')} <b>${GA.cur} mA</b>　${tt('ga.time')} <b>${(Math.round(GA.h * 100) / 100).toFixed(2)} ${tt('ga.h')}</b>　${tt('ga.used')} <b>${Math.round(GA.cur * GA.h)} mAh</b>`;
+}
+function gaugeShow(cap, lvl, cur) { Object.assign(GA, { cap, lvl, cur, h: 0 }); $('gauge').hidden = false; gaugeDraw(); }
+function gaugeHide() { $('gauge').hidden = true; }
+async function gaugeRun(hours, sec) { const l0 = GA.lvl, h0 = GA.h; snd.hop(); await anim(sec, (t) => { GA.h = h0 + hours * t; GA.lvl = l0 - GA.cur * hours * t; lampBoost = 0.3; gaugeDraw(); }); }
+function mahAsk(v) {
+  const C = pickR([3000, 4000, 5000]), pct = pickR([80, 90]), I = pickR([200, 400, 500]), t = pickR([0.5, 1.5, 2]), h = (C * pct) / 100 / I;
+  const q = v === 0
+    ? numAsk([`放電容量 <b>${C} mAh</b> の電池を <b>${pct} %</b> まで充電した。\n平均 <b>${I} mA</b> で使うと、何時間使える？`, `A <b>${C} mAh</b> battery is charged to <b>${pct} %</b>.\nAt an average of <b>${I} mA</b>, how many hours will it last?`], [h, C / I, h / 2, h * 2], [' 時間', ' h'], [`①充電した量：${C} × ${pct / 100} ＝ ${(C * pct) / 100} mAh　②1時間に ${I} mAh ずつ減る　③${(C * pct) / 100} ÷ ${I} ＝ ${Math.round(h * 100) / 100} 時間`, `1) Charged: ${C} × ${pct / 100} = ${(C * pct) / 100} mAh  2) It drops ${I} mAh every hour  3) ${(C * pct) / 100} ÷ ${I} = ${Math.round(h * 100) / 100} h`], 'g.li.hours', '放電容量から使える時間を求める')
+    : numAsk([`電池を、平均 <b>${I} mA</b> で <b>${t} 時間</b>使った。\n使った容量は？`, `A battery is used for <b>${t} h</b> at an average of <b>${I} mA</b>.\nHow much capacity was used?`], [I * t, I, I * t * 2, I * t / 2], [' mAh', ' mAh'], [`使った量 ＝ 電流 × 時間 ＝ ${I} mA × ${t} h ＝ ${I * t} mAh`, `Used = current × time = ${I} mA × ${t} h = ${I * t} mAh`], 'g.li.used', '使った放電容量を求める');
+  q.pre = () => gaugeShow(C, v === 0 ? (C * pct) / 100 : C, I); q.rec.onOk = () => { gaugeRun(v === 0 ? h : t, 2.6); };
+  return q;
+}
+
+/* クエスト8：標準電極電位 */
+const E_METALS = [['Mg', -2.36], ['Al', -1.68], ['Zn', -0.76], ['Fe', -0.44], ['Ni', -0.26], ['Sn', -0.14], ['Cu', 0.34], ['Ag', 0.80]];
+function emfAsk() {
+  const a = pickR(E_METALS); let b; do { b = pickR(E_METALS); } while (b === a);
+  const [neg, pos] = a[1] < b[1] ? [a, b] : [b, a], f = (x) => (x > 0 ? '+' : '−') + Math.abs(x).toFixed(2), ans = pos[1] - neg[1];
+  const q = numAsk([`負極が ${neg[0]}（E° = ${f(neg[1])} V）、正極が ${pos[0]}（E° = ${f(pos[1])} V）の電池。\n<b>起電力</b>は？`, `A cell with ${neg[0]} (E° = ${f(neg[1])} V) as the negative pole and ${pos[0]} (E° = ${f(pos[1])} V) as the positive pole.\nWhat is its <b>electromotive force</b>?`],
+    [ans, Math.abs(Math.abs(pos[1]) - Math.abs(neg[1])) === ans ? ans + 0.3 : Math.abs(Math.abs(pos[1]) - Math.abs(neg[1])), ans + 0.5, ans / 2], [' V', ' V'],
+    [`E°(正極) − E°(負極) ＝ ${f(pos[1])} −（${f(neg[1])}）＝ ${ans.toFixed(2)} V。図の2本の線の高さの差。`, `E°(positive) − E°(negative) = ${f(pos[1])} − (${f(neg[1])}) = ${ans.toFixed(2)} V: the height difference between the two lines.`], 'g.emf', 'E° から起電力を求める');
+  q.rec.onOk = () => showGap(SERIES.indexOf(neg[0]), SERIES.indexOf(pos[0]), ans.toFixed(2) + ' V');
+  return q;
+}
+
+Object.assign(FACTS, {
+  q5: [['pb.q4', [['c.small', 1], ['c.large', 0], ['c.same', 0]], 'pb.q4.good'], ['pb.q5', [['pb.q5.a', 1], ['pb.q5.b', 0]], 'pb.q5.good'], ['pb.q2', [['pb.q2.a', 1], ['pb.q2.b', 0]], 'pb.q2.good']],
+  q6: [['fc.q2', [['c.h', 1], ['c.e', 0], ['c.o2', 0]], 'fc.q2.good'], ['fc.q3', [['fc.n4', 1], ['fc.n2', 0], ['fc.n1', 0]], 'fc.q3.good']],
+  q7: [['li.q1', [['li.q1.a', 1], ['li.q1.b', 0]], 'li.q1.good'], ['li.q3', [['li.q3.a', 1], ['li.q3.b', 0], ['li.q3.c', 0]], 'li.q3.good']],
+  q8: [['e.q1', [['e.big', 1], ['e.sm', 0]], 'e.q1.good'], ['e.q3', [['e.q3.a', 1], ['e.q3.b', 0]], 'e.q3.good']],
+});
+const EQ_ALL = (...ids) => on(...ids);
+const GRAY = { c: '#C2C5D6', hi: '#F3F4FA', plate: '#DDDFEA' };
+
+Object.assign(QUESTS, {
+  q3: {
+    id: 'q3', no: 'q3.no', name: 'q3.name', sub: 'q3.sub', sum: 'res.sum.q3', side: 'L',
+    world: { kind: 'daniell', ions: [['zn', 'L', 4], ['so4', 'L', 5], ['cu', 'R', 14], ['so4', 'R', 9]] }, eq: QUESTS.q1.eq, gold: () => goldBasic('q1'),
+    stages: [
+      async () => {                               // ① 早送り。問いに答えるまで続く
+        setView('all');
+        await say('c3.intro', 'c3.btn', 'mikoto'); idle('c3.intro');
+        runCount = 0; ambTick = runTick(1.2, 3); idleSpin = true; pop('c3.pop', 'is-gold', 4200);
+        await sleep(6500);
+        await ask('c3.q1', [{ k: 'c.zn2', why: 'c3.q1.bad' }, { k: 'c.cu2', ok: true, why: 'c3.q1.good' }, { k: 'c.so4', why: 'c3.q1.bad' }], 'akane');
+        ambTick = null;
+        await ask('c3.q2', [{ k: 'c.zn2', ok: true, why: 'c3.q2.good' }, { k: 'c.cu2', why: 'c3.q2.bad' }, { k: 'c.so4', why: 'c3.q2.bad' }], 'en');
+      },
+      async () => {                               // ② Cu²⁺ がなくなると、導線の電子が止まり、灯りが消える
+        setView('all');
+        await say('c3.more', 'c3.btn', 'mikoto'); idle('c3.more'); idleSpin = true;
+        ambTick = runTick(0.5, 0);
+        while (ions.some((x) => x.kind === 'cu')) await sleep(300);
+        ambTick = null; wireFlow = 0; lampPower = 0; gloom(); snd.bounce(); pop('c3.pop2', 'is-ng', 2800); await sleep(1200);
+        await ask('c3.q3', [{ k: 'c3.a32', why: 'c3.q3.bad' }, { k: 'c3.a31', ok: true, why: 'c3.q3.good' }, { k: 'c3.a33', why: 'c3.q3.bad' }], 'mikoto');
+      },
+      async () => {                               // ③ 作戦を立てる
+        setView('all'); idleSpin = true;
+        await ask('conc.q', [{ k: 'c.conc.a', ok: true, why: 'conc.good' }, { k: 'c.conc.b', why: 'conc.bad' }, { k: 'c.conc.d', why: 'conc.bad' }, { k: 'c.conc.c', why: 'conc.bad' }], 'mikoto');
+        await ask('c3.q5', [{ k: 'c3.a52', why: 'c3.q5.bad' }, { k: 'c3.a53', why: 'c3.q5.bad' }, { k: 'c3.a51', ok: true, why: 'c3.q5.good' }], 'mikoto');
+      },
+    ],
+    setup(n) {
+      resetWorld(); runCount = 0; on('n1', 'n2', 'n3', 'p1', 'p2', 'p3', 'nk', 'pk');
+      if (n === 1) { for (let i = 0; i < 10; i++) { removeIon(ions.find((x) => x.kind === 'cu')); stick('cuA', depSpot(i), 0.5); addIon('zn', i % 3 ? 'L' : 'R'); if (znSurfList[i] !== undefined) setAtomVisible(latZn, znSurfList[i], false); } runCount = 10; liqR.material.opacity = 0.2; }
+    },
+  },
+  q4: {
+    id: 'q4', no: 'q4.no', name: 'q4.name', sub: 'q4.sub', sum: 'res.sum.q4', side: 'A',
+    world: { kind: 'plain', sol: 'lbl.elec', ions: [] },
+    eq: [{ cls: 's', pole: 'pole.terms', terms: [['b1', ['放電', 'discharge']], ['b2', ['充電', 'charge']], ['b3', ['一次電池', 'primary']], ['b4', ['二次電池', 'secondary']], ['b5', ['活物質', 'active material']], ['b6', ['起電力', 'EMF']]] }],
+    gold: () => battSet(shuffle(['sec', 'neg', 'v', 'pos', 'sec'])),
+    stages: [
+      async () => {                               // ① 放電と充電を、鉛蓄電池の電子の流れで見る
+        setView('all'); idleSpin = true; const pb = BATT[3];
+        showBatt(pb); on('b1');
+        await say('b.dis', 'next', 'mikoto');
+        wireFlow = -2.2; lampPower = 0.05; pop('b.chg.pop', 'is-gold', 2800); on('b2', 'b3', 'b4');
+        await say('b.chg', 'next', 'mikoto'); showBatt(pb);
+        await ask('b.q1', [{ k: 'b.pri', why: 'b.q1.bad' }, { k: 'b.sec', ok: true, why: 'b.q1.good' }], 'mikoto', { id: 'b.q1', onOk: () => { battCharge(pb); } });
+        beacon(ZN_SURF);
+        await ask('b.q2', [{ k: 'b.ele', why: 'b.q2.bad' }, { k: 'b.act', ok: true, why: 'b.q2.good' }, { k: 'b.emf', why: 'b.q2.bad' }], 'mikoto', { id: 'b.q2', onOk: () => { beacon(null); bloom(ZN_SURF); bloom(SPOT); } }); on('b5', 'b6');
+      },
+      async () => {                               // ② マンガン乾電池（一次電池）
+        setView('all'); idleSpin = true; const mn = BATT[0];
+        showBatt(mn); beacon(ZN_SURF);
+        await say('b.mn', 'next', 'en'); beacon(null);
+        await ask('b.q3', [{ k: 'b.pri', ok: true, why: 'b.q3.good' }, { k: 'b.sec', why: 'b.q3.bad' }], 'en', { id: 'b.q3', onOk: () => { battCharge(mn); } });
+      },
+      async () => {                               // ③ 図鑑づくり：電池が入れかわり、その電池について答える
+        setView('all'); idleSpin = true;
+        await say('b.cards', 'next', 'mikoto');
+        for (const q of battSet(shuffle(['sec', 'neg', 'v', 'pos']))) { q.pre(); await ask(q.key, q.opts, 'mikoto', q.rec); beacon(null); pop('b.pop', 'is-gold', 1500); }
+      },
+    ],
+    setup(n) { resetWorld(); if (n >= 1) on('b1', 'b2', 'b3', 'b4', 'b5', 'b6'); },
+  },
+  q5: {
+    id: 'q5', no: 'q5.no', name: 'q5.name', sub: 'q5.sub', sum: 'res.sum.q5', side: 'A', pred: true,
+    world: { kind: 'acid', sol: 'lbl.acid', ions: [['h', 'A', 12], ['so4', 'A', 6]], el: { L: { c: '#BFC4D8', hi: '#F2F3FA', plate: '#DCDFEA', label: 'lbl.pb' }, R: { c: '#DDB79E', hi: '#FBEFE4', plate: '#F0DCCB', label: 'lbl.pbo2' } } },
+    eq: [{ cls: 'n', long: 1, pole: 'pole.n', terms: [['n1', 'Pb'], ['n2', '+ SO₄²⁻'], ['n3', '→ PbSO₄'], ['n4', '+ 2e⁻', 1]], kind: 'kind.ox', kid: 'nk' },
+         { cls: 'p', long: 1, pole: 'pole.p', terms: [['p1', 'PbO₂'], ['p2', '+ 4H⁺ + SO₄²⁻'], ['p3', '+ 2e⁻', 1], ['p4', '→ PbSO₄ + 2H₂O']], kind: 'kind.red', kid: 'pk' }],
+    gold: () => shuffle([pbAsk(0), pbAsk(1), pbAsk(2), ...shuffle(FACTS.q5).slice(0, 2).map(factAsk)]),
+    stages: [
+      async () => { setView('all'); RUN.pred = await choose('pb.pred', ['pb.pred.a', 'pb.pred.b'], 'mikoto'); await say('pred.after', 'next', 'mikoto', 'smile'); },
+      async () => {                               // ② 負極：鉛が酸化され、白い PbSO₄ が付く
+        setView('zn'); beacon(ZN_SURF);
+        await say('pb.neg.intro', 'pb.neg.btn', 'en'); idle('pb.neg.intro');
+        await animPbNeg();
+        await ask('pb.q1', [{ k: 'c.so4', why: 'pb.q1.bad' }, { k: 'c.pb', ok: true, why: 'pb.q1.good' }, { k: 'c.pbo2', why: 'pb.q1.bad' }], 'en');
+        await ask('pb.q2', [{ k: 'pb.q2.b', why: 'pb.q2.bad' }, { k: 'pb.q2.a', ok: true, why: 'pb.q2.good' }], 'en');
+      },
+      stageWire(() => ask('pb.q3', [{ k: 'pb.q3.a', ok: true, why: 'pb.q3.good' }, { k: 'pb.q3.b', why: 'pb.q3.bad' }], 'mikoto')),
+      async () => {                               // ④ 正極：PbO₂ も PbSO₄ になる
+        setView('cu'); beacon(SPOT);
+        await ask('pb.gate', [{ k: 'pb.g2', why: 'pb.gate.bad' }, { k: 'pb.g1', ok: true, why: 'pb.gate.good' }, { k: 'pb.g3', why: 'pb.gate.bad' }], 'akane');
+        idle('pb.gate.good', 'smile');
+        await animPbPos();
+        await ask('pb.q4', [{ k: 'c.large', why: 'pb.q4.bad' }, { k: 'c.small', ok: true, why: 'pb.q4.good' }, { k: 'c.same', why: 'pb.q4.bad' }], 'akane');
+      },
+      async () => {                               // ⑤ 質量の変化と充電
+        setView('all'); idleSpin = true; const g = (x) => [x + ' g', x + ' g'];
+        await ask('pb.m1', [{ k: g(64), why: 'pb.m1.bad' }, { k: g(96), ok: true, why: 'pb.m1.good' }, { k: g(32), why: 'pb.m1.bad' }, { k: g(303), why: 'pb.m1.bad' }], 'mikoto');
+        await ask('pb.m2', [{ k: g(64), ok: true, why: 'pb.m2.good' }, { k: g(96), why: 'pb.m2.bad' }, { k: g(32), why: 'pb.m2.bad' }, { k: g(0), why: 'pb.m2.bad' }], 'mikoto');
+        await say('pb.charge', 'next', 'mikoto');
+        await ask('pb.q5', [{ k: 'pb.q5.b', why: 'pb.q5.bad' }, { k: 'pb.q5.a', ok: true, why: 'pb.q5.good' }], 'mikoto');
+      },
+    ],
+    setup(n) {
+      resetWorld();
+      if (n >= 2) { setAtomVisible(latZn, znSurfIndex, false); removeIon(ions.find((i) => i.kind === 'so4')); stick('pbso4', ZN_SURF.clone().add(V(0.3, 0, 0))); on('n1', 'n2', 'n3', 'n4'); }
+      if (n >= 3) { player.position.copy(HOME_CU); buddy.position.copy(HOME_CU).add(V(0.25, -0.5, -0.3)); }
+      if (n >= 4) { ions.filter((i) => i.kind === 'h').slice(0, 4).forEach(removeIon); removeIon(ions.find((i) => i.kind === 'so4')); stick('pbso4', SPOT.clone().add(V(0.12, 0, 0))); addIon('h2o', 'A'); addIon('h2o', 'A'); buddy.visible = false; player.position.copy(SPOT); on('p1', 'p2', 'p3', 'p4', 'nk', 'pk'); }
+    },
+  },
+  q6: {
+    id: 'q6', no: 'q6.no', name: 'q6.name', sub: 'q6.sub', sum: 'res.sum.q6', side: 'A', pred: true,
+    world: { kind: 'fuel', sol: 'lbl.h3po4', ions: [['h', 'A', 4]], el: { L: { ...GRAY, label: 'lbl.fneg' }, R: { ...GRAY, label: 'lbl.fpos' } } },
+    eq: [{ cls: 'n', pole: 'pole.n', terms: [['n1', 'H₂'], ['n2', '→ 2H⁺'], ['n3', '+ 2e⁻', 1]], kind: 'kind.ox', kid: 'nk' },
+         { cls: 'p', pole: 'pole.p', terms: [['p1', 'O₂'], ['p2', '+ 4H⁺'], ['p3', '+ 4e⁻', 1], ['p4', '→ 2H₂O']], kind: 'kind.red', kid: 'pk' }],
+    gold: () => shuffle([fcAsk(0), fcAsk(1), fcAsk(2), ...FACTS.q6.map(factAsk)]),
+    stages: [
+      async () => { setView('all'); idleSpin = true; RUN.pred = await choose('fc.pred', ['fc.pred.a', 'fc.pred.b'], 'mikoto'); await say('pred.after', 'next', 'mikoto', 'smile'); },
+      async () => {                               // ② 水素分子に乗って負極へ。水素が酸化される
+        setView('gas'); beacon(V(G.znX - 0.75, G.surfY + 0.1, 0.25));
+        await say('fc.neg.intro', 'fc.neg.btn', 'en'); idle('fc.neg.intro');
+        await animFuelNeg();
+        await ask('fc.q1', [{ k: 'c.o2', why: 'fc.q1.bad' }, { k: 'c.h', why: 'fc.q1.bad' }, { k: 'c.h2', ok: true, why: 'fc.q1.good' }], 'en');
+      },
+      stageWire(() => ask('fc.q2', [{ k: 'c.e', why: 'fc.q2.bad' }, { k: 'c.h', ok: true, why: 'fc.q2.good' }, { k: 'c.o2', why: 'fc.q2.bad' }], 'mikoto')),
+      async () => {                               // ④ 正極：4個そろって酸素を水にする
+        setView('cu'); beacon(SPOT);
+        await ask('fc.q3', [{ k: 'fc.n2', why: 'fc.q3.bad' }, { k: 'fc.n4', ok: true, why: 'fc.q3.good' }, { k: 'fc.n1', why: 'fc.q3.bad' }], 'akane');
+        await say('fc.wait', 'fc.wait.btn', 'akane'); idle('fc.wait');
+        await animFuelWait(); await animFuelPos();
+        await ask('fc.q4', [{ k: 'c.red', ok: true, why: 'red.good' }, { k: 'c.ox', why: 'v.red.bad' }], 'akane');
+      },
+      async () => {                               // ⑤ まとめ
+        setView('all'); idleSpin = true; const m = (x) => [x + ' mol', x + ' mol'];
+        await ask('fc.q5', [{ k: m(2), why: 'fc.q5.bad' }, { k: m(4), ok: true, why: 'fc.q5.good' }, { k: m(1), why: 'fc.q5.bad' }, { k: m(8), why: 'fc.q5.bad' }], 'mikoto');
+      },
+    ],
+    setup(n) {
+      resetWorld(); ambTick = fuelTick(); mates = []; myH2 = null;
+      [V(-5.05, 1.8, -0.4), V(-4.8, 5.2, 0.5)].forEach((p) => stick('h2', p, 0.6)); [V(5.05, 1.9, 0.4), V(4.85, 5.3, -0.5)].forEach((p) => stick('o2', p, 0.62));
+      if (n <= 1) { myH2 = stick('h2', V(-4.95, 4.2, 0.25), 0.95); player.position.copy(myH2.position).add(V(-0.1, 0, 0.05)); buddy.position.copy(myH2.position).add(V(0.12, -0.05, 0.05)); }
+      if (n >= 2) { addIon('h', 'A'); addIon('h', 'A'); on('n1', 'n2', 'n3'); }
+      if (n >= 3) { player.position.copy(HOME_CU); buddy.position.copy(HOME_CU).add(V(0.25, -0.5, -0.3)); }
+      if (n >= 4) { byX('h').slice(0, 4).forEach(removeIon); buddy.visible = false; player.visible = false; player.position.copy(SPOT); on('p1', 'p2', 'p3', 'p4', 'nk', 'pk'); }
+    },
+  },
+  q7: {
+    id: 'q7', no: 'q7.no', name: 'q7.name', sub: 'q7.sub', sum: 'res.sum.q7', side: 'A',
+    world: { kind: 'plain', sol: 'lbl.org', layers: true, ions: [['li', 'A', 4]], el: { L: { plate: '#D6DAE8', label: 'lbl.c6' }, R: { plate: '#D3E2F5', label: 'lbl.coo2' } } },
+    eq: [{ cls: 'n', long: 1, pole: 'pole.n', terms: [['n1', 'C₆Liₓ'], ['n2', '→ 6C + xLi⁺'], ['n3', '+ xe⁻', 1]], kind: 'kind.ox', kid: 'nk' },
+         { cls: 'p', long: 1, pole: 'pole.p', terms: [['p1', 'Li₍₁₋ₓ₎CoO₂ + xLi⁺'], ['p2', '+ xe⁻', 1], ['p3', '→ LiCoO₂']], kind: 'kind.red', kid: 'pk' }],
+    gold: () => shuffle([mahAsk(0), mahAsk(0), mahAsk(1), ...FACTS.q7.map(factAsk)]),
+    stages: [
+      async () => {                               // ① 負極：Li⁺ が層のあいだから出ていく
+        setView('zn');
+        await say('li.intro', 'li.btn', 'en'); idle('li.intro');
+        await animLiOut();
+        await ask('li.q1', [{ k: 'li.q1.b', why: 'li.q1.bad' }, { k: 'li.q1.a', ok: true, why: 'li.q1.good' }], 'en');
+      },
+      stageWire(() => ask('li.q2', [{ k: 'li.q2.a', ok: true, why: 'li.q2.good' }, { k: 'li.q2.b', why: 'li.q2.bad' }], 'mikoto')),
+      async () => {                               // ③ 正極：Li⁺ とまた出会う
+        setView('cu'); beacon(SPOT);
+        await say('li.pos', 'li.pos.btn', 'akane'); idle('li.pos');
+        await animLiIn();
+        await ask('li.q3', [{ k: 'li.q3.b', why: 'li.q3.bad' }, { k: 'li.q3.c', why: 'li.q3.bad' }, { k: 'li.q3.a', ok: true, why: 'li.q3.good' }], 'akane');
+      },
+      async () => {                               // ④ 放電容量：メーターが減るようすで mAh をつかむ
+        setView('all'); idleSpin = true; const h = (x) => [x + ' 時間', x + ' h'], c = (x) => [x + ' mAh', x + ' mAh'];
+        gaugeShow(5000, 5000, 400);
+        await say('li.mah1', 'next', 'mikoto');
+        await say('li.mah2', 'li.mah2.btn', 'mikoto'); idle('li.mah2');
+        await gaugeRun(1, 2.4);
+        await say('li.mah3', 'next', 'mikoto', 'smile');
+        gaugeShow(5000, 4500, 400);
+        await ask('li.m1', [{ k: h(12.5), why: 'li.m1.bad' }, { k: h(11.25), ok: true, why: 'li.m1.good' }, { k: h(10), why: 'li.m1.bad' }, { k: h(22.5), why: 'li.m1.bad' }], 'mikoto', { id: 'li.m1', onOk: () => { gaugeRun(11.25, 3.4); } });
+        gaugeShow(5000, 4500, 400);
+        await ask('li.m2', [{ k: c(200), ok: true, why: 'li.m2.good' }, { k: c(400), why: 'li.m2.bad' }, { k: c(120), why: 'li.m2.bad' }, { k: c(800), why: 'li.m2.bad' }], 'mikoto', { id: 'li.m2', onOk: () => { gaugeRun(0.5, 1.8); } });
+        gaugeHide();
+      },
+    ],
+    setup(n) {
+      resetWorld(); const cx = G.znX - 0.5, rx = G.cuX + 0.5;
+      for (let i = 0; i < 5; i++) { stick('li', V(cx - 0.65, LI_GAP(i), 0.35)); if (i !== 1) stick('li', V(cx + 0.45, LI_GAP(i), -0.4)); }   // 負極に泊まっている Li⁺
+      travelLi = stick('li', V(cx + 0.75, LI_GAP(1), 0.25));
+      [1, 3, 4].forEach((i) => stick('li', V(rx + 0.5, LI_GAP(i), -0.3)));
+      if (n >= 1) { travelLi.position.set(1.6, 2.6, 0.2); on('n1', 'n2', 'n3'); }
+      if (n >= 2) { player.position.copy(HOME_CU); buddy.position.copy(HOME_CU).add(V(0.25, -0.5, -0.3)); }
+      if (n >= 3) { travelLi.position.set(G.cuX + 0.2, LI_GAP(1), 0.25); buddy.visible = false; player.position.set(G.cuX + 0.3, 2.75, 0.25); on('p1', 'p2', 'p3', 'nk', 'pk'); }
+    },
+  },
+  q8: {
+    id: 'q8', no: 'q8.no', name: 'q8.name', sub: 'q8.sub', sum: 'res.sum.q8', side: 'A',
+    world: { kind: 'plain', sol: 'lbl.elec', series: 'e0', ions: [] },
+    eq: [{ cls: 's', pole: 'pole.series', terms: SERIES.map((s, i) => ['s' + i, s]) }, { cls: 's', pole: 'pole.emf', terms: [['f1', ['＝ E°（正極）− E°（負極）', '= E°(positive) − E°(negative)']]] }],
+    gold: () => shuffle([emfAsk(), emfAsk(), emfAsk(), ...FACTS.q8.map(factAsk)]),
+    stages: [
+      async () => {                               // ① E° と高さ
+        setView('series');
+        await say('e.intro', 'next', 'mikoto');
+        await ask('e.q1', [{ k: 'e.sm', why: 'e.q1.bad' }, { k: 'e.big', ok: true, why: 'e.q1.good' }], 'mikoto');
+      },
+      async () => {                               // ② ダニエル電池の起電力：2本の線と矢印で高さの差を示す
+        setView('series'); const v = (x) => [x + ' V', x + ' V'];
+        await ask('e.q2', [{ k: v('0.42'), why: 'e.q2.bad' }, { k: v('1.10'), ok: true, why: 'e.q2.good' }, { k: v('−1.10'), why: 'e.q2.bad' }, { k: v('0.76'), why: 'e.q2.bad' }], 'mikoto', { id: 'e.q2', onOk: () => showGap(6, 12, '1.10 V') }); on('f1');
+        showGap(6, 12, '1.10 V'); beacon(SP[12]);
+        await say('e.slide', 's.slide.btn', 'mikoto'); idle('e.slide');
+        await animSlide('e.pop');
+      },
+      async () => {                               // ③ 金属を変えて計算（毎回ちがう）
+        setView('series');
+        for (let i = 0; i < 3; i++) { const q = emfAsk(); await ask(q.key, q.opts, 'mikoto', q.rec); }
+        await ask('e.q3', [{ k: 'e.q3.b', why: 'e.q3.bad' }, { k: 'e.q3.a', ok: true, why: 'e.q3.good' }], 'mikoto');
+      },
+    ],
+    setup(n) {
+      resetWorld(); buddy.visible = false; player.position.copy(stepPos(n >= 2 ? 12 : 6)); on(...SERIES.map((_, i) => 's' + i)); $('s6').classList.add('is-hot'); $('s12').classList.add('is-hot'); if (n >= 2) on('f1');
+    },
+  },
+});
+
+const QUEST_IDS = ALL_Q;
 
 /* 反応式の帯を、クエストに合わせて作る */
 function buildEq() {
-  $('eq').innerHTML = Q.eq.map((r) => `<div class="eq__row eq__row--${r.cls}"><span class="eq__pole eq__pole--${r.cls}" data-t="${r.pole}">${tt(r.pole)}</span><span class="eq__f eq__f--${r.cls}">${r.terms.map(([id, s, e]) => `<span id="${id}"${e ? ' class="e"' : ''}>${s}</span>`).join(' ')}</span>${r.kind ? `<span class="eq__kind" id="${r.kid}" data-t="${r.kind}">${tt(r.kind)}</span>` : ''}</div>`).join('');
+  $('eq').innerHTML = Q.eq.map((r) => `<div class="eq__row eq__row--${r.cls}"><span class="eq__pole eq__pole--${r.cls}" data-t="${r.pole}">${tt(r.pole)}</span><span class="eq__f eq__f--${r.cls}${r.long ? ' eq__f--long' : ''}">${r.terms.map(([id, s, e]) => `<span id="${id}"${e ? ' class="e"' : ''}>${Array.isArray(s) ? tt(s) : s}</span>`).join(' ')}</span>${r.kind ? `<span class="eq__kind" id="${r.kid}" data-t="${r.kind}">${tt(r.kind)}</span>` : ''}</div>`).join('');
 }
 
 /* ═════════ 進行：段階を順に進める。「戻る」で、いまの段階の最初（最初にいるなら1つ前）からやり直せる ═════════ */
@@ -1374,13 +2019,13 @@ async function runGold() {                  // 金印の試練：条件を変え
   const id = ++runId; tweens.length = 0;
   RUN = { miss: 0, pred: -1, st: [{ first: 0, asked: 0 }], gold: true }; stageNo = 0; stagePos = 0;
   $('dots').innerHTML = '<i></i>'.repeat(CONFIG.goldCount); $('stepBack').hidden = false;
-  Q.setup(0); setView('all'); idleSpin = true; setStep(-1);
+  Q.setup(0); setView(Q.world.series ? 'series' : 'all'); idleSpin = !Q.world.series; setStep(-1);
   await say('gold.intro', 'next', 'mikoto');
   const set = goldSet(Q.id);
-  for (let i = 0; i < set.length; i++) { setStep(i); await ask(set[i].key, set[i].opts, 'mikoto', set[i].rec); if (id !== runId) return; }
+  for (let i = 0; i < set.length; i++) { setStep(i); if (set[i].pre) set[i].pre(); await ask(set[i].key, set[i].opts, 'mikoto', set[i].rec); if (id !== runId) return; }
   finish();
 }
-function toTitle() { runId++; tweens.length = 0; ui.mode = 'idle'; ui.key = null; ui.result = null; render(); $('stepBack').hidden = true; $('ovResult').hidden = true; $('ovModel').hidden = true; renderTitle(); $('ovTitle').hidden = false; idleSpin = true; setView('all'); }
+function toTitle() { runId++; tweens.length = 0; amb.length = 0; ambTick = null; hideGap(); $('gauge').hidden = true; ui.mode = 'idle'; ui.key = null; ui.result = null; render(); $('stepBack').hidden = true; $('ovResult').hidden = true; $('ovModel').hidden = true; renderTitle(); $('ovTitle').hidden = false; idleSpin = true; setView('all'); }
 function stepBack() {
   snd.tap();
   const n = RUN.gold ? -1 : stagePos <= 1 ? stageNo - 1 : stageNo;
@@ -1451,10 +2096,9 @@ let ECO = { ready: false };
 /* ═════════ 言語・音楽・タイトル・はじまり ═════════ */
 function renderTitle() {
   $('wallet').textContent = ECO.ready ? tv('wallet', { n: fmt(ECO.eco.getBalance()) }) : '';
-  $('questList').innerHTML = QUEST_IDS.map((id) => { const q = QUESTS[id], b = SAVE[id].best; return `<div class="card torn qcard">
-    <div class="qcard__h"><span class="card__no">${tt(q.no)}</span><span class="card__t">${tt(q.name)}</span>${b ? `<span class="best best--${b}">${tt('best.' + b)}</span>` : ''}</div>
-    <p class="card__s">${tt(q.sub)}</p>
-    <div class="qcard__b"><button class="btn btn--main torn" type="button" data-q="${id}">${tt('start')}</button>${b >= 2 ? `<button class="btn torn" type="button" data-g="${id}">${tt(b >= 3 ? 'gold.done' : 'gold.btn')}</button>` : ''}</div></div>`; }).join('');
+  $('questList').innerHTML = QUEST_IDS.map((id) => { const q = QUESTS[id], b = SAVE[id].best; return `<div class="qrow torn">
+    <div class="qrow__t"><span class="card__no">${tt(q.no)}</span> <b>${tt(q.name)}</b>${b ? ` <span class="best best--${b}">${tt('best.' + b)}</span>` : ''}<small>${tt(q.sub)}</small></div>
+    ${b >= 2 ? `<button class="btn torn qrow__g" type="button" data-g="${id}">${tt('gold.s')}</button>` : ''}<button class="btn btn--main torn" type="button" data-q="${id}">${tt('start.s')}</button></div>`; }).join('');
 }
 function applyLang() {
   document.documentElement.lang = lang; document.title = tt('title.name');
@@ -1462,7 +2106,7 @@ function applyLang() {
   $('langJa').setAttribute('aria-pressed', lang === 'ja'); $('langEn').setAttribute('aria-pressed', lang === 'en');
   $('qName').textContent = Q ? tt(Q.name) : '';
   $('modelList').innerHTML = ['model.1', 'model.2', 'model.3'].map((k) => `<li>${tt(k)}</li>`).join('');
-  $('locked').innerHTML = `<div style="background:none;padding:0 4px">${tt('locked.h')}</div>` + ['locked.1', 'locked.2', 'locked.3'].map((k) => `<div>${tt(k)}</div>`).join('');
+  $('locked').innerHTML = `<div>${tt('locked.all')}</div>`;
   $('cast').innerHTML = castHTML('normal', true); $('modelFace').innerHTML = charSVG('mikoto', 'smile');
   $('back').setAttribute('aria-label', tt('res.back')); $('bgmBtn').setAttribute('aria-label', tt('bgm')); $('stepBack').textContent = tt('back'); $('modelBack').textContent = tt('back');
   labels.forEach(refreshLabel); updateViewBtn(); renderTitle(); render(); renderResult();

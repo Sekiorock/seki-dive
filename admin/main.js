@@ -258,7 +258,7 @@ function studentsTab() {
 
 // ───────────── セキオ電子ロックの学習の記録（users/{uid}/worlds/denshi を集計する） ─────────────
 function denshiTab() {
-  const QS = ['q0', 'q1', 'q2'];
+  const QS = ['q0', 'q1', 'q2', 'q3', 'q4', 'q5', 'q6', 'q7', 'q8'];
   const rows = Object.entries(state.users).map(([uid, u]) => ({ name: u.nickname || '（no name）', d: (u.worlds || {}).denshi })).filter((r) => r.d)
     .sort((a, b) => a.name.localeCompare(b.name, 'ja'));
   if (!rows.length) return `<p class="adm-note">${esc(t('admin.dn.lead'))}</p><p class="shop__empty">${esc(t('admin.dn.none'))}</p>`;
