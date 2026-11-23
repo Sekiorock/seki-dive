@@ -52,7 +52,7 @@ button { font-family: inherit; color: inherit; }
 .top__mid { flex: 1; min-width: 0; }
 .top__name { font-family: var(--font-t); font-size: 13px; font-weight: 700; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .top__btn--back { padding: 0 8px !important; }
-.dots { display: flex; gap: 6px; margin-top: 4px; }
+.dots { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 4px; }
 .dots i { width: 12px; height: 12px; border-radius: 50%; background: var(--paper-2); box-shadow: inset 0 0 0 1px rgba(140,130,150,.25); transition: background .4s, transform .4s; }
 .dots i.is-on { background: radial-gradient(circle at 35% 30%, #fff, var(--gold)); transform: scale(1.15); }
 .lang { flex: none; display: flex; --tone: #fff; padding: 0 2px; }
@@ -177,6 +177,24 @@ button { font-family: inherit; color: inherit; }
 .gauge__bar i { position: absolute; left: 0; top: 0; bottom: 0; background: linear-gradient(90deg, #BDE3D0, #F5DC78); }
 .gauge__bar b { position: absolute; inset: 0; display: grid; place-items: center; font-size: 15px; }
 .gauge__r b { color: var(--ox-ink); }
+.circ { position: absolute; left: 8px; right: 8px; bottom: 8px; padding: 4px 6px 2px; --tone: #fff; pointer-events: none; }
+.circ svg { display: block; width: 100%; height: auto; font-size: 8.5px; fill: var(--ink); }
+.circ .w polyline { fill: none; stroke: #B9A56A; stroke-width: 2; stroke-dasharray: 4 5; animation: dash 1s linear infinite; }
+@keyframes dash { to { stroke-dashoffset: -9; } }
+.circ .src { fill: #F3E3B4; stroke: #B9A56A; } .circ .cell { fill: rgba(190,215,240,.35); stroke: #C9C2D6; stroke-width: 1.5; } .circ .cell.is-on { fill: rgba(245,220,120,.3); stroke: var(--gold); stroke-width: 2.5; }
+.circ .el { stroke: #8E8A9E; stroke-width: 5; stroke-linecap: round; } .circ .el.hot { stroke: var(--gold); stroke-width: 7; }
+.circ .c { text-anchor: middle; } .circ .b { font-weight: 700; font-size: 10px; } .circ .e { fill: var(--gold-ink); font-size: 8px; } .circ .mol { fill: var(--gold-ink); font-weight: 700; font-size: 9.5px; }
+.circ .ox { fill: var(--ox-ink); } .circ .red { fill: #3F7893; } .circ .pr { font-weight: 700; }
+.kami { position: absolute; inset: 0; z-index: 4; padding: 10px 12px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 9px; background: linear-gradient(160deg, #8A6A4E, #6B4F3A); }
+.kami[hidden] { display: none; }
+.kami__box { position: relative; flex: none; width: min(100%, calc((100vh - 420px) * 4 / 3)); min-width: 220px; aspect-ratio: 4 / 3; border-radius: 12px; overflow: hidden; background: #FBF3E4; box-shadow: inset 0 0 0 3px #F3E3B4, 0 3px 10px rgba(40,25,10,.45); }
+.kami__sheet { position: absolute; inset: 0; background: #FBF3E4; transition: transform .75s cubic-bezier(.6,.05,.3,1); box-shadow: 4px 0 12px rgba(40,25,10,.35); }
+.kami__sheet svg { display: block; width: 100%; height: 100%; }
+.kami__sheet.is-out { transform: translateX(104%) rotate(1.5deg); }
+.kami__t { flex: none; padding: 2px 14px; border-radius: 10px; background: rgba(255,253,248,.92); font-family: var(--font-t); font-size: 15px; color: var(--ink); }
+.kami__r { position: relative; flex: none; padding: 4px 14px; font-size: 12.5px; font-weight: 700; color: var(--gold-ink); --tone: #fff; }
+.kami__cast { position: absolute; right: 8px; bottom: 6px; display: flex; gap: 2px; } .kami__cast figure { margin: 0; width: 58px; } .kami__cast svg { width: 100%; height: auto; }
+.dots i.gap { margin-left: 7px; } .qrow__t small { white-space: normal; } .qrow__r { --tone: #E8E0F0 !important; padding: 4px 9px !important; font-size: 11.5px !important; }
 .ver { position: absolute; right: 8px; bottom: 4px; font-size: 10px; color: var(--dim); z-index: 40; pointer-events: none; }
 .fatal { padding: 30px; text-align: center; }
 </style>
@@ -229,7 +247,9 @@ button { font-family: inherit; color: inherit; }
     <div class="spot" id="spot"></div>
     <div class="hint" data-t="hint"></div>
     <button class="viewbtn torn" id="viewBtn" type="button"></button>
-    <div class="gauge torn" id="gauge" hidden><div class="gauge__t" data-t="ga.title"></div><div class="gauge__bar"><i id="gaFill"></i><b id="gaLvl"></b></div><div class="gauge__r" id="gaInfo"></div></div>
+    <div class="circ torn" id="circ" hidden></div>
+    <div class="kami" id="kami" hidden><b class="kami__t" id="kamiT"></b><div class="kami__box" id="kamiBox"></div><span class="kami__r torn" id="kamiR"></span></div>
+    <div class="gauge torn" id="gauge" hidden><div class="gauge__t" id="gaTitle" data-t="ga.title"></div><div class="gauge__bar"><i id="gaFill"></i><b id="gaLvl"></b></div><div class="gauge__r" id="gaInfo"></div></div>
     <div class="pop torn" id="pop"></div>
   </div>
 
@@ -285,7 +305,7 @@ button { font-family: inherit; color: inherit; }
 'use strict';
 /* ═════════ 数値の設定（変えたいときはここ） ═════════ */
 const CONFIG = {
-  version: 'denshi v0.3.1',
+  version: 'denshi v0.6.0',
   saveKey: 'sekidenshi.v1',
   langKey: 'sekidive.lang',      // 広場と同じ鍵。言語の選択を引き継ぐ
   bgmKey: 'sekidenshi.bgm',
@@ -329,7 +349,7 @@ const T = {
   'q6.no': ['クエスト 6', 'QUEST 6'], 'q6.name': ['4人で酸素を迎えに', 'Four of Us Meet Oxygen'], 'q6.sub': ['燃料電池。水素と酸素から電気と水', 'The fuel cell. Electricity and water from hydrogen and oxygen.'],
   'q7.no': ['クエスト 7', 'QUEST 7'], 'q7.name': ['層間ホテル', 'The Interlayer Hotel'], 'q7.sub': ['リチウムイオン電池。Li⁺ の往復と放電容量', 'The lithium-ion battery. Li⁺ shuttling and capacity.'],
   'q8.no': ['クエスト 8', 'QUEST 8'], 'q8.name': ['電位の登山', 'Climbing the Potentials'], 'q8.sub': ['標準電極電位。高さの差が起電力', 'Standard electrode potentials. Height difference is the voltage.'],
-  'locked.all': ['このあと開く：電気分解編（陰極・陽極の門番、ファラデーの法則 など）、工業編', 'Coming next: electrolysis (cathode and anode gatekeepers, Faraday\'s law) and industry'],
+  'locked.old': ['このあと開く：電気分解編（陰極・陽極の門番、ファラデーの法則 など）、工業編', 'Coming next: electrolysis (cathode and anode gatekeepers, Faraday\'s law) and industry'],
   'lbl.pb': ['負極 Pb', '− pole Pb'], 'lbl.pbo2': ['正極 PbO₂', '+ pole PbO₂'],
   'lbl.h2side': ['負極 H₂ 側', '− pole, H₂'], 'lbl.o2side': ['正極 O₂ 側', '+ pole, O₂'], 'lbl.h3po4': ['電解質 H₃PO₄ aq', 'Electrolyte H₃PO₄ aq'],
   'lbl.c6': ['負極 C₆Liₓ', '− pole C₆Liₓ'], 'lbl.coo2': ['正極 LiCoO₂ 系', '+ pole LiCoO₂ type'], 'lbl.org': ['有機溶媒（Li 塩）', 'Organic solvent (Li salt)'],
@@ -598,7 +618,7 @@ const T = {
   'next': ['つぎへ', 'Next'], 'go': ['すすむ（押し続ける）', 'Move (press and hold)'],
   'lbl.zn': ['亜鉛板 Zn', 'Zinc plate Zn'], 'lbl.cu': ['銅板 Cu', 'Copper plate Cu'],
   'lbl.porous': ['素焼き板', 'Porous plate'], 'lbl.znso4': ['ZnSO₄ 水溶液', 'ZnSO₄ aq'], 'lbl.cuso4': ['CuSO₄ 水溶液', 'CuSO₄ aq'],
-  'lbl.you': ['▼ あなた', '▼ You'], 'lbl.bulb': ['灯り（電球）', 'Lamp'],
+  'lbl.you': ['▼ あなた', '▼ You'], 'lbl.bulb': ['灯り（電球）', 'Lamp'], 'lbl.plus': ['＋', '+'], 'lbl.minus': ['−', '−'],
 
   'pred.q': ['あなたは<b>亜鉛板の中の電子</b>。\nこれから銅板まで行く。どの道を通ると思う？', 'You are an <b>electron inside the zinc plate</b>.\nYou are heading for the copper plate. Which way will you go?'],
   'pred.a': ['導線を通る', 'Through the wire'],
@@ -669,6 +689,184 @@ const T = {
   'res.sum': ['全体：<b>Zn + Cu²⁺ → Zn²⁺ + Cu</b>（起電力 約1.1 V）<br>あなたは 6.0×10²³ 個のうちの1個。電子が 2 mol 流れると、Zn が 1 mol 溶けて Cu が 1 mol 析出する。',
               'Overall: <b>Zn + Cu²⁺ → Zn²⁺ + Cu</b> (about 1.1 V)<br>You were one of 6.0×10²³. When 2 mol of electrons flow, 1 mol of Zn dissolves and 1 mol of Cu deposits.'],
   'res.tip': ['全問を一発で正解すると<b>銀印</b>。', 'Get every question right first time for the <b>silver seal</b>.'],
+  // ── v0.4：電気分解編（クエスト9〜13） ──
+  'q9.no': ['クエスト 9', 'QUEST 9'], 'q9.name': ['陰極の門番', 'Gatekeeper of the Cathode'], 'q9.sub': ['電気分解の陰極。だれが電子を受け取るかを決める', 'The cathode in electrolysis: who takes the electrons?'],
+  'q10.no': ['クエスト 10', 'QUEST 10'], 'q10.name': ['陽極の門番', 'Gatekeeper of the Anode'], 'q10.sub': ['電気分解の陽極。だれが電子を失うかを決める', 'The anode in electrolysis: who loses the electrons?'],
+  'q11.no': ['クエスト 11', 'QUEST 11'], 'q11.name': ['電気分解 全制覇', 'Electrolysis Master'], 'q11.sub': ['水溶液と電極の組み合わせ。両極でできる物質', 'Solutions and electrodes: products at both poles.'],
+  'q12.no': ['クエスト 12', 'QUEST 12'], 'q12.name': ['ファラデー計量官', 'Faraday\'s Measurer'], 'q12.sub': ['流れた電気量と、変化する物質の量', 'Charge passed and the amount of substance changed.'],
+  'q13.no': ['クエスト 13', 'QUEST 13'], 'q13.name': ['直列電解槽', 'Cells in Series'], 'q13.sub': ['直列につないだ2つの電解槽。流れる電子は同じ数', 'Two cells in series: the same electrons pass through both.'],
+  'lbl.psu': ['電源', 'Power source'], 'pole.an': ['陽極', 'Anode'], 'pole.cat': ['陰極', 'Cathode'],
+  'ly.intro': ['ここからは<b>電気分解</b>。電源の力で、自然には起こらない酸化還元反応を起こす。\n電源の負極（−）につないだ電極が<b>陰極</b>、正極（＋）につないだ電極が<b>陽極</b>。電子は電源の負極から陰極へ押しこまれ、陽極から電源の正極へ吸い出される。', 'This is <b>electrolysis</b>: a power source forces a redox reaction that would not happen by itself.\nThe electrode joined to the source\'s negative terminal (−) is the <b>cathode</b>, the one joined to the positive terminal (+) is the <b>anode</b>. Electrons are pushed from the source into the cathode and pulled out of the anode.'],
+  'ly.q0': ['導線の電子の動きを見よう。電子が<b>流れこむ</b>陰極で起こるのは？', 'Watch the electrons in the wire. What happens at the cathode, where electrons <b>flow in</b>?'],
+  'ly.q0.good': ['正解。陰極では、水溶液中のだれかが電子を<b>受け取る</b>（還元）。あなたはその相手を決める門番だ。', 'Correct. At the cathode something in the solution <b>takes</b> electrons (reduction). You are the gatekeeper who decides what.'],
+  'ly.q0.bad': ['電子を受け取る変化は、酸化と還元のどちら？', 'Is gaining electrons oxidation or reduction?'],
+  'ly.q0a': ['導線の電子の動きを見よう。電子が<b>出ていく</b>陽極で起こるのは？', 'Watch the electrons in the wire. What happens at the anode, where electrons <b>leave</b>?'],
+  'ly.q0a.good': ['正解。陽極では、だれかが電子を<b>失う</b>（酸化）。電池の負極と同じで、酸化が起こる電極だ。', 'Correct. At the anode something <b>loses</b> electrons (oxidation), just like the negative pole of a cell.'],
+  'ly.q0a.bad': ['電子を失う変化は、酸化と還元のどちら？', 'Is losing electrons oxidation or reduction?'],
+  'ly.an.intro': ['あなたが陰極に押しこまれたぶん、反対側の<b>陽極</b>からは、同じ数の電子が電源の正極（＋）へ吸い出されている。\n今度は陽極の門番。陽極では、最も酸化されやすいものが電子を失う。', 'As you were pushed into the cathode, the same number of electrons was pulled out of the <b>anode</b> on the other side, into the positive terminal (+).\nNow guard the anode. There, whatever is most easily oxidized loses electrons.'],
+  'ly.w.metal': ['正解。イオン化傾向が小さい金属のイオンは電子を受け取りやすく、<b>金属が析出</b>する。', 'Correct. Ions of metals with low ionization tendency take electrons easily, and the <b>metal deposits</b>.'],
+  'ly.w.h': ['正解。酸の水溶液では、たくさんある H⁺ が電子を受け取り、<b>水素 H₂ が発生</b>する。', 'Correct. In an acid, the plentiful H⁺ takes the electrons and <b>hydrogen H₂ forms</b>.'],
+  'ly.w.h2o': ['正解。K⁺・Ca²⁺・Na⁺・Mg²⁺・Al³⁺ などイオン化傾向が大きい金属のイオンは還元されにくい。かわりに<b>水分子</b>が電子を受け取り、H₂ が発生して OH⁻ が残る。', 'Correct. Ions of metals with high ionization tendency (K⁺, Ca²⁺, Na⁺, Mg²⁺, Al³⁺…) are hard to reduce. <b>Water molecules</b> take the electrons instead: H₂ forms and OH⁻ is left.'],
+  'ly.w.hal': ['正解。Cl⁻ や I⁻ などのハロゲン化物イオンは酸化されやすく、<b>ハロゲンの単体</b>ができる。', 'Correct. Halide ions such as Cl⁻ and I⁻ are easily oxidized, giving the <b>halogen itself</b>.'],
+  'ly.w.o': ['正解。SO₄²⁻ や NO₃⁻ は安定で酸化されない。かわりに<b>水分子</b>が電子を失い、酸素 O₂ が発生して H⁺ が残る。', 'Correct. SO₄²⁻ and NO₃⁻ are stable and are not oxidized. <b>Water molecules</b> lose electrons instead: O₂ forms and H⁺ is left.'],
+  'ly.w.oh': ['正解。塩基の水溶液では、たくさんある <b>OH⁻</b> が電子を失い、酸素 O₂ が発生する。', 'Correct. In a base, the plentiful <b>OH⁻</b> loses electrons and oxygen O₂ forms.'],
+  'ly.w.el': ['正解。銅や銀を陽極に使うと、<b>陽極自身</b>が酸化され、イオンになって溶け出す。', 'Correct. With a copper or silver anode, the <b>anode itself</b> is oxidized and dissolves as ions.'],
+  'ly.cat.bad': ['陰極では、最も<b>還元されやすい</b>ものが電子を受け取る。\nCu²⁺・Ag⁺ ＞ H⁺（酸）・水 ＞ Na⁺・K⁺ など。陰イオンは受け取らない。', 'At the cathode, whatever is most <b>easily reduced</b> takes the electrons.\nCu²⁺, Ag⁺ > H⁺ (acid), water > Na⁺, K⁺ and the like. Anions do not take them.'],
+  'ly.an.bad': ['陽極では、最も<b>酸化されやすい</b>ものが電子を失う。\n陽極が Cu・Ag ならそれ自身 ＞ Cl⁻・I⁻ ＞ OH⁻（塩基）・水。SO₄²⁻・NO₃⁻ や陽イオンは失わない。', 'At the anode, whatever is most <b>easily oxidized</b> loses electrons.\nA Cu or Ag anode itself > Cl⁻, I⁻ > OH⁻ (base), water. SO₄²⁻, NO₃⁻ and cations do not.'],
+  'ly.prod.bad': ['その電極で電子を受け取る（失う）のはだれか、から考えよう。', 'Start from who takes (or loses) electrons at that electrode.'],
+  'ly.cat.sum': ['門番のまとめ。陰極で<b>水分子</b>が還元されて H₂ が発生するのは、どんな陽イオンの水溶液？', 'Gatekeeper\'s summary. With which cations does <b>water</b> get reduced at the cathode, giving H₂?'],
+  'ly.cat.sum.a': ['Na⁺・K⁺ など、イオン化傾向が大きい金属のイオン', 'Ions of metals with high ionization tendency, such as Na⁺ and K⁺'], 'ly.cat.sum.b': ['Cu²⁺・Ag⁺ など、イオン化傾向が小さい金属のイオン', 'Ions of metals with low ionization tendency, such as Cu²⁺ and Ag⁺'],
+  'ly.cat.sum.good': ['正解。還元されにくい陽イオンしかないとき、水が代わりに電子を受け取る。', 'Correct. When only hard-to-reduce cations are present, water takes the electrons instead.'], 'ly.cat.sum.bad': ['Cu²⁺ や Ag⁺ は、自分で電子を受け取って金属になった。', 'Cu²⁺ and Ag⁺ took the electrons themselves and became metal.'],
+  'ly.an.sum': ['門番のまとめ。塩素 Cl₂ が発生する電気分解では、陽極に白金 Pt ではなく<b>炭素 C</b> を使う。なぜ？', 'Gatekeeper\'s summary. When chlorine Cl₂ forms, a <b>carbon C</b> anode is used instead of platinum Pt. Why?'],
+  'ly.an.sum.a': ['発生した Cl₂ と白金が反応してしまうから', 'Because the Cl₂ would react with platinum'], 'ly.an.sum.b': ['炭素のほうが電子をたくさんもっているから', 'Because carbon has more electrons'],
+  'ly.an.sum.good': ['正解。Cl₂ が発生するときは、反応しにくい炭素電極を使う。', 'Correct. When Cl₂ forms, an unreactive carbon electrode is used.'], 'ly.an.sum.bad': ['陽極の材料が反応してしまうと困る。Cl₂ と反応するのはどちら？', 'The anode material must not react. Which one reacts with Cl₂?'],
+  'ly.all.intro': ['陰極と陽極、両方の門番ができるようになった。\nここからは、水溶液と電極の組み合わせを変えて、<b>両極でできる物質</b>を答えよう。組み合わせは毎回変わる。', 'You can now guard both the cathode and the anode.\nNext, name the <b>products at both poles</b> for different solutions and electrodes. The combinations change every time.'],
+  'ly.ph': ['NaCl 水溶液の電気分解が続いている。<b>陰極付近</b>の水溶液の pH は？', 'The NaCl solution keeps being electrolysed. What happens to the pH <b>near the cathode</b>?'],
+  'ly.ph.a': ['大きくなる（塩基性になる）', 'It rises (becomes basic)'], 'ly.ph.b': ['小さくなる（酸性になる）', 'It falls (becomes acidic)'],
+  'ly.ph.good': ['正解。陰極では 2H₂O + 2e⁻ → H₂ + 2OH⁻。OH⁻ が増えて塩基性になる。', 'Correct. At the cathode 2H₂O + 2e⁻ → H₂ + 2OH⁻: OH⁻ builds up and the solution turns basic.'], 'ly.ph.bad': ['陰極のまわりに増えているイオンを見よう。', 'Look at the ion building up around the cathode.'],
+  'res.sum.q9': ['<b>陰極（還元）</b>：Cu²⁺・Ag⁺ → 金属が析出／H⁺（酸）→ H₂／Na⁺・K⁺ など → 水が還元されて H₂ と OH⁻', '<b>Cathode (reduction)</b>: Cu²⁺, Ag⁺ → metal deposits / H⁺ (acid) → H₂ / Na⁺, K⁺ etc. → water is reduced to H₂ and OH⁻'],
+  'res.sum.q10': ['<b>陽極（酸化）</b>：Cu・Ag の電極 → 電極が溶ける／Cl⁻・I⁻ → ハロゲンの単体／SO₄²⁻・NO₃⁻ → 水が酸化されて O₂ と H⁺／OH⁻（塩基）→ O₂', '<b>Anode (oxidation)</b>: Cu, Ag electrode → it dissolves / Cl⁻, I⁻ → halogen / SO₄²⁻, NO₃⁻ → water is oxidized to O₂ and H⁺ / OH⁻ (base) → O₂'],
+  'res.sum.q11': ['陰極は「最も還元されやすいもの」、陽極は「最も酸化されやすいもの」が反応する。電極が Cu・Ag かどうかも確かめる。', 'At the cathode the most easily reduced species reacts, at the anode the most easily oxidized. Check whether the electrode is Cu or Ag.'],
+
+  // クエスト12：ファラデーの法則
+  'ga.q.title': ['流れた電気量 Q [C] ＝ 電流 i [A] × 時間 t [s]', 'Charge Q [C] = current i [A] × time t [s]'], 'ga.q.t': ['時間', 'Time'], 'ga.q.e': ['電子', 'Electrons'],
+  'fa.intro': ['硫酸銅(II) CuSO₄ 水溶液を、白金電極で電気分解している。\n電気分解で変化する物質の量は、流れた<b>電気量</b>に比例する（<b>ファラデーの法則</b>）。電気量 Q [C] ＝ 電流 i [A] × 時間 t [s]。上のメーターで数えよう。', 'A copper(II) sulfate solution is being electrolysed with platinum electrodes.\nThe amount of substance changed is proportional to the <b>charge</b> passed (<b>Faraday\'s law</b>). Charge Q [C] = current i [A] × time t [s]. Count it on the meter.'],
+  'fa.btn': ['電流を流す', 'Run the current'],
+  'fa.q1': ['0.50 A の電流を 3860 秒流した。流れた電気量は？', 'A current of 0.50 A ran for 3860 s. How much charge passed?'],
+  'fa.q1.good': ['正解。0.50 A × 3860 s ＝ 1930 C。', 'Correct. 0.50 A × 3860 s = 1930 C.'], 'fa.q1.bad': ['電気量 ＝ 電流 × 時間。', 'Charge = current × time.'],
+  'fa.f': ['電子 1 mol がもつ電気量の大きさは <b>9.65×10⁴ C</b>。これを<b>ファラデー定数</b> F といい、9.65×10⁴ C/mol と表す。', 'One mole of electrons carries <b>9.65×10⁴ C</b>. This is the <b>Faraday constant</b> F, 9.65×10⁴ C/mol.'],
+  'fa.q2': ['では、1930 C は、電子何 mol 分？', 'So how many moles of electrons is 1930 C?'],
+  'fa.q2.good': ['正解。1930 C ÷ 9.65×10⁴ C/mol ＝ 0.020 mol。', 'Correct. 1930 C ÷ 9.65×10⁴ C/mol = 0.020 mol.'], 'fa.q2.bad': ['電気量を、電子 1 mol 分の電気量（96500 C）で割る。', 'Divide the charge by the charge of one mole of electrons (96500 C).'],
+  'fa.q3': ['陰極では Cu²⁺ + 2e⁻ → Cu。電子 0.020 mol で、析出する銅は何 mol？', 'At the cathode Cu²⁺ + 2e⁻ → Cu. With 0.020 mol of electrons, how many moles of copper deposit?'],
+  'fa.q3.good': ['正解。電子 2 mol で Cu が 1 mol。0.020 × 1/2 ＝ 0.010 mol。', 'Correct. 2 mol of electrons give 1 mol of Cu: 0.020 × 1/2 = 0.010 mol.'], 'fa.q3.bad': ['反応式の係数を見よう。Cu 1個に電子は何個？', 'Look at the coefficients. How many electrons per Cu?'],
+  'fa.q4': ['その銅の質量は？（Cu = 63.5）', 'What is the mass of that copper? (Cu = 63.5)'],
+  'fa.q4.good': ['正解。63.5 g/mol × 0.010 mol ＝ 0.635 g ≒ 0.64 g。', 'Correct. 63.5 g/mol × 0.010 mol = 0.635 g ≈ 0.64 g.'], 'fa.q4.bad': ['質量 ＝ モル質量 × 物質量。', 'Mass = molar mass × amount.'],
+  'fa.q5': ['陽極では 2H₂O → O₂ + 4H⁺ + 4e⁻。電子 0.020 mol で、発生する酸素 O₂ は何 mol？', 'At the anode 2H₂O → O₂ + 4H⁺ + 4e⁻. With 0.020 mol of electrons, how many moles of O₂ form?'],
+  'fa.q5.good': ['正解。電子 4 mol で O₂ が 1 mol。0.020 × 1/4 ＝ 0.0050 mol。', 'Correct. 4 mol of electrons give 1 mol of O₂: 0.020 × 1/4 = 0.0050 mol.'], 'fa.q5.bad': ['O₂ 1個に電子は何個？', 'How many electrons per O₂?'],
+  'fa.q6': ['その酸素の質量は？（O = 16）', 'What is the mass of that oxygen? (O = 16)'],
+  'fa.q6.good': ['正解。32 g/mol × 0.0050 mol ＝ 0.16 g。', 'Correct. 32 g/mol × 0.0050 mol = 0.16 g.'], 'fa.q6.bad': ['O₂ のモル質量は 32 g/mol。', 'The molar mass of O₂ is 32 g/mol.'],
+  'res.sum.q12': ['<b>電子の物質量 [mol] ＝ 電流 [A] × 時間 [s] ÷ 9.65×10⁴ C/mol</b><br>電子の物質量が決まれば、反応式の係数から、変化する物質の量が決まる。', '<b>Moles of electrons = current [A] × time [s] ÷ 9.65×10⁴ C/mol</b><br>Once you know the moles of electrons, the coefficients give the amounts of substance changed.'],
+
+  // クエスト13：直列電解槽
+  'se.src': ['電源', 'Source'], 'se.A': ['電解槽A', 'Cell A'], 'se.B': ['電解槽B', 'Cell B'],
+  'se.intro': ['2つの電解槽を<b>直列</b>につないだ。Aは CuSO₄ 水溶液と銅の電極、Bは NaCl 水溶液と炭素（陽極）・鉄（陰極）。\n下の図を見よう。電源の負極（−）から出た電子はBの陰極へ。Bの陽極から出た電子はAの陰極へ。Aの陽極から電源の正極（＋）へ戻る。道は1本だけ。', 'Two cells are connected <b>in series</b>. A: CuSO₄ solution with copper electrodes. B: NaCl solution with carbon (anode) and iron (cathode).\nLook at the diagram. Electrons leave the source (−) for the cathode of B; electrons from the anode of B go to the cathode of A; from the anode of A they return to the source (+). There is only one path.'],
+  'se.q1': ['電解槽Bを流れた電子が 0.0800 mol のとき、電解槽Aを流れた電子は？', 'If 0.0800 mol of electrons passed through cell B, how many passed through cell A?'],
+  'se.q1.a': ['同じ 0.0800 mol', 'The same 0.0800 mol'], 'se.q1.b': ['半分の 0.0400 mol', 'Half: 0.0400 mol'], 'se.q1.c': ['2倍の 0.160 mol', 'Double: 0.160 mol'],
+  'se.q1.good': ['正解。道が1本なので、どの電極にも同じ数の電子が流れる。直列の電解槽で、いちばん大事なこと。', 'Correct. With a single path, the same number of electrons passes every electrode. This is the key to cells in series.'], 'se.q1.bad': ['道は1本。Bを通った電子は、すべてAも通る。', 'There is one path. Every electron that passes B also passes A.'],
+  'se.toB': ['次は、同じ導線でつながっている電解槽Bを見よう。', 'Next, look at cell B on the same wire.'], 'se.toB.btn': ['電解槽Bへ', 'To cell B'], 'se.mol': ['どの電極も e⁻ 0.0800 mol', 'Every electrode: e⁻ 0.0800 mol'], 'se.molg': ['どの電極も同じ物質量の e⁻', 'Same amount of e⁻ at every electrode'],
+  'se.q5': ['4.00 A の電流を 1930 秒流した。流れた電子は？（F = 9.65×10⁴ C/mol）', 'A current of 4.00 A ran for 1930 s. How many electrons passed? (F = 9.65×10⁴ C/mol)'],
+  'se.q5.good': ['正解。4.00 × 1930 ＝ 7720 C。7720 ÷ 9.65×10⁴ ＝ 0.0800 mol。A にも B にも同じだけ流れた。', 'Correct. 4.00 × 1930 = 7720 C, and 7720 ÷ 9.65×10⁴ = 0.0800 mol. The same amount passed through A and B.'], 'se.q5.bad': ['まず電気量（電流 × 時間）を出し、96500 C/mol で割る。', 'First find the charge (current × time), then divide by 96500 C/mol.'],
+  'se.q6': ['電解槽Aの陰極に析出した銅の質量は？（Cu = 63.5）', 'What mass of copper deposited on the cathode of cell A? (Cu = 63.5)'],
+  'se.q6.good': ['正解。Cu²⁺ + 2e⁻ → Cu。63.5 × 0.0800 × 1/2 ＝ 2.54 g。', 'Correct. Cu²⁺ + 2e⁻ → Cu: 63.5 × 0.0800 × 1/2 = 2.54 g.'], 'se.q6.bad': ['電子 2 mol で Cu が 1 mol。', '2 mol of electrons give 1 mol of Cu.'],
+  'se.q7': ['電解槽Bの陽極で発生した塩素 Cl₂ の体積は、標準状態で？（22.4 L/mol）', 'What volume of chlorine Cl₂ formed at the anode of cell B, at standard conditions? (22.4 L/mol)'],
+  'se.q7.good': ['正解。2Cl⁻ → Cl₂ + 2e⁻。22.4 × 0.0800 × 1/2 ＝ 0.896 L。', 'Correct. 2Cl⁻ → Cl₂ + 2e⁻: 22.4 × 0.0800 × 1/2 = 0.896 L.'], 'se.q7.bad': ['電子 2 mol で Cl₂ が 1 mol。1 mol の気体は 22.4 L。', '2 mol of electrons give 1 mol of Cl₂, and 1 mol of gas is 22.4 L.'],
+  'res.sum.q13': ['直列につないだ電解槽では、<b>どの電極にも同じ物質量の電子が流れる</b>。電子の物質量を1回求めれば、すべての電極の変化量が出せる。', 'In cells connected in series, <b>the same amount of electrons passes every electrode</b>. Find the moles of electrons once, and you can work out the change at every electrode.'],
+  // ── v0.5：クエストを7つにまとめる・電源からの出発・直列の図・工業編 ──
+  'c1.name': ['電池のしくみ', 'How a Cell Works'], 'c2.name': ['実用電池めぐり', 'A Tour of Real Batteries'], 'c3.name': ['電位の登山と陰極の門番', 'Potentials and the Cathode Gate'],
+  'c4.name': ['陽極の門番と電気分解 全制覇', 'The Anode Gate and Electrolysis'], 'c5.name': ['ファラデーの計量', 'Faraday\'s Measure'], 'c6.name': ['電気分解の工業', 'Electrolysis in Industry'],
+  'part.pop': ['{i}／{n}　{name}', '{i} / {n}  {name}'], 'resume.s': ['続きから', 'Resume'], 'restart.s': ['最初から', 'Restart'],
+  'q14.name': ['膜の関所', 'The Membrane Gate'], 'q15.name': ['陽極泥の宝探し', 'Treasure in the Anode Mud'], 'q16.name': ['水のない世界', 'A World Without Water'],
+  'res.sum.q14': ['<b>イオン交換膜法</b>：陽極 2Cl⁻ → Cl₂ + 2e⁻／陰極 2H₂O + 2e⁻ → H₂ + 2OH⁻。陽イオン交換膜は Na⁺ だけを通すので、陰極側に純度の高い NaOH ができる。', '<b>Ion-exchange membrane process</b>: anode 2Cl⁻ → Cl₂ + 2e⁻ / cathode 2H₂O + 2e⁻ → H₂ + 2OH⁻. The cation-exchange membrane passes only Na⁺, so pure NaOH forms on the cathode side.'],
+  'res.sum.q15': ['<b>銅の電解精錬</b>：陽極（粗銅）Cu → Cu²⁺ + 2e⁻／陰極（純銅）Cu²⁺ + 2e⁻ → Cu。Zn・Fe・Ni はイオンのまま水溶液に残り、Ag・Au は陽極泥として沈む。', '<b>Electrolytic refining of copper</b>: anode (crude) Cu → Cu²⁺ + 2e⁻ / cathode (pure) Cu²⁺ + 2e⁻ → Cu. Zn, Fe, Ni stay in solution as ions; Ag and Au sink as anode mud.'],
+  'res.sum.q16': ['<b>溶融塩電解（融解塩電解）</b>：イオン化傾向が大きい金属は、水のない融解液を電気分解して作る。Al：陰極 Al³⁺ + 3e⁻ → Al／陽極 C + O²⁻ → CO + 2e⁻、C + 2O²⁻ → CO₂ + 4e⁻', '<b>Molten-salt electrolysis</b>: metals with high ionization tendency are made by electrolysing a melt with no water. Al: cathode Al³⁺ + 3e⁻ → Al / anode C + O²⁻ → CO + 2e⁻, C + 2O²⁻ → CO₂ + 4e⁻'],
+  // 電源から陰極へ押しこまれる
+  'ly.push.intro': ['あなたは今、<b>電源の中</b>にいる電子。電源は、電子を負極（−）から力ずくで押し出す。\n押しこまれる先の電極が<b>陰極</b>だ。', 'You are an electron <b>inside the power source</b>. The source forces electrons out of its negative terminal (−).\nThe electrode you are pushed into is the <b>cathode</b>.'],
+  'ly.push.hold': ['押し続けて、導線を通って陰極へ。', 'Hold to travel down the wire into the cathode.'], 'ly.push.pop': ['陰極に押しこまれた！', 'Pushed into the cathode!'],
+  // 直列の図
+  'dg.src': ['電源', 'Source'], 'dg.an': ['陽極', 'Anode'], 'dg.cat': ['陰極', 'Cathode'], 'dg.A': ['A：CuSO₄ 水溶液', 'A: CuSO₄ aq'], 'dg.B': ['B：NaCl 水溶液', 'B: NaCl aq'],
+  // イオン交換膜法
+  'lbl.mem': ['陽イオン交換膜', 'Cation-exchange membrane'], 'lbl.nacl': ['NaCl 飽和水溶液', 'Saturated NaCl aq'], 'lbl.naohw': ['水（うすい NaOH 水溶液）', 'Water (dilute NaOH aq)'],
+  'mb.intro': ['ここは工場。塩化ナトリウム NaCl 水溶液を電気分解して、<b>塩素 Cl₂・水素 H₂・水酸化ナトリウム NaOH</b> を作っている。\nまん中の仕切りは<b>陽イオン交換膜</b>。陽極側には NaCl 飽和水溶液、陰極側には水を入れる。', 'This is a factory. Sodium chloride solution is electrolysed to make <b>chlorine Cl₂, hydrogen H₂ and sodium hydroxide NaOH</b>.\nThe divider is a <b>cation-exchange membrane</b>. Saturated NaCl solution goes on the anode side, water on the cathode side.'],
+  'mb.q1': ['陽極（炭素）側には Na⁺ と Cl⁻ がいる。陽極で電子を失うのは？', 'The anode (carbon) side holds Na⁺ and Cl⁻. What loses electrons at the anode?'],
+  'mb.q1.good': ['正解。2Cl⁻ → Cl₂ + 2e⁻。陽極から塩素が発生する。', 'Correct. 2Cl⁻ → Cl₂ + 2e⁻: chlorine forms at the anode.'], 'mb.q1.bad': ['陽極では、酸化されやすいハロゲン化物イオンが電子を失う。', 'At the anode the easily oxidized halide ion loses electrons.'],
+  'mb.q2': ['陰極（鉄）側。あなたたち電子を受け取るのは？', 'The cathode (iron) side. What takes you electrons?'],
+  'mb.q2.good': ['正解。Na⁺ は還元されにくいので、水分子が電子を受け取る。2H₂O + 2e⁻ → H₂ + 2OH⁻。', 'Correct. Na⁺ is hard to reduce, so water takes the electrons: 2H₂O + 2e⁻ → H₂ + 2OH⁻.'], 'mb.q2.bad': ['Na はイオン化傾向が大きい。水溶液中で Na⁺ は還元されない。', 'Na has a high ionization tendency; Na⁺ is not reduced in water.'],
+  'mb.q3': ['陰極側では OH⁻ が増えて、負の電荷がたまっていく。<b>陽イオン交換膜</b>を通って陰極側へ移動できるのは？', 'OH⁻ builds up on the cathode side, piling up negative charge. Which ion can cross the <b>cation-exchange membrane</b> to the cathode side?'],
+  'mb.q3.good': ['正解。陽イオン交換膜は<b>陽イオンだけ</b>を通す。Na⁺ が陰極側へ移り、Cl⁻ と OH⁻ は膜を通れない。', 'Correct. A cation-exchange membrane passes <b>only cations</b>. Na⁺ moves to the cathode side; Cl⁻ and OH⁻ cannot cross.'], 'mb.q3.bad': ['膜の名前を見よう。通れるのは陽イオンだけ。', 'Look at the name of the membrane: only cations pass.'],
+  'mb.q4': ['陰極側には Na⁺ と OH⁻ がたまっていく。この水溶液を濃縮すると得られるのは？', 'Na⁺ and OH⁻ collect on the cathode side. What do you get by concentrating this solution?'],
+  'mb.q4.a': ['水酸化ナトリウム NaOH', 'Sodium hydroxide NaOH'], 'mb.q4.b': ['塩化ナトリウム NaCl', 'Sodium chloride NaCl'], 'mb.q4.c': ['塩化水素 HCl', 'Hydrogen chloride HCl'],
+  'mb.q4.good': ['正解。Cl⁻ が混ざらないので、純度の高い NaOH が得られる。', 'Correct. No Cl⁻ gets in, so pure NaOH is obtained.'], 'mb.q4.bad': ['陰極側にいる陽イオンと陰イオンの組み合わせは？', 'Which cation and anion are on the cathode side?'],
+  'mb.q5': ['もし膜がなく、陰極でできた OH⁻ が陽極側へ広がると？', 'What if there were no membrane and the OH⁻ made at the cathode spread to the anode side?'],
+  'mb.q5.a': ['陽極で発生した Cl₂ と反応してしまい、純粋な NaOH が得られない', 'It would react with the Cl₂ from the anode, and pure NaOH could not be obtained'], 'mb.q5.b': ['電子が水溶液の中を泳げるようになる', 'Electrons would be able to swim through the solution'], 'mb.q5.c': ['Na⁺ が還元されてナトリウムが析出する', 'Na⁺ would be reduced and sodium would deposit'],
+  'mb.q5.good': ['正解。膜が Cl₂ 側と NaOH 側を分けている。これが<b>イオン交換膜法</b>。', 'Correct. The membrane keeps the Cl₂ side and the NaOH side apart. This is the <b>ion-exchange membrane process</b>.'], 'mb.q5.bad': ['電子は水溶液の中を進めない。Na⁺ も水溶液中では還元されない。', 'Electrons cannot travel through solution, and Na⁺ is not reduced in water.'],
+  'mb.q6': ['電子が 2 mol 流れると、陰極側にできる NaOH は？', 'When 2 mol of electrons pass, how much NaOH forms on the cathode side?'],
+  'mb.q6.good': ['正解。2H₂O + 2e⁻ → H₂ + 2OH⁻。電子 2 mol で OH⁻ が 2 mol、Na⁺ も 2 mol 移ってきて NaOH は 2 mol。', 'Correct. 2H₂O + 2e⁻ → H₂ + 2OH⁻: 2 mol of electrons give 2 mol of OH⁻, 2 mol of Na⁺ cross over, so 2 mol of NaOH.'], 'mb.q6.bad': ['陰極の式で、電子 2 個につき OH⁻ は何個？', 'In the cathode equation, how many OH⁻ per 2 electrons?'],
+  'mb.g1': ['イオン交換膜法で、陽極に発生する気体は？', 'In the ion-exchange membrane process, which gas forms at the anode?'], 'mb.g2': ['イオン交換膜法で、陰極に発生する気体は？', 'In the ion-exchange membrane process, which gas forms at the cathode?'],
+  'g.cl2': ['塩素 Cl₂', 'Chlorine Cl₂'], 'g.h2x': ['水素 H₂', 'Hydrogen H₂'], 'g.o2x': ['酸素 O₂', 'Oxygen O₂'],
+  'mb.g3': ['電子が 2 mol 流れると、陽極に発生する Cl₂ は？', 'When 2 mol of electrons pass, how much Cl₂ forms at the anode?'], 'mb.g3.why': ['2Cl⁻ → Cl₂ + 2e⁻。電子 2 mol で Cl₂ は 1 mol。', '2Cl⁻ → Cl₂ + 2e⁻: 2 mol of electrons give 1 mol of Cl₂.'],
+  // 銅の電解精錬
+  'rf.intro': ['鉱石から取り出したばかりの銅は<b>粗銅</b>（純度 約99％）。亜鉛 Zn・鉄 Fe・ニッケル Ni・銀 Ag・金 Au などの不純物をふくむ。\n電気分解で、純度 99.99％以上の<b>純銅</b>にする。これが<b>銅の電解精錬</b>。水溶液は硫酸酸性の CuSO₄ 水溶液。', 'Copper fresh from the ore is <b>crude copper</b> (about 99 % pure), with impurities such as zinc Zn, iron Fe, nickel Ni, silver Ag and gold Au.\nElectrolysis turns it into <b>pure copper</b> (99.99 % or more). This is <b>electrolytic refining</b>. The solution is CuSO₄ acidified with sulfuric acid.'],
+  'rf.q1': ['粗銅の板と純銅の板。<b>陽極</b>（電子を失って溶け出す側）にするのは？', 'A crude copper plate and a pure copper plate. Which should be the <b>anode</b> (the side that loses electrons and dissolves)?'],
+  'rf.q1.a': ['粗銅', 'Crude copper'], 'rf.q1.b': ['純銅', 'Pure copper'],
+  'rf.q1.good': ['正解。粗銅を陽極にして溶かし、陰極の純銅の上に銅だけを析出させる。陽極：Cu → Cu²⁺ + 2e⁻。', 'Correct. The crude copper is the anode and dissolves; only copper deposits on the pure copper cathode. Anode: Cu → Cu²⁺ + 2e⁻.'], 'rf.q1.bad': ['溶かしたいのは、不純物をふくむほう。溶ける（酸化される）のは陽極。', 'You want to dissolve the impure one. The electrode that dissolves (is oxidized) is the anode.'],
+  'rf.q2': ['粗銅の中の <b>Zn・Fe・Ni</b>（銅よりイオン化傾向が大きい）は、どうなる？', 'What happens to the <b>Zn, Fe, Ni</b> in the crude copper (higher ionization tendency than copper)?'],
+  'rf.q2.a': ['イオンになって溶け出し、水溶液中に残る', 'They dissolve as ions and stay in the solution'], 'rf.q2.b': ['イオンにならず、陽極の下に沈む', 'They do not ionize and sink below the anode'], 'rf.q2.c': ['陰極に銅といっしょに析出する', 'They deposit on the cathode with the copper'],
+  'rf.q2.good': ['正解。銅より酸化されやすいので、Zn²⁺・Fe²⁺・Ni²⁺ になって溶け出す。銅より還元されにくいので陰極には析出せず、水溶液中に残る。', 'Correct. They are oxidized more easily than copper and dissolve as Zn²⁺, Fe²⁺, Ni²⁺. Being harder to reduce than copper, they do not deposit and stay in solution.'], 'rf.q2.bad': ['イオン化傾向が大きい ＝ イオンになりやすく、金属に戻りにくい。', 'High ionization tendency = ionizes easily and is hard to turn back into metal.'],
+  'rf.q3': ['では <b>Ag・Au</b>（銅よりイオン化傾向が小さい）は？', 'And the <b>Ag and Au</b> (lower ionization tendency than copper)?'],
+  'rf.q3.good': ['正解。銅より酸化されにくいので、イオンにならない。まわりの銅が溶けると、単体のまま陽極の下に沈む。これが<b>陽極泥</b>。金や銀の宝の山だ。', 'Correct. They are harder to oxidize than copper and do not ionize. As the copper around them dissolves they sink below the anode as the metal. This is <b>anode mud</b>: a treasure of gold and silver.'], 'rf.q3.bad': ['イオン化傾向が小さい ＝ イオンになりにくい。', 'Low ionization tendency = hard to ionize.'],
+  'rf.q4': ['水溶液中には Cu²⁺・Zn²⁺・Fe²⁺・Ni²⁺ がいる。陰極（純銅）であなたたち電子を受け取るのは？', 'The solution holds Cu²⁺, Zn²⁺, Fe²⁺ and Ni²⁺. What takes you electrons at the cathode (pure copper)?'],
+  'rf.q4.good': ['正解。この中で最も還元されやすい Cu²⁺ だけが電子を受け取り、純粋な銅が析出する。', 'Correct. Only Cu²⁺, the most easily reduced of these, takes electrons, and pure copper deposits.'], 'rf.q4.bad': ['陰極では、最も還元されやすい（イオン化傾向が小さい金属の）イオンが電子を受け取る。', 'At the cathode the most easily reduced ion (of the metal with the lowest ionization tendency) takes the electrons.'],
+  'rf.q5': ['電子が 0.20 mol 流れた。陰極に析出した純銅は？（Cu = 63.5）', '0.20 mol of electrons passed. How much pure copper deposited on the cathode? (Cu = 63.5)'],
+  'rf.q5.good': ['正解。Cu²⁺ + 2e⁻ → Cu。63.5 × 0.20 × 1/2 ＝ 6.35 g。', 'Correct. Cu²⁺ + 2e⁻ → Cu: 63.5 × 0.20 × 1/2 = 6.35 g.'], 'rf.q5.bad': ['電子 2 mol で Cu が 1 mol。', '2 mol of electrons give 1 mol of Cu.'],
+  'rf.g1': ['銅の電解精錬で、陰極に使うのは？', 'In the electrolytic refining of copper, what is the cathode?'], 'rf.g1.why': ['陽極が粗銅、陰極が純銅。', 'The anode is crude copper, the cathode pure copper.'],
+  'rf.g2': ['陽極泥にふくまれる金属は？', 'Which metals are found in the anode mud?'], 'rf.g2.a': ['Ag・Au', 'Ag, Au'], 'rf.g2.b': ['Zn・Fe', 'Zn, Fe'], 'rf.g2.c': ['Ni・Zn', 'Ni, Zn'],
+  'rf.g3': ['電解精錬のあと、水溶液中にイオンとして残る不純物は？', 'After refining, which impurities remain in the solution as ions?'],
+  // 溶融塩電解
+  'ms.intro': ['今度は<b>アルミニウム</b>を作りたい。まずは Al³⁺ をふくむ水溶液を電気分解してみよう。\n陰極の門番を思い出して。', 'Now we want to make <b>aluminium</b>. First try electrolysing a solution containing Al³⁺.\nRemember the cathode gatekeeper.'],
+  'ms.dry': ['水があるかぎり、水が先に電子を受け取ってしまう。Li・K・Ca・Na・Mg・Al など、イオン化傾向が大きい金属は水溶液からは作れない。\nそこで<b>水を使わない</b>。塩や酸化物を高温で融かした液体を電気分解する。これが<b>溶融塩電解（融解塩電解）</b>。', 'As long as water is there, water takes the electrons first. Metals with high ionization tendency (Li, K, Ca, Na, Mg, Al) cannot be made from aqueous solution.\nSo <b>no water</b>: electrolyse a salt or oxide melted at high temperature. This is <b>molten-salt electrolysis</b>.'],
+  'ms.dry.btn': ['融かす', 'Melt it'],
+  'ms.q2': ['融かした液体の中には Al³⁺ と O²⁻ がいる。水はない。陰極であなたたち電子を受け取るのは？', 'The melt contains Al³⁺ and O²⁻, and no water. What takes you electrons at the cathode?'],
+  'ms.q2.good': ['正解。水がないので Al³⁺ が電子を受け取る。Al³⁺ + 3e⁻ → Al。融けたアルミニウムが底にたまる。', 'Correct. With no water, Al³⁺ takes the electrons: Al³⁺ + 3e⁻ → Al. Molten aluminium collects at the bottom.'], 'ms.q2.bad': ['陰イオンは電子を受け取らない。', 'Anions do not take electrons.'], 'ms.nowater': ['ここに水はない。', 'There is no water here.'],
+  'ms.q3': ['原料の酸化アルミニウム Al₂O₃ は、融点が約 2000 ℃ と高い。そこで<b>氷晶石</b>を融かした中に Al₂O₃ を少しずつ溶かす。なぜ？', 'The raw material, aluminium oxide Al₂O₃, melts at about 2000 °C. So it is dissolved little by little in molten <b>cryolite</b>. Why?'],
+  'ms.q3.a': ['約 1000 ℃ という低い温度で電気分解できるから', 'So it can be electrolysed at a lower temperature, about 1000 °C'], 'ms.q3.b': ['氷晶石が電子を作り出すから', 'Because cryolite produces electrons'], 'ms.q3.c': ['氷晶石が水のかわりに還元されるから', 'Because cryolite is reduced in place of water'],
+  'ms.q3.good': ['正解。氷晶石 Na₃AlF₆ に溶かすと、約 1000 ℃ で融けた状態にできる。', 'Correct. Dissolved in cryolite Na₃AlF₆, it stays molten at about 1000 °C.'], 'ms.q3.bad': ['氷晶石は、Al₂O₃ を低い温度で融かすために使う。', 'Cryolite is there to melt the Al₂O₃ at a lower temperature.'],
+  'ms.q4': ['陽極は炭素。O²⁻ が電子を失い、高温の炭素と結びつく。陽極で発生する気体は？', 'The anode is carbon. O²⁻ loses electrons and combines with the hot carbon. Which gas forms at the anode?'],
+  'ms.q4.a': ['一酸化炭素 CO や二酸化炭素 CO₂', 'Carbon monoxide CO and carbon dioxide CO₂'], 'ms.q4.b': ['水素 H₂', 'Hydrogen H₂'], 'ms.q4.c': ['塩素 Cl₂', 'Chlorine Cl₂'],
+  'ms.q4.good': ['正解。C + O²⁻ → CO + 2e⁻、C + 2O²⁻ → CO₂ + 4e⁻。陽極の炭素は少しずつ減っていく。', 'Correct. C + O²⁻ → CO + 2e⁻, C + 2O²⁻ → CO₂ + 4e⁻. The carbon anode is slowly used up.'], 'ms.q4.bad': ['陽極のまわりにあるのは O²⁻ と炭素。', 'Around the anode there are O²⁻ and carbon.'],
+  'ms.q5': ['Al³⁺ + 3e⁻ → Al。電子が 0.30 mol 流れると、できるアルミニウムは？（Al = 27）', 'Al³⁺ + 3e⁻ → Al. When 0.30 mol of electrons pass, how much aluminium forms? (Al = 27)'],
+  'ms.q5.good': ['正解。電子 3 mol で Al が 1 mol。27 × 0.30 × 1/3 ＝ 2.7 g。', 'Correct. 3 mol of electrons give 1 mol of Al: 27 × 0.30 × 1/3 = 2.7 g.'], 'ms.q5.bad': ['Al 1個に電子は 3個必要。', 'Each Al needs 3 electrons.'],
+  'ms.q6': ['アルミニウムを作るには大量の電気が必要。使い終わったアルミニウムを融かして再利用すると、鉱石から作るときにくらべて必要なエネルギーは？', 'Making aluminium takes a huge amount of electricity. If used aluminium is melted and reused, how much energy is needed compared with making it from ore?'],
+  'ms.q6.a': ['約 3 ％ですむ', 'Only about 3 %'], 'ms.q6.b': ['ほぼ同じ', 'About the same'], 'ms.q6.c': ['約 3 倍かかる', 'About 3 times as much'],
+  'ms.q6.good': ['正解。電気分解をやり直さなくてよいので、約 3 ％のエネルギーですむ。リサイクルが大切な理由だ。', 'Correct. No electrolysis is needed again, so only about 3 % of the energy is used. That is why recycling matters.'], 'ms.q6.bad': ['再利用では、電気分解（Al³⁺ → Al）をやり直さなくてよい。', 'Reuse skips the electrolysis step (Al³⁺ → Al).'],
+  'ms.g1': ['アルミニウムを水溶液の電気分解で作れないのは、なぜ？', 'Why can aluminium not be made by electrolysing an aqueous solution?'], 'ms.g1.a': ['Al³⁺ より先に水が還元されて H₂ が発生するから', 'Water is reduced before Al³⁺, giving H₂'], 'ms.g1.b': ['Al³⁺ が水に溶けないから', 'Al³⁺ does not dissolve in water'], 'ms.g1.why': ['Al はイオン化傾向が大きく、Al³⁺ は水溶液中で還元されない。', 'Al has a high ionization tendency; Al³⁺ is not reduced in water.'],
+  'ms.g2': ['塩化ナトリウム NaCl を融かして電気分解すると、陰極にできるのは？', 'When molten sodium chloride NaCl is electrolysed, what forms at the cathode?'], 'ms.g2.a': ['ナトリウム Na', 'Sodium Na'], 'ms.g2.why': ['水がないので Na⁺ + e⁻ → Na。陽極では 2Cl⁻ → Cl₂ + 2e⁻。', 'With no water, Na⁺ + e⁻ → Na. At the anode 2Cl⁻ → Cl₂ + 2e⁻.'],
+  'ms.g3': ['アルミニウムの溶融塩電解で、氷晶石を使う目的は？', 'In the molten-salt electrolysis of aluminium, what is cryolite for?'],
+  // ── v0.6：クエスト7「電子むかしばなし」（紙芝居） ──
+  'c7.name': ['電子むかしばなし', 'An Electron Folktale'], 'q17.name': ['電子むかしばなし', 'An Electron Folktale'],
+  'q17.sub': ['紙芝居。電池と電気分解が、いまと未来のくらしで働くおはなし。約3分。', 'A picture-card play: cells and electrolysis at work today and tomorrow. About 3 min.'],
+  'res.sum.q17': ['<b>電池</b>は物質のエネルギーを電気に変え、<b>電気分解</b>は電気で物質を変える。<br>電気自動車（リチウムイオン電池）／電気をためる（二次電池）／水素を作る（水の電気分解）／水素で走る（燃料電池）／金属を取りもどす（電気分解）', '<b>Cells</b> turn the energy of substances into electricity; <b>electrolysis</b> uses electricity to change substances.<br>Electric cars (lithium-ion) / storing electricity (secondary cells) / making hydrogen (electrolysis of water) / running on hydrogen (fuel cells) / recovering metals (electrolysis)'],
+  'kb.role': ['あなたの役', 'Your part'],
+  'kb.t0': ['序', 'Prologue'], 'kb.t1': ['其の一　あさ', 'One: Morning'], 'kb.t2': ['其の二　ひる', 'Two: Noon'], 'kb.t3': ['其の三　ゆうぐれ', 'Three: Dusk'], 'kb.t4': ['其の四　よる', 'Four: Night'], 'kb.t5': ['其の五　みらい', 'Five: The Future'], 'kb.t6': ['結び', 'Epilogue'],
+  'kb.r0': ['旅の電子（聞き手）', 'A travelling electron (listener)'], 'kb.r1': ['電池の中の Li⁺', 'A Li⁺ inside the battery'], 'kb.r2': ['町の蓄電池の番人', 'Keeper of the town battery'], 'kb.r3': ['陰極の門番', 'Gatekeeper of the cathode'],
+  'kb.r4': ['水素分子の中の電子', 'An electron in a hydrogen molecule'], 'kb.r5': ['未来の技術者', 'An engineer of the future'], 'kb.r6': ['旅の電子', 'A travelling electron'],
+  'kb.0': ['むかしむかし、人びとは火をたいて夜を照らしておった。\nところがいまは、目に見えぬ小さな<b>電子</b>たちが、国じゅうで働いておるそうな。これは、ある一日のおはなし。', 'Once upon a time, people lit the night with fire.\nBut now, they say, tiny unseen <b>electrons</b> are at work all across the land. This is the tale of a single day.'],
+  'kb.start': ['はじまり、はじまり', 'Let the tale begin'], 'kb.end': ['おしまい', 'The end'],
+  'kb.1': ['あさ。ひとりの若者が、電気自動車で町へ出かけるところじゃった。車の床下には<b>リチウムイオン電池</b>。\nあなたの役は、その中の <b>Li⁺</b> じゃ。', 'Morning. A young traveller was setting off for town in an electric car. Under its floor lay a <b>lithium-ion battery</b>.\nYour part: a <b>Li⁺</b> inside it.'],
+  'kb.q1': ['エン「さあ出発、放電がはじまるよ。Li⁺ のあなたは、どちらへ動く？」', 'En: "Off we go, discharge begins. Which way do you move, Li⁺?"'],
+  'kb.q1.a': ['「負極（黒鉛）から正極へ、いざ！」', '"From the negative pole (graphite) to the positive pole!"'], 'kb.q1.b': ['「正極から負極（黒鉛）へ、いざ！」', '"From the positive pole to the negative pole (graphite)!"'],
+  'kb.q1.good': ['そのとおり。放電のとき、Li⁺ は電解質の中を負極から正極へ。電子は導線を通ってモーターを回す。車は煙も出さず、すうっと走り出したそうな。', 'Just so. On discharge, Li⁺ moves through the electrolyte from the negative pole to the positive pole, while the electrons run through the wire and turn the motor. The car glided away without a puff of smoke.'],
+  'kb.q1.bad': ['それは充電のときの向きじゃ。放電では、電子も Li⁺ も負極から出ていく。', 'That is the direction for charging. On discharge, both electrons and Li⁺ leave the negative pole.'],
+  'kb.2': ['ひる。お日さまが照って、屋根の太陽光パネルが電気をどんどん作る。じゃが、町で使いきれずにあまってしもうた。\nあなたの役は、町の<b>蓄電池の番人</b>じゃ。', 'Noon. The sun blazed and the solar panels on the roofs made plenty of electricity, more than the town could use.\nYour part: <b>keeper of the town battery</b>.'],
+  'kb.q2': ['アカネ「番人さん、あまった電気をどうしましょう？」', 'Akane: "Keeper, what shall we do with the spare electricity?"'],
+  'kb.q2.a': ['「二次電池に充電して、夜までためておこう」', '"Charge the secondary cells and keep it for the night."'], 'kb.q2.b': ['「一次電池に充電して、ためておこう」', '"Charge the primary cells and keep it."'], 'kb.q2.c': ['「しかたない、捨ててしまおう」', '"Too bad. Throw it away."'],
+  'kb.q2.good': ['お見事。充電できるのは二次電池じゃ。昼にためた電気は、日がくれてから町の明かりをともしたそうな。天気まかせの電気を、電池がならしてくれるのじゃ。', 'Well done. Only secondary cells can be charged. The electricity stored at noon lit the town after sunset. Batteries even out electricity that depends on the weather.'],
+  'kb.q2.bad': ['一次電池は充電できぬ。捨てるのも、もったいない。', 'Primary cells cannot be charged, and throwing it away is a waste.'],
+  'kb.3': ['ゆうぐれ。風車も回って、まだ電気があまっておる。そこで村人は、水を<b>電気分解</b>することにした。\nあなたの役は、<b>陰極の門番</b>じゃ。', 'Dusk. The windmills turned and there was still electricity to spare. So the villagers decided to <b>electrolyse</b> water.\nYour part: <b>gatekeeper of the cathode</b>.'],
+  'kb.q3': ['アカネ「門番さん、陰極で水が電子を受け取ると、何ができますか？」', 'Akane: "Gatekeeper, what forms when water takes electrons at the cathode?"'],
+  'kb.q3.a': ['「水素 H₂ じゃ。ためておけば燃料になる」', '"Hydrogen H₂. Store it and it becomes fuel."'], 'kb.q3.b': ['「酸素 O₂ じゃ」', '"Oxygen O₂."'], 'kb.q3.c': ['「塩素 Cl₂ じゃ」', '"Chlorine Cl₂."'],
+  'kb.q3.good': ['そのとおり。陰極では 2H₂O + 2e⁻ → H₂ + 2OH⁻。自然の力で作った電気が、ためて運べる水素に変わった。酸素は陽極のほうから出てきたそうな。', 'Just so. At the cathode, 2H₂O + 2e⁻ → H₂ + 2OH⁻. Electricity made by nature became hydrogen that can be stored and carried. The oxygen came from the anode.'],
+  'kb.q3.bad': ['陰極で起こるのは還元。水が電子を受け取ってできる気体は？', 'Reduction happens at the cathode. Which gas forms when water takes electrons?'],
+  'kb.4': ['よる。村はずれの停留所に、<b>燃料電池</b>のバスがやってきた。積んでおるのは、夕方に作った水素。\nあなたの役は、<b>水素分子の中の電子</b>じゃ。', 'Night. A <b>fuel-cell</b> bus pulled up at the stop on the edge of the village, carrying the hydrogen made at dusk.\nYour part: <b>an electron in a hydrogen molecule</b>.'],
+  'kb.q4': ['エン「負極で水素からはなれ、導線を通って、正極で酸素と出会う。さて、バスから出てくるものは？」', 'En: "You leave hydrogen at the negative pole, run through the wire and meet oxygen at the positive pole. So what comes out of the bus?"'],
+  'kb.q4.a': ['「水だけじゃ。H₂ と O₂ から H₂O」', '"Only water: H₂O from H₂ and O₂."'], 'kb.q4.b': ['「二酸化炭素じゃ」', '"Carbon dioxide."'], 'kb.q4.c': ['「塩素じゃ」', '"Chlorine."'],
+  'kb.q4.good': ['ご名答。2H₂ + O₂ → 2H₂O。バスは電気でモーターを回し、うしろから水をぽたぽた落としながら、しずかに夜道を走っていったそうな。', 'Quite right. 2H₂ + O₂ → 2H₂O. The bus turned its motor with electricity and rolled quietly down the night road, dripping water behind it.'],
+  'kb.q4.bad': ['燃料電池の全体の反応は、水素と酸素から何ができる反応じゃった？', 'What does the overall fuel-cell reaction make from hydrogen and oxygen?'],
+  'kb.5': ['そして、すこし先の未来。古くなった電池が山のように集まった。中には銅やリチウム、コバルトなど、大切な金属がねむっておる。\nあなたの役は、<b>未来の技術者</b>じゃ。', 'And then, a little way into the future. Old batteries had piled up like a mountain, with precious metals such as copper, lithium and cobalt asleep inside.\nYour part: <b>an engineer of the future</b>.'],
+  'kb.q5': ['ミコト「技術者どの、この山から純粋な金属を取りもどすには？」', 'Mikoto: "Engineer, how do we win pure metal back from this mountain?"'],
+  'kb.q5.a': ['「溶かしてイオンにし、電気分解で陰極に析出させよう」', '"Dissolve it into ions, then deposit it on a cathode by electrolysis."'], 'kb.q5.b': ['「水に長くつけておけば、金属にもどる」', '"Soak it in water long enough and it turns back to metal."'], 'kb.q5.c': ['「強く熱して、気体にして逃がそう」', '"Heat it hard and let it escape as gas."'],
+  'kb.q5.good': ['さすがじゃ。電解精錬と同じ考え。使い終わった電池は「都市鉱山」、金属を取りもどして、また新しい電池にする。電解質を固体にした<b>全固体電池</b>など、新しい電池の研究も進んでおるそうな。', 'Splendid. The same idea as electrolytic refining. Used batteries are an "urban mine": recover the metals and build new batteries. Research goes on into new kinds too, such as <b>all-solid-state batteries</b> with a solid electrolyte.'],
+  'kb.q5.bad': ['イオンを金属にもどすには、電子を受け取らせる（還元する）必要がある。', 'To turn ions back into metal, they must be given electrons (reduced).'],
+  'kb.6': ['こうして電子たちは、朝も昼も夜も、電極から電極へ、休まず旅を続けておる。\n電池は、物質のエネルギーを電気に変えるしくみ。電気分解は、電気で物質を変えるしくみ。この先のおはなしを作るのは、あなたじゃ。\nめでたし、めでたし。', 'And so the electrons travel on, morning, noon and night, from electrode to electrode.\nA cell turns the energy of substances into electricity; electrolysis uses electricity to change substances. The rest of the tale is yours to write.\nAnd they all lived happily ever after.'],
   'fatal': ['3Dの部品を読み込めませんでした。通信の状態を確かめて、読み込み直してください。', 'Could not load the 3D library. Check your connection and reload.'],
 };
 
@@ -681,9 +879,17 @@ const sleep = (ms) => new Promise((r) => { const id = runId; setTimeout(() => { 
 const REDUCED = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
 const rnd = (a, b) => a + Math.random() * (b - a);
 
-const ALL_Q = ['q0', 'q1', 'q2', 'q3', 'q4', 'q5', 'q6', 'q7', 'q8'];
-let SAVE = { v: 1 }; ALL_Q.forEach((k) => { SAVE[k] = { best: 0, plays: 0 }; });   // best：0なし 1銅印 2銀印 3金印
-try { const r = JSON.parse(store.get(CONFIG.saveKey)); if (r && r.v === 1) { for (const k of ALL_Q) if (r[k]) Object.assign(SAVE[k], r[k]); if (r.rec) SAVE.rec = r.rec; if (r.pred) SAVE.pred = r.pred; } } catch (e) {}
+const ALL_Q = ['c0', 'c1', 'c2', 'c3', 'c4', 'c5', 'c6', 'c7'];
+const OLD_MAP = { c0: ['q0'], c1: ['q1', 'q2', 'q3'], c2: ['q4', 'q5', 'q6', 'q7'] };   // v0.4 までの小さなクエスト → まとめたクエスト
+function migrate(r) {                       // 古い記録を引きつぐ：まとめた中身をすべて取っていた印だけが残る
+  if (!r || r.v === 2) return r; const o = { v: 2 };
+  for (const c in OLD_MAP) { const xs = OLD_MAP[c].map((k) => r[k] || {}); o[c] = { best: Math.min(...xs.map((x) => x.best || 0)), plays: Math.min(...xs.map((x) => x.plays || 0)) }; }
+  if (r.rec) { o.rec = {}; for (const c in OLD_MAP) for (const k of OLD_MAP[c]) if (r.rec[k]) o.rec[c] = Object.assign(o.rec[c] || {}, r.rec[k]); }
+  if (r.pred) { o.pred = {}; for (const c in OLD_MAP) OLD_MAP[c].forEach((k, i) => { if (r.pred[k]) o.pred[c + '_' + i] = r.pred[k]; }); }
+  return o;
+}
+let SAVE = { v: 2 }; ALL_Q.forEach((k) => { SAVE[k] = { best: 0, plays: 0 }; });   // best：0なし 1銅印 2銀印 3金印
+try { const r = migrate(JSON.parse(store.get(CONFIG.saveKey))); if (r && r.v === 2) { for (const k of ALL_Q) if (r[k]) Object.assign(SAVE[k], r[k]); if (r.rec) SAVE.rec = r.rec; if (r.pred) SAVE.pred = r.pred; } } catch (e) {}
 const save = () => store.set(CONFIG.saveKey, JSON.stringify(SAVE));
 
 /* ═════════ 音：和風の電子音とBGM（すべてその場で合成） ═════════
@@ -1004,10 +1210,13 @@ let lampPower = 0.4, lampBoost = 0;
 
 addLabel('lbl.zn', V(-5.4, 7.0, 0), '#B5625A', 0.74);
 addLabel('lbl.cu', V(5.4, 7.0, 0), '#3F7893', 0.74);
-addLabel('lbl.porous', V(0, 5.6, 0), '#8f7c5c', 0.58);
+addLabel('lbl.porous', V(0, 5.6, 0), '#8f7c5c', 0.58); addLabel('lbl.mem', V(0, 5.6, 0), '#8f7c5c', 0.58); addLabel('lbl.nacl', V(-3, -0.7, 2), '#7c8fb0', 0.58); addLabel('lbl.naohw', V(3, -0.7, 2), '#5c8fb5', 0.58);
 addLabel('lbl.znso4', V(-3, -0.7, 2), '#7c8fb0', 0.58);
 addLabel('lbl.cuso4', V(3, -0.7, 2), '#5c8fb5', 0.58);
 addLabel('lbl.bulb', V(0, 9.75, 0), '#A9822E', 0.58);
+addLabel('lbl.psu', V(0, 9.95, 0), '#A9822E', 0.58); addLabel('lbl.plus', V(-1.25, 9.2, 0), '#B5625A', 0.62); addLabel('lbl.minus', V(1.25, 9.2, 0), '#3F7893', 0.62);
+const psu = new THREE.Mesh(new THREE.CylinderGeometry(0.62, 0.62, 1.7, 24), new THREE.MeshLambertMaterial({ color: 0xffffff, map: washiTexture('#F3E3B4'), emissive: 0xffe9b0, emissiveIntensity: 0.25, transparent: true, opacity: 0.9, depthWrite: false }));
+psu.rotation.z = Math.PI / 2; psu.position.set(0, G.wireY, 0); psu.visible = false; scene.add(psu);
 ['lbl.acid', 'lbl.elec', 'lbl.h3po4', 'lbl.org'].forEach((k) => addLabel(k, V(0, -0.7, 2), '#6f86a8', 0.58));
 const elLab = { L: labels.find((l) => l.key === 'lbl.zn'), R: labels.find((l) => l.key === 'lbl.cu') };
 addLabel('lbl.h2in', V(-5.0, 0.05, 1.5), '#3F8793', 0.5); addLabel('lbl.o2in', V(5.0, 0.05, 1.5), '#B5625A', 0.5); addLabel('lbl.h2oout', V(5.0, -0.75, 1.5), '#3F7893', 0.46);
@@ -1116,8 +1325,9 @@ const amb = [];     // 背景でずっと続く動き（説明や問いのあい
 let ambTick = null; // 背景の動きを生み出す係（クエストごと）
 function ambMove(sp, to, dur, done) { amb.push({ sp, from: sp.position.clone(), to: to.clone(), t: 0, dur, done }); }
 function applyWorld(w) {                    // 装置をクエストに合わせる（水溶液、電極の色・札・形、気体の通り道、坂）
-  const d = w.kind === 'daniell', fuel = w.kind === 'fuel', lay = !!w.layers;
-  liqL.visible = liqR.visible = porous.visible = d; liqOne.visible = !d; liqOne.scale.x = fuel ? 0.485 : 1; liqR.material.opacity = 0.4; lampPower = 0.4; wireFlow = 1;
+  const d = w.kind === 'daniell', fuel = w.kind === 'fuel', lay = !!w.layers, mem = w.kind === 'membrane', lys = w.kind === 'lysis' || mem;
+  psu.visible = lys; lamp.visible = lampGlow.visible = !lys;
+  liqL.visible = liqR.visible = porous.visible = d || mem; liqOne.visible = !(d || mem); liqOne.scale.x = fuel ? 0.485 : 1; liqR.material.opacity = 0.4; lampPower = 0.4; wireFlow = 1;
   glass.visible = !fuel; chamL.visible = chamR.visible = fuel;
   const el = { L: { ...EL_DEF.L, ...(w.el && w.el.L) }, R: { ...EL_DEF.R, ...(w.el && w.el.R) } };
   latZn.mesh.material.map = ballOf(el.L.c, el.L.hi); latCu.mesh.material.map = ballOf(el.R.c, el.R.hi); plateL.material = plateOf(el.L.plate); plateR.material = plateOf(el.R.plate);
@@ -1126,14 +1336,14 @@ function applyWorld(w) {                    // 装置をクエストに合わせ
   for (const k of ['L', 'R']) if (elLab[k].key !== el[k].label) { elLab[k].key = el[k].label; refreshLabel(elLab[k]); }
   elLab.L.sp.position.set(fuel ? -3.5 : -5.4, 7.0, fuel ? 1.5 : 0); elLab.R.sp.position.set(fuel ? 3.5 : 5.4, 7.0, fuel ? 1.5 : 0);
   const sol = w.solText ? '' : w.sol || (w.kind === 'acid' ? 'lbl.acid' : w.kind === 'plain' ? 'lbl.elec' : '');
-  const vis = { 'lbl.porous': d, 'lbl.znso4': d, 'lbl.cuso4': d, 'lbl.acid': sol === 'lbl.acid', 'lbl.elec': sol === 'lbl.elec', 'lbl.h3po4': sol === 'lbl.h3po4', 'lbl.org': sol === 'lbl.org', 'lbl.big': !!w.series, 'lbl.small': !!w.series, 'lbl.h2in': fuel, 'lbl.o2in': fuel, 'lbl.h2oout': fuel };
+  const vis = { 'lbl.porous': d, 'lbl.znso4': d, 'lbl.cuso4': d, 'lbl.acid': sol === 'lbl.acid', 'lbl.elec': sol === 'lbl.elec', 'lbl.h3po4': sol === 'lbl.h3po4', 'lbl.org': sol === 'lbl.org', 'lbl.big': !!w.series, 'lbl.small': !!w.series, 'lbl.h2in': fuel, 'lbl.o2in': fuel, 'lbl.h2oout': fuel, 'lbl.mem': mem, 'lbl.nacl': mem, 'lbl.naohw': mem, 'lbl.psu': lys, 'lbl.plus': lys, 'lbl.minus': lys, 'lbl.bulb': !lys };
   for (const k in vis) labelSp[k].visible = vis[k];
   setDyn(solDyn, w.solText); setDyn(emfLab, w.emfText);
   seriesGroup.visible = !!w.series && w.series !== 'e0'; seriesE.visible = w.series === 'e0'; SP = w.series === 'e0' ? seriesPosE : seriesPos;
   labelSp['lbl.big'].position.copy(SP[0]).add(V(2.1, 0.35, 0)); labelSp['lbl.small'].position.copy(SP[16]).add(V(-1.3, -0.5, 0));
 }
 function resetWorld() {
-  amb.length = 0; ambTick = null; hideGap(); $('gauge').hidden = true;
+  amb.length = 0; ambTick = null; hideGap(); $('gauge').hidden = true; $('circ').hidden = true; kamiClose(); liqOne.material.color.set('#FFFFFF');
   ions.slice().forEach(removeIon); applyWorld(Q.world);
   Q.world.ions.forEach(([kind, side, n]) => { for (let i = 0; i < n; i++) addIon(kind, side); });
   { const a = latZn.mesh.geometry.attributes.position; latZn.pts.forEach((p, i) => a.setXYZ(i, p.x, p.y, p.z)); a.needsUpdate = true; }   // 溶け出した原子を元に戻す
@@ -1155,6 +1365,7 @@ const VIEWS = {
   wire: { follow: true, az: 0.2, pol: 0.25, dist: () => 8.5 },
   cu:   { follow: true, az: -0.3, pol: 0.2, dist: () => 5.6 },
   mid:  { follow: true, az: 0.1, pol: 0.28, dist: () => 7.5 },
+  lya:  { follow: true, az: 0.55, pol: 0.24, dist: () => 8.2 }, lyc: { follow: true, az: -0.55, pol: 0.24, dist: () => 8.2 },   // 電気分解：電極の表面と水溶液を見る
   gas:  { follow: true, az: 0.35, pol: 0.2, dist: () => 6.2 },   // 気体の通り道（燃料電池）
   series: { follow: false, az: 0, pol: 0.06, dist: () => fitDist() * 0.77, t: V(0.2, 13.2, 0) },   // イオン化列の坂
 };
@@ -1751,7 +1962,7 @@ function gaugeDraw() {
   $('gaFill').style.width = Math.max(0, (GA.lvl / GA.cap) * 100).toFixed(1) + '%'; $('gaLvl').textContent = `${Math.max(0, Math.round(GA.lvl))} mAh / ${GA.cap} mAh`;
   $('gaInfo').innerHTML = `${tt('ga.cur')} <b>${GA.cur} mA</b>　${tt('ga.time')} <b>${(Math.round(GA.h * 100) / 100).toFixed(2)} ${tt('ga.h')}</b>　${tt('ga.used')} <b>${Math.round(GA.cur * GA.h)} mAh</b>`;
 }
-function gaugeShow(cap, lvl, cur) { Object.assign(GA, { cap, lvl, cur, h: 0 }); $('gauge').hidden = false; gaugeDraw(); }
+function gaugeShow(cap, lvl, cur) { Object.assign(GA, { cap, lvl, cur, h: 0 }); $('gauge').hidden = false; $('gaTitle').textContent = tt('ga.title'); gaugeDraw(); }
 function gaugeHide() { $('gauge').hidden = true; }
 async function gaugeRun(hours, sec) { const l0 = GA.lvl, h0 = GA.h; snd.hop(); await anim(sec, (t) => { GA.h = h0 + hours * t; GA.lvl = l0 - GA.cur * hours * t; lampBoost = 0.3; gaugeDraw(); }); }
 function mahAsk(v) {
@@ -1995,10 +2206,473 @@ Object.assign(QUESTS, {
   },
 });
 
+/* ═════════ v0.4：電気分解編（クエスト9〜13） ═════════
+   左の電極＝陽極（電源の＋につなぐ。酸化）、右の電極＝陰極（電源の−につなぐ。還元）。電子は 陽極 → 電源 → 陰極 へ流れる。
+   問いに正解すると、その電極の反応が背景でくり返し動き続ける（説明と連動） */
+Object.assign(ION_TEX, { cl: ionTexture('Cl⁻', '#CDEBB8'), ag: ionTexture('Ag⁺', '#E6E8F4'), no3: ionTexture('NO₃⁻', '#F3D9B0'), na: ionTexture('Na⁺', '#F6D9A8'), k: ionTexture('K⁺', '#E3C8F0'), oh: ionTexture('OH⁻', '#BFE0F8'), i: ionTexture('I⁻', '#D8C2E8'), cl2: ionTexture('Cl₂', '#D6F0A8'), i2: ionTexture('I₂', '#D3AE98'), agA: ballTex('#DADDEA', '#FFFFFF') });
+Object.assign(ION_SIZE, { cl: 0.6, ag: 0.58, no3: 0.72, na: 0.56, k: 0.58, oh: 0.6, i: 0.64, cl2: 0.78, i2: 0.72, agA: 0.5 });
+const SPEC = { cu: ['Cu²⁺', 'Cu²⁺'], ag: ['Ag⁺', 'Ag⁺'], h: ['H⁺', 'H⁺'], na: ['Na⁺', 'Na⁺'], k: ['K⁺', 'K⁺'], cl: ['Cl⁻', 'Cl⁻'], i: ['I⁻', 'I⁻'], so4: ['SO₄²⁻', 'SO₄²⁻'], no3: ['NO₃⁻', 'NO₃⁻'], oh: ['OH⁻', 'OH⁻'], h2o: ['H₂O（水分子）', 'H₂O (water)'],
+  Cu: ['Cu（陽極の銅）', 'Cu (the copper anode)'], Ag: ['Ag（陽極の銀）', 'Ag (the silver anode)'], C: ['C（陽極の炭素）', 'C (the carbon anode)'], Pt: ['Pt（陽極の白金）', 'Pt (the platinum anode)'] };
+const CATION = new Set(['cu', 'ag', 'h', 'na', 'k']), ANION = new Set(['cl', 'i', 'so4', 'no3', 'oh']);
+const LY = {   // 水溶液：イオンの種類と数、陰極で還元されるもの（cat）、反応しない電極のとき陽極で酸化されるもの（an）
+  cucl2: { n: ['CuCl₂ 水溶液', 'CuCl₂ aq'], ions: [['cu', 5], ['cl', 10]], cat: 'cu', an: 'cl' },
+  cuso4: { n: ['CuSO₄ 水溶液', 'CuSO₄ aq'], ions: [['cu', 6], ['so4', 6]], cat: 'cu', an: 'h2o' },
+  agno3: { n: ['AgNO₃ 水溶液', 'AgNO₃ aq'], ions: [['ag', 7], ['no3', 7]], cat: 'ag', an: 'h2o' },
+  nacl: { n: ['NaCl 水溶液', 'NaCl aq'], ions: [['na', 7], ['cl', 8]], cat: 'h2o', an: 'cl' },
+  h2so4: { n: ['H₂SO₄ 水溶液（希硫酸）', 'H₂SO₄ aq (dilute)'], ions: [['h', 10], ['so4', 5]], cat: 'h', an: 'h2o' },
+  naoh: { n: ['NaOH 水溶液', 'NaOH aq'], ions: [['na', 7], ['oh', 8]], cat: 'h2o', an: 'oh' },
+  ki: { n: ['KI 水溶液', 'KI aq'], ions: [['k', 7], ['i', 8]], cat: 'h2o', an: 'i' },
+  na2so4: { n: ['Na₂SO₄ 水溶液', 'Na₂SO₄ aq'], ions: [['na', 8], ['so4', 4]], cat: 'h2o', an: 'h2o' },
+};
+const ELN = { C: { c: '#B4B8C8' }, Pt: { c: '#DADDEA' }, Cu: { c: COL.cu, sol: 'cu' }, Ag: { c: '#DADDEA', sol: 'ag' }, Fe: { c: '#C4BEC8' } };   // sol：陽極にしたとき溶け出すイオン
+const CAT = {
+  cu: { eq: 'Cu²⁺ + 2e⁻ → Cu', prod: ['銅 Cu が析出', 'Copper Cu deposits'], why: 'ly.w.metal' }, ag: { eq: 'Ag⁺ + e⁻ → Ag', prod: ['銀 Ag が析出', 'Silver Ag deposits'], why: 'ly.w.metal' },
+  h: { eq: '2H⁺ + 2e⁻ → H₂', prod: ['水素 H₂ が発生', 'Hydrogen H₂ forms'], why: 'ly.w.h' }, h2o: { eq: '2H₂O + 2e⁻ → H₂ + 2OH⁻', prod: ['水素 H₂ が発生', 'Hydrogen H₂ forms'], why: 'ly.w.h2o' },
+};
+const AN = {
+  cl: { eq: '2Cl⁻ → Cl₂ + 2e⁻', prod: ['塩素 Cl₂ が発生', 'Chlorine Cl₂ forms'], why: 'ly.w.hal' }, i: { eq: '2I⁻ → I₂ + 2e⁻', prod: ['ヨウ素 I₂ が生成', 'Iodine I₂ forms'], why: 'ly.w.hal' },
+  h2o: { eq: '2H₂O → O₂ + 4H⁺ + 4e⁻', prod: ['酸素 O₂ が発生', 'Oxygen O₂ forms'], why: 'ly.w.o' }, oh: { eq: '4OH⁻ → 2H₂O + O₂ + 4e⁻', prod: ['酸素 O₂ が発生', 'Oxygen O₂ forms'], why: 'ly.w.oh' },
+  Cu: { eq: 'Cu → Cu²⁺ + 2e⁻', prod: ['陽極の銅が溶ける', 'The copper anode dissolves'], why: 'ly.w.el' }, Ag: { eq: 'Ag → Ag⁺ + e⁻', prod: ['陽極の銀が溶ける', 'The silver anode dissolves'], why: 'ly.w.el' },
+};
+let LN = { key: '', run: {} }, lyCount = { c: 0, a: 0 };
+const lyWorld = (key, L, R) => ({ kind: 'lysis', solText: LY[key].n, ions: [], el: {
+  L: { c: ELN[L].c, hi: '#FFFFFF', plate: mixHex(ELN[L].c, '#FFFFFF', 0.45), label: [`陽極 ${L}`, `Anode ${ELN[L].en || L}`] }, R: { c: ELN[R].c, hi: '#FFFFFF', plate: mixHex(ELN[R].c, '#FFFFFF', 0.45), label: [`陰極 ${R}`, `Cathode ${ELN[R].en || R}`] } } });
+function setEq(id, text, lit) { const el = $(id); if (!el) return; el.textContent = text; el.classList.toggle('is-on', !!lit); }
+function restoreAtoms() { const a = latZn.mesh.geometry.attributes.position; latZn.pts.forEach((p, i) => a.setXYZ(i, p.x, p.y, p.z)); a.needsUpdate = true; }
+function lySet(key, L = 'C', R = 'C') {       // 水溶液と電極を入れかえる
+  amb.length = 0; ions.slice().forEach(removeIon); extras.slice().forEach(unstick); restoreAtoms(); applyWorld(lyWorld(key, L, R));
+  LY[key].ions.forEach(([k, n]) => { for (let i = 0; i < n; i++) addIon(k, 'A'); });
+  liqOne.material.color.set(LY[key].hot ? '#FFB98A' : '#FFFFFF');
+  LN = { key, L, R, an: ELN[L].sol ? ELN[L].as || L : LY[key].an, cat: LY[key].cat, run: {} }; lyCount = { c: 0, a: 0 };
+  setEq('ea', '？', false); setEq('ec', '？', false); ['nk', 'pk'].forEach((k) => $(k) && $(k).classList.remove('is-on')); ambTick = lyTick();
+}
+function lyPlace(side) {                      // 視点とプレイヤーの場所：cat＝陰極の中、an＝陽極の中、all＝全体
+  const home = side === 'an' ? V(G.znX + 0.5, 2.7, 0.3) : side === 'cat' ? V(G.cuX - 0.5, 2.7, 0.3) : HOME_CU; player.visible = buddy.visible = true; player.position.copy(home); buddy.position.copy(home).add(V(side === 'an' ? -0.25 : 0.25, -0.5, -0.3));
+  setView(side === 'an' ? 'lya' : side === 'cat' ? 'lyc' : 'all'); idleSpin = side === 'all';
+}
+function lyReveal(side) { const k = side === 'cat' ? CAT[LN.cat] : AN[LN.an]; setEq(side === 'cat' ? 'ec' : 'ea', k.eq, true); on(side === 'cat' ? 'pk' : 'nk'); LN.run[side] = true; beacon(null); if (!$('circ').hidden && SE.cell) { SE.prod[SE.cell + '_' + side] = 1; circDraw(); } }
+const eDotMat = new THREE.SpriteMaterial({ map: ballTex('#FFFFFF', '#FFFFFF'), color: 0xe8fbf6, transparent: true, depthTest: false, depthWrite: false });
+function eDot(from, to, dur = 0.7) { const s = new THREE.Sprite(eDotMat); s.scale.setScalar(0.3); s.renderOrder = 8; s.position.copy(from); scene.add(s); extras.push(s); ambMove(s, to, dur, () => unstick(s)); }
+function bubble(kind, at) { const b = stick(kind, at.clone(), ION_SIZE[kind] * 0.85); ripple(at, 0xffffff); ambMove(b, V(at.x + rnd(-0.3, 0.3), 4.7, at.z), 2.3, () => unstick(b)); }
+const anSpot = (n) => V(G.znX + 0.78, 1.2 + (n % 7) * 0.5, -0.5 + (Math.floor(n / 7) % 2) * 0.8);
+function catEvent() {                         // 陰極の反応を1回
+  const k = LN.cat, n = lyCount.c++, P = depSpot(n % 14), free = (kind, m) => ions.filter((x) => x.kind === kind && !x.frozen).slice(0, m);
+  const eIn = () => { eDot(HOME_CU.clone().add(V(0, 0.3, 0)), P, 0.6); eDot(HOME_CU.clone().add(V(0.1, -0.3, 0)), P, 0.75); };
+  { const old = extras.filter((x) => /^(cuA|agA|alA)$/.test(x.userData.kind)); if (old.length > 40) unstick(old[0]); }   // 析出した粒がふえすぎないように、古いものから消す
+  if (k === 'cu' || k === 'ag' || k === 'al') { const [ion] = free(k, 1); if (!ion) return; ion.frozen = true; eIn(); if (k === 'al') eDot(HOME_CU.clone(), P, 0.9);
+    ambMove(ion.sp, P, 0.9, () => { removeIon(ion); const s = stick(k === 'cu' ? 'cuA' : k === 'ag' ? 'agA' : 'alA', P, 0.5); ripple(P, 0x9ccde0);
+      if (k === 'al') { ambMove(s, V(P.x - rnd(0.3, 2.4), 0.42, P.z), 2.6, null); if (ions.filter((x) => x.kind === 'al').length < 5) addIon('al', 'A'); } }); }
+  else if (k === 'h') { const hs = free('h', 2); if (hs.length < 2) return; eIn(); hs.forEach((h, j) => { h.frozen = true; ambMove(h.sp, P.clone().add(V(-0.1, j ? 0.2 : -0.2, 0)), 0.9, () => { removeIon(h); if (j) bubble('h2', P); }); }); }
+  else { eIn(); [0.25, -0.25].forEach((d, j) => { const w = stick('h2o', P.clone().add(V(-0.9, d, 0)), 0.5); ambMove(w, P, 0.9, () => { unstick(w); if (j) { bubble('h2', P); if (ions.filter((x) => x.kind === 'oh').length < 12) [0.2, -0.2].forEach((e) => addIon('oh', 'A', P.clone().add(V(-0.3, e, 0)))); } }); }); }
+}
+function anEvent() {                          // 陽極の反応を1回
+  const k = LN.an, n = lyCount.a++, P = anSpot(n), free = (kind, m) => ions.filter((x) => x.kind === kind && !x.frozen).slice(0, m);
+  const eOut = () => { eDot(P, HOME_ZN.clone().add(V(0, 0.3, 0)), 0.6); eDot(P, HOME_ZN.clone().add(V(-0.1, -0.3, 0)), 0.75); };
+  if (k === 'cl' || k === 'i') { const xs = free(k, 2); if (xs.length < 2) return; xs.forEach((x, j) => { x.frozen = true; ambMove(x.sp, P.clone().add(V(0.1, j ? 0.2 : -0.2, 0)), 0.9, () => { removeIon(x); if (!j) return; eOut(); if (k === 'cl') bubble('cl2', P); else { const s = stick('i2', P.clone().add(V(0.25, 0, 0)), 0.6); ambMove(s, V(P.x + rnd(0.4, 1.2), 0.6, P.z), 3, null); } }); }); }
+  else if (k === 'h2o') { [0.25, -0.25].forEach((d, j) => { const w = stick('h2o', P.clone().add(V(0.9, d, 0)), 0.5); ambMove(w, P, 0.9, () => { unstick(w); if (!j) return; eOut(); bubble('o2', P); if (ions.filter((x) => x.kind === 'h').length < 14) for (let q = 0; q < 4; q++) addIon('h', 'A', P.clone().add(V(0.3, (q - 1.5) * 0.2, 0))); }); }); }
+  else if (k === 'oh') { const xs = free('oh', 4); if (xs.length < 4) return; xs.forEach((x, j) => { x.frozen = true; ambMove(x.sp, P.clone().add(V(0.1, (j - 1.5) * 0.2, 0)), 0.9, () => { removeIon(x); if (j < 3) return; eOut(); bubble('o2', P); [0.2, -0.2].forEach((d) => { const w = stick('h2o', P.clone().add(V(0.3, d, 0)), 0.5); ambMove(w, P.clone().add(V(1.6, d * 4, 0)), 2, () => unstick(w)); }); }); }); }
+  else if (k === 'o2m') { const xs = free('o2m', 2); if (xs.length < 2) return; xs.forEach((x, j) => { x.frozen = true; ambMove(x.sp, P.clone().add(V(0.1, j ? 0.2 : -0.2, 0)), 0.9, () => { removeIon(x); if (!j) return; eOut(); if (znSurfList[n] !== undefined) setAtomVisible(latZn, znSurfList[n], false); bubble('co2', P); if (ions.filter((y) => y.kind === 'o2m').length < 7) { addIon('o2m', 'A'); addIon('o2m', 'A'); } }); }); }
+  else { if (znSurfList[n] !== undefined) setAtomVisible(latZn, znSurfList[n], false); eOut(); addIon(ELN[k].sol, 'A', P.clone().add(V(0.3, 0, 0))); ripple(P, 0xf2a9a0); }
+}
+function lyTick() {                           // 背景：イオンが電極へ寄っていく（陽イオンは陰極へ、陰イオンは陽極へ）。正解した電極では反応が続く
+  let a = 1.2;
+  return (dt) => {
+    for (const i of ions) if (!i.frozen) { const s = CATION.has(i.kind) ? 1 : ANION.has(i.kind) ? -1 : 0; i.vel.x = Math.max(-0.4, Math.min(0.4, i.vel.x + s * dt * 0.06)); }
+    a += dt; if (a < 1.9) return; a = 0; if (LN.run.cat) catEvent(); if (LN.run.an) anEvent();
+  };
+}
+/* 門番の問い：その電極で電子を受け取る（失う）のはだれか */
+function lyAsk(side, key, L, R) {
+  const c = LY[key], cat = side === 'cat', ans = cat ? c.cat : ELN[L].sol ? L : c.an, info = cat ? CAT[ans] : AN[ans];
+  const kinds = [...new Set(c.ions.map((x) => x[0])), 'h2o', ...(cat ? [] : [L])];
+  return {
+    pre: () => { if (LN.key !== key || LN.L !== L || LN.R !== R) lySet(key, L, R); lyPlace(side); beacon(cat ? SPOT : anSpot(0)); },
+    key: cat ? [`<b>${c.n[0]}</b>を電気分解する（陰極は ${R}）。\n陰極で<b>電子を受け取る</b>のは？`, `Electrolysis of <b>${c.n[1]}</b> (cathode: ${R}).\nWhat <b>takes electrons</b> at the cathode?`]
+             : [`<b>${c.n[0]}</b>を電気分解する（陽極は ${L}）。\n陽極で<b>電子を失う</b>のは？`, `Electrolysis of <b>${c.n[1]}</b> (anode: ${L}).\nWhat <b>loses electrons</b> at the anode?`],
+    opts: shuffle(kinds.map((k) => ({ k: SPEC[k], ok: k === ans, why: k === ans ? info.why : cat ? 'ly.cat.bad' : 'ly.an.bad' }))),
+    rec: { id: 'g.ly.' + side + '.' + key + '.' + (cat ? R : L), label: `（電気分解）${c.n[0]}・${cat ? '陰極 ' + R : '陽極 ' + L}で反応するもの`, dyn: true, onOk: () => lyReveal(side) },
+  };
+}
+/* 生成物の問い：その電極でできる物質 */
+function lyProdAsk(side, key, L, R) {
+  const c = LY[key], cat = side === 'cat', ans = cat ? c.cat : ELN[L].sol ? L : c.an, info = cat ? CAT[ans] : AN[ans];
+  const metal = c.ions.map((x) => x[0]).find((k) => k === 'na' || k === 'k'), pool = cat
+    ? [info.prod, CAT.cu.prod, CAT.h.prod, AN.h2o.prod, ...(metal ? [[`${metal === 'na' ? 'ナトリウム Na' : 'カリウム K'} が析出`, `${metal === 'na' ? 'Sodium Na' : 'Potassium K'} deposits`]] : [])]
+    : [info.prod, AN.cl.prod, AN.h2o.prod, CAT.h.prod, AN.Cu.prod];
+  const seen = new Set(), opts = []; pool.forEach((p, i) => { if (seen.has(p[0]) || opts.length >= 4) return; seen.add(p[0]); opts.push({ k: p, ok: i === 0, why: i === 0 ? info.why : 'ly.prod.bad' }); });
+  return {
+    pre: () => { if (LN.key !== key || LN.L !== L || LN.R !== R) lySet(key, L, R); lyPlace('all'); beacon(cat ? SPOT : anSpot(0)); },
+    key: [`<b>${c.n[0]}</b>の電気分解（陽極 ${L}、陰極 ${R}）。\n<b>${cat ? '陰極' : '陽極'}</b>で起こるのは？`, `Electrolysis of <b>${c.n[1]}</b> (anode ${L}, cathode ${R}).\nWhat happens at the <b>${cat ? 'cathode' : 'anode'}</b>?`],
+    opts: shuffle(opts), rec: { id: 'g.lyp.' + side + '.' + key + '.' + L, label: `（電気分解）${c.n[0]}（陽極 ${L}・陰極 ${R}）の${cat ? '陰極' : '陽極'}の変化`, dyn: true, onOk: () => lyReveal(side) },
+  };
+}
+const lyGo = async (q, who) => { q.pre(); await ask(q.key, q.opts, who, q.rec); };
+const anodeOf = (key) => (LY[key].an === 'cl' ? 'C' : 'Pt');   // Cl₂ が出るときは炭素の陽極
+const LY_TABLE = [['cucl2', 'C', 'C'], ['h2so4', 'Pt', 'Pt'], ['naoh', 'Pt', 'Pt'], ['nacl', 'C', 'Fe'], ['cuso4', 'Pt', 'Pt'], ['cuso4', 'Cu', 'Cu'], ['agno3', 'Pt', 'Pt'], ['ki', 'Pt', 'Pt']];
+const LY_ANODES = [['cucl2', 'C'], ['cuso4', 'Pt'], ['cuso4', 'Cu'], ['naoh', 'Pt'], ['ki', 'Pt'], ['nacl', 'C'], ['agno3', 'Ag'], ['h2so4', 'Pt'], ['na2so4', 'Pt']];
+const LY_EQ = [{ cls: 'n', long: 1, pole: 'pole.an', terms: [['ea', '？']], kind: 'kind.ox', kid: 'nk' }, { cls: 'p', long: 1, pole: 'pole.cat', terms: [['ec', '？']], kind: 'kind.red', kid: 'pk' }];
+const lyQuest = (id, cell, extra) => ({ id, no: id + '.no', name: id + '.name', sub: id + '.sub', sum: 'res.sum.' + id, side: 'A', world: lyWorld(...cell), eq: LY_EQ, setup() { resetWorld(); lySet(...cell); lyPlace('all'); }, ...extra });
+
+/* クエスト12・13：電気量のメーター（Q ＝ i × t）と、回路の図 */
+const MQ = { i: 0.5, t: 3860, now: 0 };
+function meterDraw() {
+  $('gaTitle').textContent = tt('ga.q.title'); $('gaFill').style.width = ((MQ.now / MQ.t) * 100).toFixed(1) + '%';
+  $('gaLvl').textContent = `${MQ.i} A × ${Math.round(MQ.now)} s = ${Math.round(MQ.i * MQ.now)} C`;
+  $('gaInfo').innerHTML = `${tt('ga.q.e')} <b>${((MQ.i * MQ.now) / 96500).toFixed(4)} mol</b>（${Math.round(MQ.i * MQ.now)} C ÷ 9.65×10⁴ C/mol）`;
+}
+function meterShow(i, t, now) { Object.assign(MQ, { i, t, now }); $('gauge').hidden = false; meterDraw(); }
+async function meterRun(sec) { snd.hop(); await anim(sec, (k) => { MQ.now = MQ.t * k; meterDraw(); }); }
+function faAsk(v) {
+  const n = pickR([0.01, 0.02, 0.04, 0.05]), i = pickR(n === 0.02 || n === 0.04 ? [0.5, 1, 2] : [0.5, 1]), t = Math.round((n * 96500) / i), head = [`${i} A の電流を ${t} 秒流した（F = 9.65×10⁴ C/mol）。\n`, `A current of ${i} A ran for ${t} s (F = 9.65×10⁴ C/mol).\n`];
+  const mk = (ja, en, vals, unit, why, id, label) => { const q = numAsk([head[0] + ja, head[1] + en], vals, unit, why, id, label); q.pre = () => { if (LN.key !== 'cuso4') { lySet('cuso4', 'Pt', 'Pt'); lyReveal('cat'); lyReveal('an'); } lyPlace('all'); meterShow(i, t, t); }; return q; };
+  return [
+    () => mk('流れた電気量は？', 'How much charge passed?', [i * t, i * t * 2, t, (i * t) / 2], [' C', ' C'], [`電気量 ＝ ${i} A × ${t} s ＝ ${i * t} C`, `Charge = ${i} A × ${t} s = ${i * t} C`], 'g.fa.q', '電気量を求める'),
+    () => mk('流れた電子は？', 'How many electrons passed?', [n, n * 10, n / 2, n * 2], [' mol', ' mol'], [`${i * t} C ÷ 9.65×10⁴ C/mol ＝ ${n} mol`, `${i * t} C ÷ 9.65×10⁴ C/mol = ${n} mol`], 'g.fa.e', '電子の物質量を求める'),
+    () => mk('CuSO₄ 水溶液の陰極に析出する銅は？（Cu = 63.5）', 'What mass of copper deposits at the cathode in CuSO₄ aq? (Cu = 63.5)', [(63.5 * n) / 2, 63.5 * n, (63.5 * n) / 4, 63.5 * n * 2], [' g', ' g'], [`電子 ${n} mol → Cu ${n / 2} mol → 63.5 × ${n / 2} g`, `${n} mol e⁻ → ${n / 2} mol Cu → 63.5 × ${n / 2} g`], 'g.fa.cu', '析出する銅の質量'),
+    () => mk('陽極で発生する酸素 O₂ は標準状態で？（22.4 L/mol）', 'What volume of O₂ forms at the anode at standard conditions? (22.4 L/mol)', [(22.4 * n) / 4, (22.4 * n) / 2, 22.4 * n, (22.4 * n) / 8], [' L', ' L'], [`電子 ${n} mol → O₂ ${n / 4} mol → 22.4 × ${n / 4} L`, `${n} mol e⁻ → ${n / 4} mol O₂ → 22.4 × ${n / 4} L`], 'g.fa.o2', '発生する酸素の体積'),
+    () => mk('同じ電気量で AgNO₃ 水溶液を電気分解すると、析出する銀は？（Ag = 108）', 'With the same charge in AgNO₃ aq, what mass of silver deposits? (Ag = 108)', [108 * n, 54 * n, 216 * n, 27 * n], [' g', ' g'], [`Ag⁺ + e⁻ → Ag。電子 ${n} mol → Ag ${n} mol → 108 × ${n} g`, `Ag⁺ + e⁻ → Ag: ${n} mol e⁻ → ${n} mol Ag → 108 × ${n} g`], 'g.fa.ag', '析出する銀の質量'),
+  ][v]();
+}
+const CELL_A = ['cuso4', 'Cu', 'Cu'], CELL_B = ['nacl', 'C', 'Fe'];
+function seAsk(v) {
+  const n = pickR([0.02, 0.04, 0.1, 0.2]), head = [`直列につないだ電解槽A（CuSO₄・銅電極）とB（NaCl・陽極 C、陰極 Fe）に、電子が ${n} mol 流れた。\n`, `${n} mol of electrons passed through cells A (CuSO₄, Cu electrodes) and B (NaCl, anode C, cathode Fe) in series.\n`];
+  const mk = (cell, ja, en, vals, unit, why, id, label) => { const q = numAsk([head[0] + ja, head[1] + en], vals, unit, why, id, label); q.pre = () => { const c = cell === 'A' ? CELL_A : CELL_B; if (LN.key !== c[0]) { lySet(...c); lyReveal('cat'); lyReveal('an'); } lyPlace('all'); Object.keys(SE_PROD).forEach((k) => { SE.prod[k] = 1; }); SE.mol = 'se.molg'; circ(cell, /an|cl2/.test(id) ? 'an' : 'cat'); }; return q; };
+  return [
+    () => mk('A', 'Aの陰極に析出する銅は？（Cu = 63.5）', 'What mass of copper deposits at the cathode of A? (Cu = 63.5)', [(63.5 * n) / 2, 63.5 * n, (63.5 * n) / 4, 63.5 * n * 2], [' g', ' g'], [`63.5 × ${n} × 1/2`, `63.5 × ${n} × 1/2`], 'g.se.cu', '直列：Aの陰極の銅'),
+    () => mk('A', 'Aの陽極の銅は何 g 減る？（Cu = 63.5）', 'By how many grams does the copper anode of A decrease? (Cu = 63.5)', [(63.5 * n) / 2, 63.5 * n, (63.5 * n) / 4, 0], [' g', ' g'], [`Cu → Cu²⁺ + 2e⁻。63.5 × ${n} × 1/2`, `Cu → Cu²⁺ + 2e⁻: 63.5 × ${n} × 1/2`], 'g.se.an', '直列：Aの陽極の銅の減少'),
+    () => mk('B', 'Bの陽極で発生する塩素 Cl₂ は標準状態で？（22.4 L/mol）', 'What volume of Cl₂ forms at the anode of B at standard conditions? (22.4 L/mol)', [(22.4 * n) / 2, 22.4 * n, (22.4 * n) / 4, 22.4 * n * 2], [' L', ' L'], [`2Cl⁻ → Cl₂ + 2e⁻。22.4 × ${n} × 1/2`, `2Cl⁻ → Cl₂ + 2e⁻: 22.4 × ${n} × 1/2`], 'g.se.cl2', '直列：Bの陽極の塩素'),
+    () => mk('B', 'Bの陰極で発生する水素 H₂ は標準状態で？（22.4 L/mol）', 'What volume of H₂ forms at the cathode of B at standard conditions? (22.4 L/mol)', [(22.4 * n) / 2, 22.4 * n, (22.4 * n) / 4, 22.4 * n * 2], [' L', ' L'], [`2H₂O + 2e⁻ → H₂ + 2OH⁻。22.4 × ${n} × 1/2`, `2H₂O + 2e⁻ → H₂ + 2OH⁻: 22.4 × ${n} × 1/2`], 'g.se.h2', '直列：Bの陰極の水素'),
+  ][v]();
+}
+
+Object.assign(QUESTS, {
+  q9: lyQuest('q9', ['cucl2', 'C', 'C'], {
+    gold: () => shuffle(Object.keys(LY)).slice(0, 5).map((k) => lyAsk('cat', k, anodeOf(k), anodeOf(k))),
+    stages: [
+      async () => { lySet('cucl2'); await pushIn(); lyPlace('all'); await say('ly.intro', 'next', 'mikoto'); await ask('ly.q0', [{ k: 'c.ox', why: 'ly.q0.bad' }, { k: 'c.red', ok: true, why: 'ly.q0.good' }], 'mikoto'); },
+      async () => { await lyGo(lyAsk('cat', 'cucl2', 'C', 'C'), 'akane'); await lyGo(lyAsk('cat', 'nacl', 'C', 'C'), 'akane'); },
+      async () => { await lyGo(lyAsk('cat', 'h2so4', 'Pt', 'Pt'), 'akane'); await lyGo(lyAsk('cat', 'agno3', 'Pt', 'Pt'), 'akane'); },
+      async () => { for (const k of shuffle(['cuso4', 'ki', 'naoh', 'na2so4']).slice(0, 3)) await lyGo(lyAsk('cat', k, 'Pt', 'Pt'), 'akane'); },
+      async () => { lySet('nacl'); lyReveal('cat'); lyPlace('all'); await ask('ly.cat.sum', [{ k: 'ly.cat.sum.b', why: 'ly.cat.sum.bad' }, { k: 'ly.cat.sum.a', ok: true, why: 'ly.cat.sum.good' }], 'mikoto'); },
+    ],
+  }),
+  q10: lyQuest('q10', ['cucl2', 'C', 'C'], {
+    gold: () => shuffle(LY_ANODES).slice(0, 5).map(([k, L]) => lyAsk('an', k, L, L)),
+    stages: [
+      async () => { lySet('cucl2'); await pushIn(); lyPlace('all'); await say('ly.an.intro', 'next', 'mikoto'); await ask('ly.q0a', [{ k: 'c.ox', ok: true, why: 'ly.q0a.good' }, { k: 'c.red', why: 'ly.q0a.bad' }], 'mikoto'); },
+      async () => { await lyGo(lyAsk('an', 'cucl2', 'C', 'C'), 'en'); await lyGo(lyAsk('an', 'cuso4', 'Pt', 'Pt'), 'en'); },
+      async () => { await lyGo(lyAsk('an', 'cuso4', 'Cu', 'Cu'), 'en'); await lyGo(lyAsk('an', 'naoh', 'Pt', 'Pt'), 'en'); },
+      async () => { for (const [k, L] of shuffle([['ki', 'Pt'], ['nacl', 'C'], ['agno3', 'Ag'], ['h2so4', 'Pt'], ['na2so4', 'Pt']]).slice(0, 3)) await lyGo(lyAsk('an', k, L, L), 'en'); },
+      async () => { lySet('nacl'); lyReveal('an'); lyPlace('all'); await ask('ly.an.sum', [{ k: 'ly.an.sum.a', ok: true, why: 'ly.an.sum.good' }, { k: 'ly.an.sum.b', why: 'ly.an.sum.bad' }], 'mikoto'); },
+    ],
+  }),
+  q11: lyQuest('q11', ['cucl2', 'C', 'C'], {
+    gold: () => shuffle(LY_TABLE).slice(0, 5).map((c, i) => lyProdAsk(i % 2 ? 'an' : 'cat', ...c)),
+    stages: [
+      async () => { const t = shuffle(LY_TABLE); PQ.q11.pick = t; lySet(...t[0]); lyPlace('all'); await say('ly.all.intro', 'next', 'mikoto'); await lyGo(lyProdAsk('cat', ...t[0]), 'akane'); await lyGo(lyProdAsk('an', ...t[0]), 'en'); },
+      async () => { const t = PQ.q11.pick || shuffle(LY_TABLE); for (const c of t.slice(1, 3)) { await lyGo(lyProdAsk('cat', ...c), 'akane'); await lyGo(lyProdAsk('an', ...c), 'en'); } },
+      async () => { const t = PQ.q11.pick || shuffle(LY_TABLE), c = t[3]; await lyGo(lyProdAsk('an', ...c), 'en'); await lyGo(lyProdAsk('cat', ...c), 'akane'); },
+      async () => { lySet('nacl', 'C', 'Fe'); lyReveal('cat'); lyReveal('an'); lyPlace('cat'); await ask('ly.ph', [{ k: 'ly.ph.b', why: 'ly.ph.bad' }, { k: 'ly.ph.a', ok: true, why: 'ly.ph.good' }, { k: 'c.same', why: 'ly.ph.bad' }], 'mikoto'); },
+    ],
+  }),
+  q12: lyQuest('q12', ['cuso4', 'Pt', 'Pt'], {
+    gold: () => shuffle([0, 1, 2, 3, 4]).map(faAsk),
+    setup() { resetWorld(); lySet('cuso4', 'Pt', 'Pt'); lyReveal('cat'); lyReveal('an'); lyPlace('all'); },
+    stages: [
+      async () => {                               // ① 電気量 Q ＝ i × t
+        await pushIn(); lyPlace('all'); meterShow(0.5, 3860, 0); const c = (x) => [x + ' C', x + ' C'];
+        await say('fa.intro', 'fa.btn', 'mikoto'); idle('fa.intro');
+        await meterRun(3.6);
+        await ask('fa.q1', [{ k: c(7720), why: 'fa.q1.bad' }, { k: c(1930), ok: true, why: 'fa.q1.good' }, { k: c(3860), why: 'fa.q1.bad' }, { k: c(965), why: 'fa.q1.bad' }], 'mikoto');
+      },
+      async () => {                               // ② ファラデー定数：電子の物質量
+        lyPlace('all'); meterShow(0.5, 3860, 3860); const m = (x) => [x + ' mol', x + ' mol'];
+        await say('fa.f', 'next', 'mikoto');
+        await ask('fa.q2', [{ k: m('0.20'), why: 'fa.q2.bad' }, { k: m('0.020'), ok: true, why: 'fa.q2.good' }, { k: m('0.010'), why: 'fa.q2.bad' }, { k: m('2.0'), why: 'fa.q2.bad' }], 'mikoto');
+      },
+      async () => {                               // ③ 陰極：析出する銅
+        lyPlace('cat'); meterShow(0.5, 3860, 3860); const m = (x) => [x + ' mol', x + ' mol'], g = (x) => [x + ' g', x + ' g'];
+        await ask('fa.q3', [{ k: m('0.020'), why: 'fa.q3.bad' }, { k: m('0.040'), why: 'fa.q3.bad' }, { k: m('0.010'), ok: true, why: 'fa.q3.good' }], 'akane');
+        await ask('fa.q4', [{ k: g('1.27'), why: 'fa.q4.bad' }, { k: g('0.64'), ok: true, why: 'fa.q4.good' }, { k: g('0.32'), why: 'fa.q4.bad' }, { k: g('63.5'), why: 'fa.q4.bad' }], 'akane');
+      },
+      async () => {                               // ④ 陽極：発生する酸素
+        lyPlace('an'); meterShow(0.5, 3860, 3860); const m = (x) => [x + ' mol', x + ' mol'], g = (x) => [x + ' g', x + ' g'];
+        await ask('fa.q5', [{ k: m('0.010'), why: 'fa.q5.bad' }, { k: m('0.0050'), ok: true, why: 'fa.q5.good' }, { k: m('0.020'), why: 'fa.q5.bad' }, { k: m('0.080'), why: 'fa.q5.bad' }], 'en');
+        await ask('fa.q6', [{ k: g('0.16'), ok: true, why: 'fa.q6.good' }, { k: g('0.32'), why: 'fa.q6.bad' }, { k: g('0.080'), why: 'fa.q6.bad' }, { k: g('1.6'), why: 'fa.q6.bad' }], 'en');
+      },
+    ],
+  }),
+  q13: lyQuest('q13', CELL_A, {
+    gold: () => shuffle([seAsk(0), seAsk(1), seAsk(2), seAsk(3), seAsk(pickR([0, 2]))]),
+    setup(k) { resetWorld(); lySet(...CELL_A); lyPlace('all'); SE.mol = null; SE.prod = k <= 1 ? {} : k === 2 ? { A_an: 1, A_cat: 1 } : { A_an: 1, A_cat: 1, B_an: 1, B_cat: 1 }; },
+    stages: [
+      async () => {                               // ① 道は1本：流れる電子は同じ数
+        lySet(...CELL_A); circ('A'); lyPlace('all');
+        await say('se.intro', 'next', 'mikoto');
+        await ask('se.q1', [{ k: 'se.q1.b', why: 'se.q1.bad' }, { k: 'se.q1.a', ok: true, why: 'se.q1.good' }, { k: 'se.q1.c', why: 'se.q1.bad' }], 'mikoto');
+      },
+      async () => { lySet(...CELL_A); circ('A', 'cat'); await lyGo(lyProdAsk('cat', ...CELL_A), 'akane'); circ('A', 'an'); await lyGo(lyProdAsk('an', ...CELL_A), 'en'); },   // ② 電解槽A
+      async () => {                               // ③ 電解槽B
+        lySet(...CELL_A); lyReveal('cat'); lyReveal('an'); circ('A'); lyPlace('all');
+        await say('se.toB', 'se.toB.btn', 'mikoto'); circ('B', 'an'); snd.hop();
+        await lyGo(lyProdAsk('an', ...CELL_B), 'en'); circ('B', 'cat'); await lyGo(lyProdAsk('cat', ...CELL_B), 'akane');
+      },
+      async () => {                               // ④ 電子の物質量を1回求めて、両方の電解槽に使う
+        const m = (x) => [x + ' mol', x + ' mol'], g = (x) => [x + ' g', x + ' g'], l = (x) => [x + ' L', x + ' L'];
+        lySet(...CELL_A); lyReveal('cat'); lyReveal('an'); circ('A'); lyPlace('all'); meterShow(4, 1930, 0); await meterRun(2.6);
+        await ask('se.q5', [{ k: m('0.0400'), why: 'se.q5.bad' }, { k: m('0.0800'), ok: true, why: 'se.q5.good' }, { k: m('0.160'), why: 'se.q5.bad' }, { k: m('0.800'), why: 'se.q5.bad' }], 'mikoto', { id: 'se.q5', onOk: () => { SE.mol = 'se.mol'; circDraw(); } });
+        circ('A', 'cat');
+        await ask('se.q6', [{ k: g('5.08'), why: 'se.q6.bad' }, { k: g('2.54'), ok: true, why: 'se.q6.good' }, { k: g('1.27'), why: 'se.q6.bad' }, { k: g('63.5'), why: 'se.q6.bad' }], 'akane');
+        lySet(...CELL_B); lyReveal('cat'); lyReveal('an'); circ('B', 'an'); lyPlace('all'); meterShow(4, 1930, 1930);
+        await ask('se.q7', [{ k: l('1.79'), why: 'se.q7.bad' }, { k: l('0.448'), why: 'se.q7.bad' }, { k: l('0.896'), ok: true, why: 'se.q7.good' }, { k: l('22.4'), why: 'se.q7.bad' }], 'en');
+      },
+    ],
+  }),
+});
+
+/* ═════════ v0.5：工業編（イオン交換膜法・銅の電解精錬・溶融塩電解） ═════════ */
+Object.assign(ION_TEX, { al: ionTexture('Al³⁺', '#D9E2F2'), o2m: ionTexture('O²⁻', '#F6B4B4'), fe: ionTexture('Fe²⁺', '#CFE6C8'), ni: ionTexture('Ni²⁺', '#C8E8D8'), co2: ionTexture('CO₂', '#E4E0EC'), alA: ballTex('#E3E8F2', '#FFFFFF'),
+  znM: ionTexture('Zn', '#F7A9A0'), feM: ionTexture('Fe', '#D8C8B8'), agM: ionTexture('Ag', '#E6E8F4'), auM: ionTexture('Au', '#F5DC78') });
+Object.assign(ION_SIZE, { al: 0.6, o2m: 0.6, fe: 0.6, ni: 0.6, co2: 0.78, alA: 0.5, znM: 0.5, feM: 0.5, agM: 0.5, auM: 0.5 });
+Object.assign(SPEC, { al: ['Al³⁺', 'Al³⁺'], o2m: ['O²⁻', 'O²⁻'], zn: ['Zn²⁺', 'Zn²⁺'], fe: ['Fe²⁺', 'Fe²⁺'], ni: ['Ni²⁺', 'Ni²⁺'] });
+['al', 'zn', 'fe', 'ni'].forEach((k) => CATION.add(k)); ANION.add('o2m');
+LY.alcl3 = { n: ['AlCl₃ 水溶液', 'AlCl₃ aq'], ions: [['al', 4], ['cl', 12]], cat: 'h2o', an: 'cl' };
+LY.melt = { n: ['融かした氷晶石 ＋ Al₂O₃（約1000 ℃）', 'Molten cryolite + Al₂O₃ (about 1000 °C)'], ions: [['al', 6], ['o2m', 9]], cat: 'al', an: 'o2m', hot: true };
+ELN['粗銅'] = { c: '#D9A58C', sol: 'cu', as: 'Cu', en: 'crude Cu' }; ELN['純銅'] = { c: COL.cu, en: 'pure Cu' };
+CAT.al = { eq: 'Al³⁺ + 3e⁻ → Al', prod: ['アルミニウム Al ができる', 'Aluminium Al forms'], why: 'ms.q2.good' };
+AN.o2m = { eq: 'C + 2O²⁻ → CO₂ + 4e⁻', prod: ['CO・CO₂ が発生', 'CO and CO₂ form'], why: 'ms.q4.good' };
+const mol = (x) => [x + ' mol', x + ' mol'], gram = (x) => [x + ' g', x + ' g'];
+const fact = (key, opts, why) => factAsk([key, opts, why]);
+
+/* 電源から陰極へ：電気分解のクエストは、電源の中から押しこまれるところで始まる */
+async function pushIn() {
+  player.visible = buddy.visible = true; wireMove(0.5, 0.5)(0); focus = player; setView('wire'); idleSpin = false; beacon(null);
+  await say('ly.push.intro', 'next', 'mikoto');
+  await hold('ly.push.hold', wireMove(0.5, 1), 'mikoto');
+  snd.ok(); bloom(player.position); pop('ly.push.pop', 'is-gold', 2000); await sleep(900);
+}
+
+/* 直列の図：電源と2つの電解槽。いま見ている槽と電極が光り、答えた変化が書きこまれる */
+const SE = { cell: null, pole: null, prod: {}, mol: null };
+const SE_PROD = { A_an: ['Cu が溶ける', 'Cu dissolves'], A_cat: ['Cu が析出', 'Cu deposits'], B_an: ['Cl₂ が発生', 'Cl₂ forms'], B_cat: ['H₂ が発生', 'H₂ forms'] };
+function circDraw() {
+  const cell = (c, x, an, cat) => { const hot = (p) => (SE.cell === c && SE.pole === p ? ' hot' : ''), pr = (p) => (SE.prod[c + '_' + p] ? tt(SE_PROD[c + '_' + p]) : '');
+    return `<rect class="cell${SE.cell === c ? ' is-on' : ''}" x="${x}" y="60" width="114" height="68" rx="10"/><line class="el${hot('an')}" x1="${x + 22}" y1="52" x2="${x + 22}" y2="112"/><line class="el${hot('cat')}" x1="${x + 92}" y1="52" x2="${x + 92}" y2="112"/>
+      <text x="${x + 29}" y="71">${tt('dg.an')} ${an}</text><text class="pr ox" x="${x + 29}" y="81">${pr('an')}</text>
+      <text x="${x + 85}" y="95" text-anchor="end">${tt('dg.cat')} ${cat}</text><text class="pr red" x="${x + 85}" y="105" text-anchor="end">${pr('cat')}</text><text class="c" x="${x + 57}" y="122">${tt('dg.' + c)}</text>`; };
+  $('circ').innerHTML = `<svg viewBox="0 0 340 134" role="img"><g class="w"><polyline points="198,16 300,16 300,52"/><polyline points="230,52 230,34 110,34 110,52"/><polyline points="40,52 40,16 142,16"/></g>
+    <rect class="src" x="142" y="5" width="56" height="22" rx="7"/><text class="c b" x="170" y="20">${tt('dg.src')}</text><text class="c ox" x="134" y="12">＋</text><text class="c red" x="206" y="12">−</text>
+    <text class="c e" x="90" y="12">e⁻ →</text><text class="c e" x="250" y="12">e⁻ →</text><text class="c e" x="170" y="31">← e⁻</text>
+    <text class="c mol" x="170" y="48">${SE.mol ? tt(SE.mol) : ''}</text>${cell('A', 18, 'Cu', 'Cu')}${cell('B', 208, 'C', 'Fe')}</svg>`;
+}
+function circ(cell, pole) { $('circ').hidden = !cell; SE.cell = cell || null; SE.pole = pole || null; if (cell) circDraw(); }
+
+/* イオン交換膜法 */
+const MB = { an: false, cat: false, cross: false };
+const mbWorld = { kind: 'membrane', ions: [], el: { L: { c: ELN.C.c, hi: '#FFFFFF', plate: mixHex(ELN.C.c, '#FFFFFF', 0.45), label: ['陽極 C', 'Anode C'] }, R: { c: ELN.Fe.c, hi: '#FFFFFF', plate: mixHex(ELN.Fe.c, '#FFFFFF', 0.45), label: ['陰極 Fe', 'Cathode Fe'] } } };
+function mbSet() {
+  amb.length = 0; ions.slice().forEach(removeIon); extras.slice().forEach(unstick); restoreAtoms(); applyWorld(mbWorld);
+  for (let i = 0; i < 7; i++) { addIon('na', 'L'); addIon('cl', 'L'); } for (let i = 0; i < 2; i++) { addIon('na', 'R'); addIon('oh', 'R'); }
+  Object.assign(MB, { an: false, cat: false, cross: false }); lyCount = { c: 0, a: 0 }; LN = { key: 'mb', run: {} };
+  setEq('ea', '？', false); setEq('ec', '？', false); ['nk', 'pk'].forEach((k) => $(k) && $(k).classList.remove('is-on')); ambTick = mbTick();
+}
+function mbReveal(side) { MB[side] = true; if (side === 'an') { setEq('ea', AN.cl.eq, true); on('nk'); } if (side === 'cat') { setEq('ec', CAT.h2o.eq, true); on('pk'); } beacon(null); }
+function mbTick() {
+  let a = 1.0;
+  return (dt) => {
+    a += dt; if (a < 1.9) return; a = 0;
+    const free = (kind, side, m) => ions.filter((x) => x.kind === kind && x.side === side && !x.frozen).slice(0, m), count = (kind, side) => ions.filter((x) => x.kind === kind && x.side === side).length;
+    if (MB.an) {
+      const P = anSpot(lyCount.a++), xs = free('cl', 'L', 2);
+      if (xs.length === 2) xs.forEach((x, j) => { x.frozen = true; ambMove(x.sp, P.clone().add(V(0.1, j ? 0.2 : -0.2, 0)), 0.9, () => { removeIon(x); if (!j) return; eDot(P, HOME_ZN.clone().add(V(0, 0.3, 0)), 0.6); eDot(P, HOME_ZN.clone().add(V(-0.1, -0.3, 0)), 0.75); bubble('cl2', P); }); });
+      if (count('cl', 'L') < 6) { addIon('cl', 'L', V(-2.6, rnd(1, 3.2), rnd(-1.2, 0.5))); if (count('na', 'L') < 7) addIon('na', 'L', V(-2.6, rnd(1, 3.2), rnd(-1.2, 0.5))); }   // NaCl 飽和水溶液を足し続ける
+    }
+    if (MB.cat) {
+      const P = depSpot(lyCount.c++ % 14); eDot(HOME_CU.clone().add(V(0, 0.3, 0)), P, 0.6); eDot(HOME_CU.clone().add(V(0.1, -0.3, 0)), P, 0.75);
+      [0.25, -0.25].forEach((d, j) => { const w = stick('h2o', P.clone().add(V(-0.9, d, 0)), 0.5); ambMove(w, P, 0.9, () => { unstick(w); if (!j) return; bubble('h2', P); if (count('oh', 'R') < 10) [0.2, -0.2].forEach((e) => addIon('oh', 'R', P.clone().add(V(-0.3, e, 0)))); }); });
+    }
+    if (MB.cross && count('na', 'R') < 10) {
+      const [na] = free('na', 'L', 1); if (!na) return; na.frozen = true; const p = na.sp.position.clone();
+      ambMove(na.sp, V(-0.45, p.y, p.z), 0.7, () => { ripple(V(0, p.y, p.z), 0xf6d9a8); ambMove(na.sp, V(0.7, p.y, p.z), 0.9, () => { na.side = 'R'; na.frozen = false; }); });
+    }
+  };
+}
+/* 銅の電解精錬：粗銅の表面に不純物の粒を置く。Zn・Fe はイオンになって溶け、Ag・Au は陽極泥として沈む */
+let RF = { ion: false, mud: false, list: [] };
+function rfSet() {
+  lySet('cuso4', '粗銅', '純銅'); RF = { ion: false, mud: false, list: [] };
+  [['znM', 0], ['agM', 2], ['feM', 4], ['auM', 6], ['znM', 8], ['agM', 10], ['feM', 12]].forEach(([k, n]) => RF.list.push(stick(k, anSpot(n).add(V(-0.1, 0.25, 0.2)), 0.46)));
+  const base = ambTick; let t = 1.5;
+  ambTick = (dt) => {
+    base(dt); t += dt; if (t < 2.4) return; t = 0;
+    const s = RF.list.find((x) => !x.userData.gone && (/znM|feM/.test(x.userData.kind) ? RF.ion : RF.mud)); if (!s) return; s.userData.gone = true;
+    if (/znM|feM/.test(s.userData.kind)) { const p = s.position.clone(); unstick(s); addIon(s.userData.kind === 'znM' ? 'zn' : 'fe', 'A', p.add(V(0.4, 0, 0))); ripple(p, 0xf2a9a0); }
+    else ambMove(s, V(s.position.x + rnd(0.2, 0.9), 0.42, s.position.z), 2.4, null);
+  };
+}
+const indPart = (id, world, extra) => ({ id, no: id + '.name', name: id + '.name', sub: id + '.name', sum: 'res.sum.' + id, side: 'A', world, eq: LY_EQ, ...extra });
+Object.assign(QUESTS, {
+  q14: indPart('q14', mbWorld, {
+    setup(n) { resetWorld(); mbSet(); if (n >= 1) mbReveal('an'); if (n >= 2) mbReveal('cat'); if (n >= 3) MB.cross = true; lyPlace('all'); },
+    goldPre() { mbSet(); mbReveal('an'); mbReveal('cat'); MB.cross = true; lyPlace('all'); },
+    gold: () => shuffle([
+      fact('mb.g1', [['g.cl2', 1], ['g.h2x', 0], ['g.o2x', 0]], 'mb.q1.good'), fact('mb.g2', [['g.h2x', 1], ['g.cl2', 0], ['g.o2x', 0]], 'mb.q2.good'),
+      fact('mb.q3', [[SPEC.na, 1], [SPEC.cl, 0], [SPEC.oh, 0]], 'mb.q3.good'), fact('mb.q4', [['mb.q4.a', 1], ['mb.q4.b', 0], ['mb.q4.c', 0]], 'mb.q4.good'),
+      fact('mb.q5', [['mb.q5.a', 1], ['mb.q5.b', 0], ['mb.q5.c', 0]], 'mb.q5.good'), fact('mb.g3', [[mol(1), 1], [mol(2), 0], [mol(4), 0], [mol(0.5), 0]], 'mb.g3.why')]).slice(0, 5),
+    stages: [
+      async () => {                               // ① 陽極：Cl⁻ → Cl₂
+        await pushIn(); lyPlace('all'); await say('mb.intro', 'next', 'mikoto'); beacon(anSpot(0));
+        await ask('mb.q1', [{ k: SPEC.na, why: 'mb.q1.bad' }, { k: SPEC.cl, ok: true, why: 'mb.q1.good' }, { k: SPEC.h2o, why: 'mb.q1.bad' }], 'en', { id: 'mb.q1', onOk: () => mbReveal('an') });
+      },
+      async () => { lyPlace('cat'); beacon(SPOT); await ask('mb.q2', [{ k: SPEC.na, why: 'mb.q2.bad' }, { k: SPEC.h2o, ok: true, why: 'mb.q2.good' }], 'akane', { id: 'mb.q2', onOk: () => mbReveal('cat') }); },   // ② 陰極：水 → H₂ と OH⁻
+      async () => {                               // ③ 膜を通れるのは Na⁺ だけ
+        lyPlace('all'); beacon(V(0, 2.4, 0));
+        await ask('mb.q3', [{ k: SPEC.cl, why: 'mb.q3.bad' }, { k: SPEC.na, ok: true, why: 'mb.q3.good' }, { k: SPEC.oh, why: 'mb.q3.bad' }], 'mikoto', { id: 'mb.q3', onOk: () => { MB.cross = true; beacon(null); } });
+        await ask('mb.q4', [{ k: 'mb.q4.b', why: 'mb.q4.bad' }, { k: 'mb.q4.a', ok: true, why: 'mb.q4.good' }, { k: 'mb.q4.c', why: 'mb.q4.bad' }], 'mikoto');
+      },
+      async () => {                               // ④ 膜の役割と、できる量
+        lyPlace('all');
+        await ask('mb.q5', [{ k: 'mb.q5.b', why: 'mb.q5.bad' }, { k: 'mb.q5.a', ok: true, why: 'mb.q5.good' }, { k: 'mb.q5.c', why: 'mb.q5.bad' }], 'mikoto');
+        await ask('mb.q6', [{ k: mol(1), why: 'mb.q6.bad' }, { k: mol(2), ok: true, why: 'mb.q6.good' }, { k: mol(4), why: 'mb.q6.bad' }], 'akane');
+      },
+    ],
+  }),
+  q15: indPart('q15', lyWorld('cuso4', '粗銅', '純銅'), {
+    setup(n) { resetWorld(); rfSet(); if (n >= 1) lyReveal('an'); if (n >= 2) RF.ion = RF.mud = true; if (n >= 3) lyReveal('cat'); lyPlace('all'); },
+    goldPre() { rfSet(); lyReveal('an'); lyReveal('cat'); RF.ion = RF.mud = true; lyPlace('all'); },
+    gold: () => { const n = pickR([0.1, 0.2, 0.4]); return shuffle([
+      fact('rf.g1', [['rf.q1.b', 1], ['rf.q1.a', 0]], 'rf.g1.why'), fact('rf.g2', [['rf.g2.a', 1], ['rf.g2.b', 0], ['rf.g2.c', 0]], 'rf.q3.good'), fact('rf.g3', [['rf.g2.b', 1], ['rf.g2.a', 0]], 'rf.q2.good'),
+      fact('rf.q4', [[SPEC.cu, 1], [SPEC.zn, 0], [SPEC.fe, 0], [SPEC.ni, 0]], 'rf.q4.good'),
+      numAsk([`銅の電解精錬で、電子が ${n} mol 流れた。陰極に析出する純銅は？（Cu = 63.5）`, `In copper refining, ${n} mol of electrons passed. How much pure copper deposits on the cathode? (Cu = 63.5)`], [(63.5 * n) / 2, 63.5 * n, (63.5 * n) / 4, 63.5 * n * 2], [' g', ' g'], [`63.5 × ${n} × 1/2`, `63.5 × ${n} × 1/2`], 'g.rf.cu', '電解精錬：析出する純銅')]); },
+    stages: [
+      async () => { lyPlace('all'); await say('rf.intro', 'next', 'mikoto'); await ask('rf.q1', [{ k: 'rf.q1.b', why: 'rf.q1.bad' }, { k: 'rf.q1.a', ok: true, why: 'rf.q1.good' }], 'en', { id: 'rf.q1', onOk: () => lyReveal('an') }); },
+      async () => {                               // ② 不純物のゆくえ
+        lyPlace('an'); const o = (ok) => ['a', 'b', 'c'].map((x) => ({ k: 'rf.q2.' + x, ok: x === ok, why: ok === 'a' ? (x === ok ? 'rf.q2.good' : 'rf.q2.bad') : x === ok ? 'rf.q3.good' : 'rf.q3.bad' }));
+        await ask('rf.q2', o('a'), 'en', { id: 'rf.q2', onOk: () => { RF.ion = true; } });
+        await ask('rf.q3', o('b'), 'en', { id: 'rf.q3', onOk: () => { RF.mud = true; } });
+      },
+      async () => { lyPlace('cat'); beacon(SPOT); await ask('rf.q4', [{ k: SPEC.zn, why: 'rf.q4.bad' }, { k: SPEC.cu, ok: true, why: 'rf.q4.good' }, { k: SPEC.fe, why: 'rf.q4.bad' }, { k: SPEC.ni, why: 'rf.q4.bad' }], 'akane', { id: 'rf.q4', onOk: () => lyReveal('cat') }); },
+      async () => { lyPlace('all'); await ask('rf.q5', [{ k: gram('12.7'), why: 'rf.q5.bad' }, { k: gram('6.35'), ok: true, why: 'rf.q5.good' }, { k: gram('3.18'), why: 'rf.q5.bad' }, { k: gram('63.5'), why: 'rf.q5.bad' }], 'akane'); },
+    ],
+  }),
+  q16: indPart('q16', lyWorld('alcl3', 'C', 'C'), {
+    setup(n) { resetWorld(); if (n <= 1) { lySet('alcl3', 'C', 'C'); if (n === 1) lyReveal('cat'); } else { lySet('melt', 'C', 'C'); lyReveal('cat'); if (n >= 3) lyReveal('an'); } lyPlace('all'); },
+    goldPre() { lySet('melt', 'C', 'C'); lyReveal('cat'); lyReveal('an'); lyPlace('all'); },
+    gold: () => { const n = pickR([0.3, 0.6, 0.9]); return shuffle([
+      fact('ms.g1', [['ms.g1.a', 1], ['ms.g1.b', 0]], 'ms.g1.why'), fact('ms.g2', [['ms.g2.a', 1], ['g.h2x', 0], ['g.cl2', 0]], 'ms.g2.why'), fact('ms.g3', [['ms.q3.a', 1], ['ms.q3.b', 0], ['ms.q3.c', 0]], 'ms.q3.good'),
+      fact('ms.q4', [['ms.q4.a', 1], ['ms.q4.b', 0], ['ms.q4.c', 0]], 'ms.q4.good'),
+      numAsk([`アルミニウムの溶融塩電解で、電子が ${n} mol 流れた。できるアルミニウムは？（Al = 27）`, `In the molten-salt electrolysis of aluminium, ${n} mol of electrons passed. How much aluminium forms? (Al = 27)`], [(27 * n) / 3, 27 * n, (27 * n) / 2, 27 * n * 3], [' g', ' g'], [`Al³⁺ + 3e⁻ → Al。27 × ${n} × 1/3`, `Al³⁺ + 3e⁻ → Al: 27 × ${n} × 1/3`], 'g.ms.al', '溶融塩電解：できるアルミニウム')]); },
+    stages: [
+      async () => { lyPlace('all'); await say('ms.intro', 'next', 'mikoto'); await lyGo(lyAsk('cat', 'alcl3', 'C', 'C'), 'akane'); },   // ① 水溶液では水が先に還元される
+      async () => {                               // ② 水をなくす：融かした液体を電気分解する
+        lyPlace('all'); await say('ms.dry', 'ms.dry.btn', 'mikoto'); lySet('melt', 'C', 'C'); snd.chime(); lyPlace('cat'); beacon(SPOT);
+        await ask('ms.q2', [{ k: SPEC.o2m, why: 'ms.q2.bad' }, { k: SPEC.al, ok: true, why: 'ms.q2.good' }, { k: SPEC.h2o, why: 'ms.nowater' }], 'akane', { id: 'ms.q2', onOk: () => lyReveal('cat') });
+        await ask('ms.q3', [{ k: 'ms.q3.b', why: 'ms.q3.bad' }, { k: 'ms.q3.a', ok: true, why: 'ms.q3.good' }, { k: 'ms.q3.c', why: 'ms.q3.bad' }], 'mikoto');
+      },
+      async () => { lyPlace('an'); beacon(anSpot(0)); await ask('ms.q4', [{ k: 'ms.q4.b', why: 'ms.q4.bad' }, { k: 'ms.q4.a', ok: true, why: 'ms.q4.good' }, { k: 'ms.q4.c', why: 'ms.q4.bad' }], 'en', { id: 'ms.q4', onOk: () => lyReveal('an') }); },
+      async () => {                               // ④ できる量と、リサイクル
+        lyPlace('all');
+        await ask('ms.q5', [{ k: gram('8.1'), why: 'ms.q5.bad' }, { k: gram('2.7'), ok: true, why: 'ms.q5.good' }, { k: gram('0.90'), why: 'ms.q5.bad' }, { k: gram('27'), why: 'ms.q5.bad' }], 'akane');
+        await ask('ms.q6', [{ k: 'ms.q6.b', why: 'ms.q6.bad' }, { k: 'ms.q6.a', ok: true, why: 'ms.q6.good' }, { k: 'ms.q6.c', why: 'ms.q6.bad' }], 'mikoto');
+      },
+    ],
+  }),
+});
+
+/* ═════════ v0.5：クエストを7つにまとめる（中身の小さなクエストは「話」として順に進む） ═════════ */
+const PQ = { ...QUESTS }; Object.keys(QUESTS).forEach((k) => delete QUESTS[k]);
+function chapter(n, name, ids) {
+  const P = ids.map((k) => PQ[k]), starts = [], stages = []; let cur = P[0];
+  const use = (p) => { if (cur !== p) { cur = p; buildEq(); } };
+  const ch = {
+    id: 'c' + n, no: [`クエスト ${n}`, `QUEST ${n}`], name, parts: P, starts, stages,
+    sub: P.length > 1 ? [P.map((p) => T[p.name][0]).join('・'), P.map((p) => T[p.name][1]).join(' / ')] : P[0].sub,
+    get world() { return cur.world; }, get eq() { return cur.eq; }, get side() { return cur.side; },
+    get sum() { return [0, 1].map((l) => P.map((p) => (T[p.sum] || ['', ''])[l]).join('<br>')); },
+    setup(k) {
+      let pi = 0; starts.forEach((s, i) => { if (s <= k) pi = i; }); use(P[pi]);
+      if (!RUN.gold && pi > 0 && k === starts[pi]) { SAVE[ch.id].prog = { k, run: JSON.parse(JSON.stringify({ miss: RUN.miss, pred: -1, st: RUN.st.slice(0, k).map((x) => x || { first: 0, asked: 0 }) })) }; save(); }   // 話の変わり目で、続きから再開できるように覚える
+      cur.setup(k - starts[pi]);
+    },
+    gold() {                                    // 金印の試練：それぞれの話から問いを集めて5問
+      const order = shuffle(P.map((_, i) => i)), cnt = P.map(() => 0), out = []; for (let i = 0; i < CONFIG.goldCount; i++) cnt[order[i % P.length]]++;
+      let ready = null;
+      P.forEach((p, pi) => { if (cnt[pi]) (p.gold ? p.gold() : goldBasic(p.id)).slice(0, cnt[pi]).forEach((q) => { const pre = q.pre;
+        q.pre = () => { if (ready !== p) { use(p); if (pi || ready) { p.setup(0); setView(p.world.series ? 'series' : 'all'); idleSpin = !p.world.series; } if (p.goldPre) p.goldPre(); ready = p; } if (pre) pre(); }; out.push(q); }); });
+      return out;
+    },
+  };
+  P.forEach((p, pi) => { starts.push(stages.length); p.stages.forEach((fn, si) => stages.push(async () => {
+    if (si === 0 && P.length > 1) pop([0, 1].map((l) => T['part.pop'][l].replace('{i}', pi + 1).replace('{n}', P.length).replace('{name}', T[p.name][l])), 'is-gold', 2400);
+    await fn();
+    if (si === p.stages.length - 1 && p.pred && RUN.pred >= 0) { const R = (SAVE.pred = SAVE.pred || {}), a = (R[ch.id + '_' + pi] = R[ch.id + '_' + pi] || [0, 0]); a[RUN.pred]++; RUN.pred = -1; }
+  })); });
+  return ch;
+}
+Object.assign(QUESTS, {
+  c0: chapter(0, 'q0.name', ['q0']), c1: chapter(1, 'c1.name', ['q1', 'q2', 'q3']), c2: chapter(2, 'c2.name', ['q4', 'q5', 'q6', 'q7']), c3: chapter(3, 'c3.name', ['q8', 'q9']),
+  c4: chapter(4, 'c4.name', ['q10', 'q11']), c5: chapter(5, 'c5.name', ['q12', 'q13']), c6: chapter(6, 'c6.name', ['q14', 'q15', 'q16']),
+});
+
+/* ═════════ v0.6：クエスト7「電子むかしばなし」（紙芝居。絵が横に引きぬかれて次の場面に変わる） ═════════ */
+const KAMI = { at: -1 };
+function kamiArt(i) {                       // 場面の絵（ちぎり絵ふうの形だけで描く）
+  const sky = (a, b) => `<rect width="360" height="270" fill="${a}"/><rect y="120" width="360" height="150" fill="${b}" opacity=".55"/>`, hill = (c, y = 200) => `<path d="M-10 ${y + 30} Q70 ${y - 30} 150 ${y + 10} T370 ${y} V280 H-10Z" fill="${c}"/>`;
+  const stars = [[30, 30], [80, 60], [140, 26], [200, 52], [250, 22], [330, 70], [300, 34]].map(([x, y]) => `<circle cx="${x}" cy="${y}" r="1.8" fill="#fff" opacity=".8"/>`).join('');
+  const house = (x, y, c, panel) => `<path d="M${x} ${y} l32 -22 l32 22z" fill="${c}"/><rect x="${x + 7}" y="${y}" width="50" height="34" rx="4" fill="#FBF3E4"/>${panel ? `<path d="M${x + 12} ${y - 4} l20 -14 l22 14z" fill="#5C74B8"/>` : ''}`;
+  const wheel = (x, y) => `<circle cx="${x}" cy="${y}" r="13" fill="#4A456B"/><circle cx="${x}" cy="${y}" r="5" fill="#E9E4F2"/>`;
+  const S = [
+    () => `${sky('#2B2756', '#4B4488')}${stars}<circle cx="290" cy="56" r="26" fill="#FFF1C6"/>${hill('#3A5C80')}${house(40, 176, '#8A6F9E')}${house(230, 186, '#7C6590')}
+      <path d="M168 226 q12 -44 0 -58 q22 18 20 40 q8 -8 6 -20 q14 26 -2 40z" fill="#F6A65E"/><path d="M176 226 q6 -22 2 -32 q12 12 8 32z" fill="#FFE08A"/><rect x="150" y="224" width="60" height="8" rx="4" fill="#6B5A52"/>`,
+    () => `${sky('#FBD9C4', '#F9E7B8')}<circle cx="60" cy="96" r="30" fill="#FFB98A"/>${hill('#BFD9B0', 190)}<rect y="222" width="360" height="48" fill="#CFC6DC"/>
+      <path d="M96 204 q8 -40 54 -42 h56 q40 2 54 40 q22 4 22 18 v8 h-200 v-8 q0 -12 14 -16z" fill="#9CCDE8"/><path d="M124 200 q8 -26 30 -28 h48 q24 2 34 28z" fill="#EEF7FC"/>
+      <rect x="116" y="212" width="130" height="14" rx="6" fill="#F5DC78"/>${[132, 156, 180, 204, 228].map((x) => `<circle cx="${x}" cy="219" r="4.5" fill="#8FD0A0"/>`).join('')}${wheel(122, 232)}${wheel(246, 232)}`,
+    () => `${sky('#BFE0F8', '#E6F3D8')}<circle cx="290" cy="50" r="30" fill="#FFE08A"/>${[0, 1, 2, 3, 4, 5, 6, 7].map((k) => `<rect x="286" y="6" width="8" height="12" rx="4" fill="#FFE08A" transform="rotate(${k * 45} 290 50)"/>`).join('')}
+      ${hill('#BFD9B0', 196)}${house(20, 176, '#D99A8C', 1)}${house(100, 190, '#C9A0B8', 1)}
+      <rect x="210" y="150" width="110" height="84" rx="12" fill="#F7F1FA"/><rect x="246" y="140" width="38" height="12" rx="5" fill="#B9A56A"/>${[0, 1, 2].map((k) => `<rect x="222" y="${208 - k * 22}" width="86" height="16" rx="6" fill="${k < 2 ? '#8FD0A0' : '#F5DC78'}"/>`).join('')}`,
+    () => `${sky('#F3A98C', '#8E7BC0')}<circle cx="70" cy="150" r="30" fill="#FFD9A0"/>${hill('#6F68A8', 196)}
+      <rect x="96" y="100" width="6" height="110" fill="#F7F1FA"/>${[0, 120, 240].map((a) => `<path d="M99 100 q8 -30 0 -56 q-8 26 0 56z" fill="#F7F1FA" transform="rotate(${a + 20} 99 100)"/>`).join('')}
+      <rect x="180" y="140" width="150" height="96" rx="14" fill="#BFE0F8" opacity=".85"/><rect x="212" y="120" width="10" height="96" rx="4" fill="#B4B8C8"/><rect x="288" y="120" width="10" height="96" rx="4" fill="#B4B8C8"/>
+      ${[[232, 200], [238, 176], [230, 152], [278, 196], [272, 168], [280, 146]].map(([x, y], k) => `<circle cx="${x}" cy="${y}" r="${k % 3 ? 6 : 8}" fill="#fff" opacity=".85"/>`).join('')}`,
+    () => `${sky('#2B2756', '#3F3A78')}${stars}<circle cx="60" cy="50" r="20" fill="#FFF1C6"/>${hill('#3A5C80', 204)}<rect y="230" width="360" height="40" fill="#4A456B"/>
+      <rect x="92" y="150" width="200" height="76" rx="16" fill="#BDE3D0"/><rect x="120" y="134" width="90" height="18" rx="9" fill="#F7F1FA"/><text x="165" y="148" text-anchor="middle" font-size="12" font-weight="700" fill="#3F7893">H₂</text>
+      ${[108, 150, 192, 234].map((x) => `<rect x="${x}" y="164" width="34" height="26" rx="6" fill="#FFF1C6"/>`).join('')}${wheel(130, 230)}${wheel(254, 230)}
+      ${[[70, 222], [54, 236], [78, 244]].map(([x, y]) => `<path d="M${x} ${y} q-7 10 0 14 q7 -4 0 -14z" fill="#9CCDE8"/>`).join('')}<rect x="318" y="150" width="5" height="80" fill="#E9E4F2"/><circle cx="320" cy="146" r="13" fill="#F7A9A0"/>`,
+    () => `${sky('#BFE8E0', '#D9D0F0')}${hill('#A9C8D8', 200)}${[[30, 90, 34, 130], [74, 60, 30, 160], [300, 80, 36, 140]].map(([x, y, w, h]) => `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${w / 2}" fill="#F7F1FA" opacity=".9"/>`).join('')}
+      ${[[120, 214], [136, 198], [152, 214], [144, 182], [168, 198], [184, 214], [160, 166]].map(([x, y], k) => `<rect x="${x}" y="${y}" width="26" height="14" rx="4" fill="${['#F7A9A0', '#9CCDE8', '#F5DC78'][k % 3]}"/>`).join('')}
+      <path d="M216 196 h30 v-8 l16 14 l-16 14 v-8 h-30z" fill="#B9A56A"/>${[[270, 206], [300, 206], [285, 188]].map(([x, y]) => `<path d="M${x} ${y} h28 l-5 -14 h-18z" fill="#F5DC78"/><path d="M${x + 6} ${y - 11} h16" stroke="#fff" stroke-width="2" opacity=".8"/>`).join('')}`,
+    () => `${sky('#FBD9C4', '#F9E7B8')}<circle cx="180" cy="150" r="60" fill="#FFE08A"/><circle cx="180" cy="150" r="84" fill="#FFE08A" opacity=".3"/>${hill('#BFD9B0', 190)}${house(24, 190, '#D99A8C', 1)}${house(272, 186, '#C9A0B8', 1)}`,
+  ];
+  return `<svg viewBox="0 0 360 270"><defs><filter id="kz${i}"><feTurbulence type="fractalNoise" baseFrequency=".04" numOctaves="2" seed="${i + 3}"/><feDisplacementMap in="SourceGraphic" scale="5"/></filter></defs><g filter="url(#kz${i})">${S[i]()}</g></svg>`;
+}
+function kamiSheet(i) { const d = document.createElement('div'); d.className = 'kami__sheet'; d.innerHTML = `${kamiArt(i)}${i === 0 || i === 6 ? `<div class="kami__cast">${castHTML(i === 6 ? 'smile' : 'normal', false)}</div>` : ''}`; return d; }
+async function kamiTo(i) {                  // 上の絵を横に引きぬくと、下から次の絵が出てくる
+  const box = $('kamiBox'), old = box.lastElementChild; $('kami').hidden = false;
+  if (KAMI.at === i && old) return; KAMI.at = i; const nu = kamiSheet(i); $('kamiT').textContent = tt('kb.t' + i); $('kamiR').textContent = `${tt('kb.role')}：${tt('kb.r' + i)}`;
+  if (!old) { box.appendChild(nu); return; }
+  box.insertBefore(nu, old); snd.hop(); old.classList.add('is-out'); await sleep(REDUCED ? 60 : 760); old.remove(); [...box.children].forEach((c) => { if (c !== nu) c.remove(); });
+}
+function kamiClose() { $('kami').hidden = true; $('kamiBox').innerHTML = ''; KAMI.at = -1; }
+const kbAsk = (n, who, opts, ok) => ask('kb.q' + n, opts.map((x) => ({ k: `kb.q${n}.${x}`, ok: x === ok, why: x === ok ? `kb.q${n}.good` : `kb.q${n}.bad` })), who);
+const KB = [[1, 'en', ['b', 'a'], 'a'], [2, 'akane', ['b', 'a', 'c'], 'a'], [3, 'akane', ['b', 'a', 'c'], 'a'], [4, 'en', ['a', 'c', 'b'], 'a'], [5, 'mikoto', ['c', 'b', 'a'], 'a']];
+PQ.q17 = {
+  id: 'q17', no: 'q17.name', name: 'q17.name', sub: 'q17.sub', sum: 'res.sum.q17', side: 'A', world: { kind: 'plain', ions: [] }, eq: [],
+  setup(n) { const at = KAMI.at; resetWorld(); player.visible = buddy.visible = false; if (at >= 0 && Math.abs(at - n) <= 1) { KAMI.at = at; $('kami').hidden = false; } },   // となりの場面からは、引きぬいて変わる
+  goldPre() { kamiTo(0); },
+  gold: () => shuffle(KB).map(([n, , opts, ok]) => { const q = fact('kb.q' + n, opts.map((x) => [`kb.q${n}.${x}`, x === ok ? 1 : 0]), `kb.q${n}.good`); q.pre = () => { kamiTo(n); }; return q; }),
+  stages: [
+    async () => { await kamiTo(0); await say('kb.0', 'kb.start', 'mikoto'); },
+    ...KB.map(([n, who, opts, ok]) => async () => { await kamiTo(n); await say('kb.' + n, 'next', 'mikoto'); await kbAsk(n, who, opts, ok); }),
+    async () => { await kamiTo(6); await say('kb.6', 'kb.end', 'mikoto', 'smile'); },
+  ],
+};
+QUESTS.c7 = chapter(7, 'c7.name', ['q17']);
+
 const QUEST_IDS = ALL_Q;
 
 /* 反応式の帯を、クエストに合わせて作る */
 function buildEq() {
+  $('eq').hidden = !Q.eq.length;
   $('eq').innerHTML = Q.eq.map((r) => `<div class="eq__row eq__row--${r.cls}"><span class="eq__pole eq__pole--${r.cls}" data-t="${r.pole}">${tt(r.pole)}</span><span class="eq__f eq__f--${r.cls}${r.long ? ' eq__f--long' : ''}">${r.terms.map(([id, s, e]) => `<span id="${id}"${e ? ' class="e"' : ''}>${Array.isArray(s) ? tt(s) : s}</span>`).join(' ')}</span>${r.kind ? `<span class="eq__kind" id="${r.kid}" data-t="${r.kind}">${tt(r.kind)}</span>` : ''}</div>`).join('');
 }
 
@@ -2014,7 +2688,9 @@ async function runFrom(n) {
   }
   finish();
 }
-function runQuest() { RUN = { miss: 0, pred: -1, st: [] }; $('dots').innerHTML = '<i></i>'.repeat(Q.stages.length); $('stepBack').hidden = false; runFrom(0); }
+const dotsHTML = () => Q.stages.map((_, i) => `<i${i && Q.starts && Q.starts.includes(i) ? ' class="gap"' : ''}></i>`).join('');
+function runQuest() { RUN = { miss: 0, pred: -1, st: [] }; delete SAVE[Q.id].prog; $('dots').innerHTML = dotsHTML(); $('stepBack').hidden = false; runFrom(0); }
+function runResume() { const p = SAVE[Q.id].prog; if (!p) return runQuest(); RUN = JSON.parse(JSON.stringify(p.run)); $('dots').innerHTML = dotsHTML(); $('stepBack').hidden = false; runFrom(p.k); }   // 話の変わり目から続ける
 async function runGold() {                  // 金印の試練：条件を変えた問いを5問
   const id = ++runId; tweens.length = 0;
   RUN = { miss: 0, pred: -1, st: [{ first: 0, asked: 0 }], gold: true }; stageNo = 0; stagePos = 0;
@@ -2025,14 +2701,14 @@ async function runGold() {                  // 金印の試練：条件を変え
   for (let i = 0; i < set.length; i++) { setStep(i); if (set[i].pre) set[i].pre(); await ask(set[i].key, set[i].opts, 'mikoto', set[i].rec); if (id !== runId) return; }
   finish();
 }
-function toTitle() { runId++; tweens.length = 0; amb.length = 0; ambTick = null; hideGap(); $('gauge').hidden = true; ui.mode = 'idle'; ui.key = null; ui.result = null; render(); $('stepBack').hidden = true; $('ovResult').hidden = true; $('ovModel').hidden = true; renderTitle(); $('ovTitle').hidden = false; idleSpin = true; setView('all'); }
+function toTitle() { kamiClose(); runId++; tweens.length = 0; amb.length = 0; ambTick = null; hideGap(); $('gauge').hidden = true; $('circ').hidden = true; ui.mode = 'idle'; ui.key = null; ui.result = null; render(); $('stepBack').hidden = true; $('ovResult').hidden = true; $('ovModel').hidden = true; renderTitle(); $('ovTitle').hidden = false; idleSpin = true; setView('all'); }
 function stepBack() {
   snd.tap();
   const n = RUN.gold ? -1 : stagePos <= 1 ? stageNo - 1 : stageNo;
   if (n < 0) toTitle(); else runFrom(n);
 }
-function start(qid, gold) {
-  snd.start(); snd.tap(); openQuest(qid); pending = gold ? runGold : runQuest; $('ovTitle').hidden = true;
+function start(qid, gold, resume) {
+  snd.start(); snd.tap(); openQuest(qid); pending = gold ? runGold : resume ? runResume : runQuest; $('ovTitle').hidden = true;
   if (!seenModel && !gold) $('ovModel').hidden = false; else pending();
 }
 let pending = null;
@@ -2041,10 +2717,10 @@ let pending = null;
 function finish() {
   const sum = (f) => RUN.st.reduce((a, x) => a + (x ? x[f] : 0), 0), gold = !!RUN.gold;
   const grade = gold ? (RUN.miss === 0 ? 3 : 0) : RUN.miss === 0 ? 2 : 1;
-  const S = SAVE[Q.id], prev = S.best; S.plays++; if (grade > prev) S.best = grade;
+  const S = SAVE[Q.id], prev = S.best, mult = Q.parts ? Q.parts.length : 1; S.plays++; if (grade > prev) S.best = grade; delete S.prog;
   if (Q.pred && !gold && RUN.pred >= 0) { const P = (SAVE.pred = SAVE.pred || {}), a = (P[Q.id] = P[Q.id] || [0, 0]); a[RUN.pred]++; }
   SAVE.at = new Date().toISOString(); saveAll(); runId++; $('stepBack').hidden = true;
-  let gross = 0; for (let g = prev + 1; g <= grade; g++) gross += CONFIG.reward[g];
+  let gross = 0; for (let g = prev + 1; g <= grade; g++) gross += CONFIG.reward[g] * mult;   // まとめたクエストは、中身の話の数だけ報酬が増える
   if (!gross && grade > 0) gross = CONFIG.reward.replay;
   ui.result = { grade, gold, first: sum('first'), asked: sum('asked'), pred: RUN.pred, pay: gross ? 'wait' : 'none', q: Q };
   renderResult(); $('ovResult').hidden = false; if (grade > 0) snd.clear(); idle(null);
@@ -2084,7 +2760,7 @@ let ECO = { ready: false };
   try {
     const [auth, eco] = await Promise.all([import('../shared/auth.js'), import('../shared/economy.js')]);
     await auth.initBackend(); await eco.initEconomy();
-    const remote = auth.getWorldData('denshi') || {};
+    const remote = migrate(auth.getWorldData('denshi') || {});
     QUEST_IDS.forEach((id) => { const a = SAVE[id], b = remote[id] || {}; a.best = Math.max(a.best, b.best || 0); a.plays = Math.max(a.plays, b.plays || 0); });
     if (!SAVE.rec && remote.rec) SAVE.rec = remote.rec; if (!SAVE.pred && remote.pred) SAVE.pred = remote.pred;
     ECO = { ready: true, auth, eco }; saveAll(); renderTitle();
@@ -2098,7 +2774,8 @@ function renderTitle() {
   $('wallet').textContent = ECO.ready ? tv('wallet', { n: fmt(ECO.eco.getBalance()) }) : '';
   $('questList').innerHTML = QUEST_IDS.map((id) => { const q = QUESTS[id], b = SAVE[id].best; return `<div class="qrow torn">
     <div class="qrow__t"><span class="card__no">${tt(q.no)}</span> <b>${tt(q.name)}</b>${b ? ` <span class="best best--${b}">${tt('best.' + b)}</span>` : ''}<small>${tt(q.sub)}</small></div>
-    ${b >= 2 ? `<button class="btn torn qrow__g" type="button" data-g="${id}">${tt('gold.s')}</button>` : ''}<button class="btn btn--main torn" type="button" data-q="${id}">${tt('start.s')}</button></div>`; }).join('');
+    ${SAVE[id].prog ? `<button class="btn torn qrow__r" type="button" data-q="${id}">${tt('restart.s')}</button><button class="btn btn--main torn" type="button" data-r="${id}">${tt('resume.s')}</button>`
+      : `${b >= 2 ? `<button class="btn torn qrow__g" type="button" data-g="${id}">${tt('gold.s')}</button>` : ''}<button class="btn btn--main torn" type="button" data-q="${id}">${tt('start.s')}</button>`}</div>`; }).join('');
 }
 function applyLang() {
   document.documentElement.lang = lang; document.title = tt('title.name');
@@ -2106,9 +2783,10 @@ function applyLang() {
   $('langJa').setAttribute('aria-pressed', lang === 'ja'); $('langEn').setAttribute('aria-pressed', lang === 'en');
   $('qName').textContent = Q ? tt(Q.name) : '';
   $('modelList').innerHTML = ['model.1', 'model.2', 'model.3'].map((k) => `<li>${tt(k)}</li>`).join('');
-  $('locked').innerHTML = `<div>${tt('locked.all')}</div>`;
+  $('locked').hidden = true;
   $('cast').innerHTML = castHTML('normal', true); $('modelFace').innerHTML = charSVG('mikoto', 'smile');
   $('back').setAttribute('aria-label', tt('res.back')); $('bgmBtn').setAttribute('aria-label', tt('bgm')); $('stepBack').textContent = tt('back'); $('modelBack').textContent = tt('back');
+  if (!$('circ').hidden) circDraw();
   labels.forEach(refreshLabel); updateViewBtn(); renderTitle(); render(); renderResult();
 }
 function setLang(l) { lang = l; store.set(CONFIG.langKey, l); applyLang(); }
@@ -2118,14 +2796,14 @@ const bgmBtnState = () => $('bgmBtn').classList.toggle('is-off', !snd.bgmOn);
 $('bgmBtn').addEventListener('click', () => { snd.toggleBgm(); bgmBtnState(); });
 
 $('ver').textContent = CONFIG.version;
-$('questList').addEventListener('click', (e) => { const b = e.target.closest('button'); if (!b) return; if (b.dataset.q) start(b.dataset.q, false); else if (b.dataset.g) start(b.dataset.g, true); });
+$('questList').addEventListener('click', (e) => { const b = e.target.closest('button'); if (!b) return; if (b.dataset.q) start(b.dataset.q, false); else if (b.dataset.g) start(b.dataset.g, true); else if (b.dataset.r) start(b.dataset.r, false, true); });
 $('btnModelOk').addEventListener('click', () => { snd.tap(); seenModel = true; $('ovModel').hidden = true; pending(); });
 $('modelBack').addEventListener('click', () => { snd.tap(); toTitle(); });
 $('stepBack').addEventListener('click', stepBack);
 $('btnRetry').addEventListener('click', () => { snd.tap(); const g = ui.result && ui.result.gold; $('ovResult').hidden = true; ui.result = null; (g ? runGold : runQuest)(); });
 $('btnToTitle').addEventListener('click', () => { snd.tap(); toTitle(); });
 
-openQuest('q1'); Q.setup(0); setView('all'); cam.az = 0.25; cam.pol = 0.2;
+openQuest('c1'); Q.setup(0); setView('all'); cam.az = 0.25; cam.pol = 0.2;
 applyLang(); bgmBtnState(); resize(); cam.dist = fitDist();
 if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => labels.forEach(refreshLabel));
 requestAnimationFrame(frame);

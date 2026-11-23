@@ -258,8 +258,17 @@ function studentsTab() {
 
 // ───────────── セキオ電子ロックの学習の記録（users/{uid}/worlds/denshi を集計する） ─────────────
 function denshiTab() {
-  const QS = ['q0', 'q1', 'q2', 'q3', 'q4', 'q5', 'q6', 'q7', 'q8'];
-  const rows = Object.entries(state.users).map(([uid, u]) => ({ name: u.nickname || '（no name）', d: (u.worlds || {}).denshi })).filter((r) => r.d)
+  const QS = ['c0', 'c1', 'c2', 'c3', 'c4', 'c5', 'c6', 'c7'];
+  // v0.4 までの記録（小さなクエストごと）は、まとめたクエストの形に直して読む（denshi/index.html の migrate と同じ）
+  const OLD_MAP = { c0: ['q0'], c1: ['q1', 'q2', 'q3'], c2: ['q4', 'q5', 'q6', 'q7'] };
+  const migrate = (r) => {
+    if (!r || r.v === 2) return r; const o = { v: 2 };
+    for (const c in OLD_MAP) { const xs = OLD_MAP[c].map((k) => r[k] || {}); o[c] = { best: Math.min(...xs.map((x) => x.best || 0)), plays: Math.min(...xs.map((x) => x.plays || 0)) }; }
+    if (r.rec) { o.rec = {}; for (const c in OLD_MAP) for (const k of OLD_MAP[c]) if (r.rec[k]) o.rec[c] = Object.assign(o.rec[c] || {}, r.rec[k]); }
+    if (r.pred) { o.pred = {}; for (const c in OLD_MAP) OLD_MAP[c].forEach((k, i) => { if (r.pred[k]) o.pred[c + '_' + i] = r.pred[k]; }); }
+    return o;
+  };
+  const rows = Object.entries(state.users).map(([uid, u]) => ({ name: u.nickname || '（no name）', d: migrate((u.worlds || {}).denshi) })).filter((r) => r.d)
     .sort((a, b) => a.name.localeCompare(b.name, 'ja'));
   if (!rows.length) return `<p class="adm-note">${esc(t('admin.dn.lead'))}</p><p class="shop__empty">${esc(t('admin.dn.none'))}</p>`;
   const seal = (q) => esc(t(`admin.dn.seal${(q && q.best) || 0}`));
@@ -274,7 +283,7 @@ function denshiTab() {
       a.n += e.n || 0; a.ok += e.ok || 0;
       for (const w of Object.values(e.w || {})) a.w[w.t] = (a.w[w.t] || 0) + (w.n || 0);
     }
-    for (const [q, p] of Object.entries(r.d.pred || {})) { const a = (pred[q] = pred[q] || [0, 0]); a[0] += (p && p[0]) || 0; a[1] += (p && p[1]) || 0; }
+    for (const [k, p] of Object.entries(r.d.pred || {})) { const q = k.split('_')[0], a = (pred[q] = pred[q] || [0, 0]); a[0] += (p && p[0]) || 0; a[1] += (p && p[1]) || 0; }
   }
   const questions = QS.filter((q) => agg[q]).map((q) => `
     <h3 class="adm-h3">${esc(t('admin.dn.quest', { n: q.slice(1) }))}</h3>
